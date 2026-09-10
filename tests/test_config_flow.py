@@ -35,6 +35,7 @@ from collections.abc import Mapping
 from dataclasses import replace
 from ipaddress import ip_address
 from typing import Any
+from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
 
 from homeassistant import config_entries
@@ -48,11 +49,12 @@ from custom_components.homeconnect.const import (
     API_HOST,
     CONF_ACCESS_TOKEN,
     CONF_REFRESH_TOKEN,
+    CONF_TRANSPORT,
     DOMAIN,
     TOKEN_PATH,
 )
 
-from .common import API, entry, fixture, serve
+from .common import API, entry, fixture, serve, set_up
 
 TOKEN_URL = f"{API_HOST}{TOKEN_PATH}"
 
@@ -275,3 +277,73 @@ async def test_a_kitchen_of_appliances_puts_up_one_card(
     assert second["type"] is FlowResultType.ABORT
     assert second["reason"] == "already_in_progress"
     assert len(hass.config_entries.flow.async_progress()) == 1
+
+
+async def test_which_way_to_reach_them_is_asked_at_setup(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    shown = await browser_step(hass)
+    assert CONF_TRANSPORT in str(shown["data_schema"].schema)
+
+    pair(aioclient_mock)
+    serve(aioclient_mock, [fixture("washer")])
+    made = await hass.config_entries.flow.async_configure(
+        shown["flow_id"], {CONF_CODE: answer(shown), CONF_TRANSPORT: "cloud"}
+    )
+    assert made["data"][CONF_TRANSPORT] == "cloud"
+
+
+async def test_the_cloud_is_what_it_falls_back_to(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """It is the way that works without the appliances being reachable."""
+    shown = await browser_step(hass)
+    pair(aioclient_mock)
+    serve(aioclient_mock, [fixture("washer")])
+    made = await hass.config_entries.flow.async_configure(
+        shown["flow_id"], {CONF_CODE: answer(shown)}
+    )
+    assert made["data"][CONF_TRANSPORT] == "cloud"
+
+
+async def test_reconfiguring_moves_an_entry_between_the_two(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """The account is the same and its tokens still work, so nothing has to
+    be signed in to again."""
+    made = await set_up(hass, aioclient_mock, "washer")
+    shown = await made.start_reconfigure_flow(hass)
+    assert shown["step_id"] == "reconfigure"
+
+    with patch("custom_components.homeconnect.LocalControl"):
+        again = await hass.config_entries.flow.async_configure(
+            shown["flow_id"], {CONF_TRANSPORT: "local"}
+        )
+        await hass.async_block_till_done()
+    assert again["type"] is FlowResultType.ABORT
+    assert again["reason"] == "reconfigure_successful"
+    assert made.data[CONF_TRANSPORT] == "local"
+    # The sign in is untouched by it.
+    assert made.data[CONF_ACCESS_TOKEN] == "an-access-token"
+
+
+async def test_signing_in_again_leaves_the_way_in_alone(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """A reauth is about the tokens. Asking about anything else there would
+    quietly move an entry somebody had deliberately set the other way."""
+    made = entry(hass)
+    hass.config_entries.async_update_entry(
+        made, data={**made.data, CONF_TRANSPORT: "local"}
+    )
+    shown = await made.start_reauth_flow(hass)
+    assert CONF_TRANSPORT not in str(shown["data_schema"].schema)
+
+    pair(aioclient_mock)
+    serve(aioclient_mock, [fixture("washer")])
+    with patch("custom_components.homeconnect.LocalControl"):
+        await hass.config_entries.flow.async_configure(
+            shown["flow_id"], {CONF_CODE: answer(shown)}
+        )
+        await hass.async_block_till_done()
+    assert made.data[CONF_TRANSPORT] == "local"

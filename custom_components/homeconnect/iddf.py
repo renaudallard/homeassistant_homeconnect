@@ -107,6 +107,9 @@ class Entry:
     maximum: float | None = None
     step: float | None = None
     execution: str | None = None
+    # The programme this sits inside, where it sits inside one. An option
+    # written under a programme belongs to that programme and to no other.
+    under: int | None = None
 
     @property
     def readable(self) -> bool:
@@ -158,6 +161,7 @@ def _entry(
     uid: int,
     keys: dict[int, str],
     enums: dict[int, dict[int, str]],
+    under: int | None,
 ) -> Entry | None:
     key = keys.get(uid)
     if key is None:
@@ -166,6 +170,7 @@ def _entry(
         return None
     enum = _number(element.get("enumerationType"))
     return Entry(
+        under=under,
         uid=uid,
         kind=element.tag.rpartition("}")[2],
         key=key,
@@ -191,15 +196,28 @@ def parse(mapping_xml: bytes, description_xml: bytes) -> dict[int, Entry]:
 
     keys, enums = _named(mapping)
     entries: dict[int, Entry] = {}
-    for element in description.iter():
-        if element.tag.rpartition("}")[2] not in KINDS:
-            continue
-        uid = _number(element.get(UID))
-        if uid is None:
-            continue
-        found = _entry(element, uid, keys, enums)
-        if found is not None:
-            entries[uid] = found
+
+    def walk(element: ElementTree.Element, under: int | None) -> None:
+        """Down the tree, remembering the programme anything sits inside.
+
+        A description that writes its options under the programmes they
+        belong to is saying which belongs to which, and that is worth
+        keeping. One that writes them all in a list of their own is saying
+        they belong to everything, which is what no programme means.
+        """
+        for child in element:
+            tag = child.tag.rpartition("}")[2]
+            uid = _number(child.get(UID))
+            inside = under
+            if tag in KINDS and uid is not None:
+                found = _entry(child, uid, keys, enums, under)
+                if found is not None:
+                    entries[uid] = found
+                if tag == "program":
+                    inside = uid
+            walk(child, inside)
+
+    walk(description, None)
     if not entries:
         raise HomeConnectError("the appliance description named nothing")
     _LOGGER.debug("the description covers %d things", len(entries))

@@ -40,19 +40,24 @@ from dataclasses import dataclass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
-from .api import HomeConnectApi
+from .api import HomeConnectAccount, HomeConnectApi
 from .auth import Tokens
 from .const import (
     CONF_ACCESS_TOKEN,
     CONF_EXPIRES_AT,
     CONF_REFRESH_TOKEN,
+    CONF_TRANSPORT,
     DOMAIN,
+    LOCAL,
 )
-from .coordinator import HomeConnectCoordinator
+from .coordinator import HomeConnectCoordinator, local_store
+from .errors import HomeConnectAuthError, HomeConnectError
 from .events import HomeConnectStream
+from .local import LocalControl
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -73,7 +78,8 @@ class HomeConnectData:
 
     api: HomeConnectApi
     coordinator: HomeConnectCoordinator
-    stream: HomeConnectStream
+    stream: HomeConnectStream | None
+    local: LocalControl | None
 
 
 type HomeConnectConfigEntry = ConfigEntry[HomeConnectData]
@@ -110,34 +116,82 @@ async def async_setup_entry(hass: HomeAssistant, entry: HomeConnectConfigEntry) 
 
     coordinator = HomeConnectCoordinator(hass, entry, api)
     await coordinator.async_load_models()
+
+    local: LocalControl | None = None
+    if entry.data.get(CONF_TRANSPORT) == LOCAL:
+        local = LocalControl(
+            hass,
+            session,
+            HomeConnectAccount(api),
+            local_store(hass, entry),
+            coordinator.apply_locally,
+            coordinator.set_talking,
+        )
+        await local.load()
+        await _learn(api, local)
+        coordinator.local = local
+
     # The first refresh reads what every appliance is and what it is doing,
     # and proves the stored tokens still work while it is at it.
     await coordinator.async_config_entry_first_refresh()
 
-    stream = HomeConnectStream(
-        session,
-        lambda: api.headers("text/event-stream"),
-        api.seconds_until_renewal,
-        coordinator.apply,
-        coordinator.set_streaming,
-    )
-    stream.start(
-        lambda listening: entry.async_create_background_task(
-            hass, listening, "Home Connect event stream"
+    stream: HomeConnectStream | None = None
+    if local is None:
+        # The stream is how the cloud pushes changes. An appliance talked to
+        # directly pushes them down its own connection, so there is nothing
+        # for a second one to carry.
+        stream = HomeConnectStream(
+            session,
+            lambda: api.headers("text/event-stream"),
+            api.seconds_until_renewal,
+            coordinator.apply,
+            coordinator.set_streaming,
         )
-    )
+        stream.start(
+            lambda listening: entry.async_create_background_task(
+                hass, listening, "Home Connect event stream"
+            )
+        )
+        entry.async_on_unload(stream.stop)
+    else:
+        await local.start(
+            lambda talking: entry.async_create_background_task(
+                hass, talking, "Home Connect appliance"
+            )
+        )
+        entry.async_on_unload(local.stop)
     # A platform that fails to set up leaves the entry unloaded, and Home
-    # Assistant runs these before it gives up, so a connection to the cloud
-    # cannot outlive the entry that opened it.
-    entry.async_on_unload(stream.stop)
+    # Assistant runs these before it gives up, so nothing opened here can
+    # outlive the entry that opened it.
     entry.async_on_unload(coordinator.stop_settling)
 
     entry.runtime_data = HomeConnectData(
-        api=api, coordinator=coordinator, stream=stream
+        api=api, coordinator=coordinator, stream=stream, local=local
     )
     _forget_what_is_gone(hass, entry, coordinator)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
+
+
+async def _learn(api: HomeConnectApi, local: LocalControl) -> None:
+    """Ask the account for whatever local control still needs.
+
+    The account is the only place an appliance's key and its own description
+    of itself are kept, and both are wanted before anything can be read from
+    the appliance directly. Neither changes, so this asks once and the answer
+    survives restarts.
+    """
+    try:
+        listed = await api.appliances()
+        await local.learn(
+            [str(one["haId"]) for one in listed if isinstance(one.get("haId"), str)]
+        )
+    except HomeConnectAuthError as err:
+        raise ConfigEntryAuthFailed(str(err)) from err
+    except HomeConnectError as err:
+        raise ConfigEntryNotReady(
+            f"could not read what the appliances need: {err}"
+        ) from err
 
 
 def _forget_what_is_gone(

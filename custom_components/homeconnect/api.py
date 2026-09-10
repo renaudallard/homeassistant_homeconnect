@@ -39,6 +39,7 @@ under a name of its own. Unwrapping that is the only shape knowledge in here.
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import time
 from collections.abc import Awaitable, Callable
@@ -48,16 +49,29 @@ import aiohttp
 
 from . import auth, http
 from .auth import Tokens
-from .const import API_HOST, API_PATH, MEDIA_TYPE, TOKEN_EXPIRY_MARGIN
+from .const import (
+    ACCOUNT_PATH,
+    API_HOST,
+    API_PATH,
+    DESCRIPTION_PATH,
+    MEDIA_TYPE,
+    SERVICES_HOSTS,
+    TOKEN_EXPIRY_MARGIN,
+)
 from .errors import (
     HomeConnectAuthError,
     HomeConnectConnectionError,
+    HomeConnectError,
     HomeConnectRefused,
     HomeConnectTooManyRequests,
 )
 from .http import failure, redact_url
 
 _LOGGER = logging.getLogger(__name__)
+
+# A description is a zip of a few hundred kilobytes, which is longer than an
+# ordinary call but not longer than a wait anybody would sit through.
+FETCH = aiohttp.ClientTimeout(total=60.0, connect=10.0)
 
 TokenListener = Callable[[Tokens], Awaitable[None]]
 
@@ -372,6 +386,41 @@ class HomeConnectApi:
             f"/homeappliances/{haid}/programs/{which}/options/{key}", key, value
         )
 
+    async def fetch(self, url: str, binary: bool = False) -> Any:
+        """Read something from outside the appliance API.
+
+        The account's own service is a different host with a different shape,
+        and one of the two things wanted from it is a zip rather than JSON.
+        Everything else about a call is the same, so only the reading of the
+        answer differs.
+        """
+        headers = await self.headers("*/*" if binary else "application/json")
+        try:
+            async with self._session.get(url, headers=headers, timeout=FETCH) as answer:
+                body = await answer.read()
+                status = answer.status
+        except (aiohttp.ClientError, TimeoutError) as err:
+            raise HomeConnectConnectionError(
+                f"{redact_url(url)} is unreachable: {err}"
+            ) from err
+        _LOGGER.debug("GET %s <- %s, %d bytes", redact_url(url), status, len(body))
+        if status in (401, 403):
+            raise HomeConnectAuthError(
+                f"{redact_url(url)} rejected the access token ({status})"
+            )
+        if status >= 400:
+            raise HomeConnectConnectionError(
+                f"{redact_url(url)} refused the request ({status})"
+            )
+        if binary:
+            return body
+        try:
+            return json.loads(body) if body else None
+        except ValueError as err:
+            raise HomeConnectConnectionError(
+                f"{redact_url(url)} answered with something that is not JSON"
+            ) from err
+
     async def send_command(self, haid: str, key: str) -> None:
         """Tell the appliance to do something once.
 
@@ -379,3 +428,99 @@ class HomeConnectApi:
         turning a command off again, so the value never varies.
         """
         await self._put(f"/homeappliances/{haid}/commands/{key}", key, True)
+
+
+class HomeConnectAccount:
+    """The account's own service, which is not the appliance API.
+
+    Two things live here and nowhere else: the key that lets this talk to an
+    appliance directly, and the appliance's own description of itself. Both
+    are wanted once and then kept, so this is deliberately separate from the
+    client that does the minute to minute work.
+    """
+
+    def __init__(self, api: HomeConnectApi) -> None:
+        self._api = api
+        # Which half of the world this account belongs to, once it is known.
+        self._host: str | None = None
+
+    async def _fetch(self, path: str, binary: bool = False) -> Any:
+        """Ask each service host in turn until one of them answers.
+
+        An account belongs to one region and the other will not have heard of
+        it. Which is which is not something the account says in advance, so
+        the one that answers is the answer, and it is remembered.
+        """
+        hosts = [self._host] if self._host else list(SERVICES_HOSTS)
+        last: Exception | None = None
+        for host in hosts:
+            try:
+                found = await self._api.fetch(f"{host}{path}", binary=binary)
+            except HomeConnectAuthError:
+                raise
+            except HomeConnectError as err:
+                _LOGGER.debug("%s did not answer for %s: %s", host, path, err)
+                last = err
+                continue
+            self._host = host
+            return found
+        raise last or HomeConnectConnectionError(f"nothing answered for {path}")
+
+    async def keys(self) -> dict[str, dict[str, str]]:
+        """The key each appliance is reached directly with, by appliance.
+
+        The answer carries a great deal besides, and has been reshaped before
+        now, so it is walked for what is wanted rather than read by a path
+        through it that would break the next time it moves.
+        """
+        return _keys_in(await self._fetch(ACCOUNT_PATH))
+
+    async def description(self, haid: str) -> bytes:
+        """One appliance's description of itself, as it was sent."""
+        found = await self._fetch(DESCRIPTION_PATH.format(haid), binary=True)
+        if not isinstance(found, bytes):
+            raise HomeConnectConnectionError("the description came back empty")
+        return found
+
+
+# What the account calls an appliance, in the half of it that carries keys.
+IDENTIFIERS = ("haId", "identifier", "id")
+
+# How an appliance is secured. One of the two is present, never both: the key
+# alone means the connection is secured, and a starting vector beside it means
+# the messages are.
+TLS = "tls"
+AES = "aes"
+
+
+def _keys_in(payload: Any) -> dict[str, dict[str, str]]:
+    """Every appliance and its key, from wherever in the answer they sit.
+
+    Walked rather than read out of a known place. What is looked for is an
+    object that names an appliance and carries one of the two ways of
+    securing it, which is a shape that cannot be mistaken for anything else.
+    """
+    found: dict[str, dict[str, str]] = {}
+
+    def walk(node: Any) -> None:
+        if isinstance(node, list):
+            for member in node:
+                walk(member)
+            return
+        if not isinstance(node, dict):
+            return
+        secured = node.get(TLS) or node.get(AES)
+        named = next(
+            (str(node[one]) for one in IDENTIFIERS if isinstance(node.get(one), str)),
+            None,
+        )
+        if named and isinstance(secured, dict) and secured.get("key"):
+            found[named] = {
+                "key": str(secured["key"]),
+                **({"iv": str(secured["iv"])} if secured.get("iv") else {}),
+            }
+        for member in node.values():
+            walk(member)
+
+    walk(payload)
+    return found

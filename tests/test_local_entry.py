@@ -1,0 +1,198 @@
+# BSD 2-Clause License
+#
+# Copyright (c) 2026, Renaud Allard <renaud@allard.it>
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright notice, this
+#    list of conditions and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+#    this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+"""An account set up to reach its appliances directly.
+
+The account still says which appliances exist and what they are called. Where
+their state comes from and where a change is sent is what changes, and the
+point of these is that nothing above the coordinator can tell which it was.
+"""
+
+from __future__ import annotations
+
+from pathlib import Path
+from typing import Any
+from unittest.mock import AsyncMock, patch
+
+import pytest
+from homeassistant.core import HomeAssistant
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
+
+from custom_components.homeconnect import iddf, local
+from custom_components.homeconnect.const import CONF_TRANSPORT, LOCAL
+
+from .common import entry, fixture, serve, state_of
+
+HAID = "BOSCH-WAV28MH0GB-1234567890AB"
+FIXTURES = Path(__file__).parent / "fixtures"
+MAPPING = (FIXTURES / "FeatureMapping.xml").read_bytes()
+DESCRIPTION = (FIXTURES / "DeviceDescription.xml").read_bytes()
+
+
+class Stub:
+    """A connection that answers, and remembers what was sent down it.
+
+    It behaves the way a real one does about saying so: nothing is connected
+    until the connection reports that it is, which is what the coordinator
+    waits for.
+    """
+
+    def __init__(self) -> None:
+        self.talking = False
+        self.written: list[tuple[int, Any]] = []
+        self.said_so: Any = None
+
+    def start(self, spawn: Any) -> None:
+        self.talking = True
+        if self.said_so is not None:
+            self.said_so(True)
+
+    async def stop(self) -> None:
+        pass
+
+    async def write(self, uid: int, value: Any) -> None:
+        self.written.append((uid, value))
+
+
+def _standing_in(link: Stub) -> Any:
+    """Put the stub where a real connection would go, wired the same way."""
+
+    def make(control: Any, haid: str, known: Any, where: Any) -> Stub:
+        link.said_so = lambda up: control._on_connected(haid, up)
+        return link
+
+    return make
+
+
+@pytest.fixture
+async def talking(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> tuple[MockConfigEntry, Stub]:
+    """An entry set up locally, with one appliance answering."""
+    serve(aioclient_mock, [fixture("washer")])
+    made = entry(hass)
+    hass.config_entries.async_update_entry(
+        made, data={**made.data, CONF_TRANSPORT: LOCAL}
+    )
+    link = Stub()
+    with (
+        patch(
+            "custom_components.homeconnect.api.HomeConnectAccount.keys",
+            AsyncMock(return_value={HAID: {"key": "a-key"}}),
+        ),
+        patch(
+            "custom_components.homeconnect.api.HomeConnectAccount.description",
+            AsyncMock(return_value=b"a zip"),
+        ),
+        patch.object(iddf, "unpack", lambda _archive: iddf.parse(MAPPING, DESCRIPTION)),
+        patch.object(
+            local, "unpack", lambda _archive: iddf.parse(MAPPING, DESCRIPTION)
+        ),
+        patch.object(local.Finder, "start", AsyncMock()),
+        patch.object(local.Finder, "stop", AsyncMock()),
+        patch.object(
+            local.Finder, "where", lambda _self, _haid: local.Where("host", 80)
+        ),
+        patch.object(local.LocalControl, "_make", _standing_in(link)),
+    ):
+        await hass.config_entries.async_setup(made.entry_id)
+        await hass.async_block_till_done()
+    return made, link
+
+
+async def test_the_entities_come_from_the_appliance_rather_than_the_cloud(
+    hass: HomeAssistant, talking: tuple[MockConfigEntry, Stub]
+) -> None:
+    made, _ = talking
+    coordinator = made.runtime_data.coordinator
+    assert coordinator.local is not None
+    assert coordinator.data[HAID].connected
+    # Nothing was read over the appliance API: the description is what says
+    # what there is, and the appliance itself says what it is holding.
+    assert "BSH.Common.Setting.ChildLock" in coordinator.data[HAID].model.settings
+    assert hass.states.get("switch.washer_child_lock") is not None
+
+
+async def test_what_the_appliance_pushes_reaches_the_entities(
+    hass: HomeAssistant, talking: tuple[MockConfigEntry, Stub]
+) -> None:
+    made, _ = talking
+    coordinator = made.runtime_data.coordinator
+    # 0x0101 is the operation state and 5 is the member meaning running.
+    coordinator.apply_locally(HAID, {0x0101: 5, 0x0102: True})
+    await hass.async_block_till_done()
+    assert state_of(hass, "sensor.washer_operation_state") == "Run"
+    assert state_of(hass, "switch.washer_child_lock") == "on"
+
+
+async def test_setting_something_goes_down_the_appliance_connection(
+    hass: HomeAssistant, talking: tuple[MockConfigEntry, Stub]
+) -> None:
+    """By the number it goes by, since that is all an appliance understands."""
+    _, link = talking
+    await hass.services.async_call(
+        "switch", "turn_on", {"entity_id": "switch.washer_child_lock"}, blocking=True
+    )
+    assert link.written == [(0x0102, True)]
+
+
+async def test_a_choice_goes_back_as_the_number_of_the_value(
+    hass: HomeAssistant, talking: tuple[MockConfigEntry, Stub]
+) -> None:
+    made, link = talking
+    made.runtime_data.coordinator.apply_locally(HAID, {0x0100: 1})
+    await hass.async_block_till_done()
+    await hass.services.async_call(
+        "select",
+        "select_option",
+        {"entity_id": "select.washer_power_state", "option": "On"},
+        blocking=True,
+    )
+    assert link.written == [(0x0100, 2)]
+
+
+async def test_the_appliance_going_quiet_is_the_appliance_going_quiet(
+    hass: HomeAssistant, talking: tuple[MockConfigEntry, Stub]
+) -> None:
+    made, _ = talking
+    coordinator = made.runtime_data.coordinator
+    coordinator.set_talking(HAID, False)
+    await hass.async_block_till_done()
+    assert state_of(hass, "binary_sensor.washer_connection") == "off"
+    assert state_of(hass, "switch.washer_child_lock") == "unavailable"
+
+
+async def test_nothing_is_asked_of_the_cloud_beyond_the_listing(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    talking: tuple[MockConfigEntry, Stub],
+) -> None:
+    """The whole point of local control is that the account is asked once who
+    the appliances are and then left alone."""
+    asked = [str(url) for _, url, _, _ in aioclient_mock.mock_calls]
+    assert any(one.endswith("/homeappliances") for one in asked)
+    assert not any("/status" in one or "/settings" in one for one in asked)

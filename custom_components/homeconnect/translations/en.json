@@ -5,10 +5,12 @@
         "title": "Sign in to Home Connect",
         "description": "Open [this address]({url}) and sign in with the account the app uses. The browser ends on a Home Connect page meant for a phone, which may show a QR code; ignore what it shows. Copy the whole address out of the address bar and paste it below.",
         "data": {
-          "code": "Address the browser ended on"
+          "code": "Address the browser ended on",
+          "transport": "How to reach the appliances"
         },
         "data_description": {
-          "code": "The whole address, not just part of it. It is only good once and only for a few minutes."
+          "code": "The whole address, not just part of it. It is only good once and only for a few minutes.",
+          "transport": "Through the Home Connect cloud, or straight to the appliances on your own network. Signing in is needed either way: the account is the only place the key to an appliance is kept."
         }
       },
       "reauth_confirm": {
@@ -19,6 +21,16 @@
         },
         "data_description": {
           "code": "The whole address, not just part of it. It is only good once and only for a few minutes."
+        }
+      },
+      "reconfigure": {
+        "title": "How to reach the appliances",
+        "description": "Change this to move an account already set up between the cloud and the local network. Nothing else changes and there is no need to sign in again.",
+        "data": {
+          "transport": "How to reach the appliances"
+        },
+        "data_description": {
+          "transport": "Local control needs each appliance to be on the same network as Home Assistant and to be announcing itself on it."
         }
       }
     },
@@ -31,13 +43,22 @@
       "already_configured": "This account is already set up.",
       "already_in_progress": "Another appliance has already asked. One sign in covers every appliance on the account.",
       "reauth_successful": "Signed in again successfully.",
-      "unique_id_mismatch": "That is a different account. Sign in with the one this entry was set up for."
+      "unique_id_mismatch": "That is a different account. Sign in with the one this entry was set up for.",
+      "reconfigure_successful": "Changed. The appliances are being reached the new way now."
     }
   },
   "issues": {
     "never_answered": {
       "title": "{name} is not talking to Home Connect",
       "description": "The Home Connect cloud lists this {type} on your account but says it has never connected, so there is nothing to read from it and nothing to set on it. Home Assistant cannot do anything about that from here: the appliance is the thing that has to reach the cloud.\n\nThree things to check on the appliance, in this order.\n\nWhether it is switched on. Several kinds, hobs above all, only hold a connection to the cloud while they are in use. One sitting switched off keeps just enough of its network module awake to answer the app over the local network, so it looks perfectly healthy there while the cloud has never heard from it.\n\nWhether it is allowed out. The Home Connect app calls that permission \"Connection to server\", and it decides whether the appliance may talk to the Home Connect servers at all.\n\nWhat its network settings say. The app's extended network settings show the address, gateway and DNS server the appliance is using. One with no gateway or no DNS server has nowhere to send anything.\n\nNothing needs doing here. This notice goes away by itself once the appliance answers."
+    }
+  },
+  "selector": {
+    "transport": {
+      "options": {
+        "cloud": "Through the Home Connect cloud",
+        "local": "Straight to the appliances, on this network"
+      }
     }
   }
 }

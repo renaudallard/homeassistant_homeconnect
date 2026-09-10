@@ -89,8 +89,32 @@ SCOPES = (
 # not ask for it.
 MEDIA_TYPE = "application/vnd.bsh.sdk.v1+json"
 
+# Where the account's own service lives, which is not where the appliance API
+# lives. Two of these serve two halves of the world and an account belongs to
+# one of them, which nothing says in advance, so each is tried until one
+# answers and the one that did is remembered.
+SERVICES_HOSTS = (
+    "https://eu.services.home-connect.com",
+    "https://na.services.home-connect.com",
+)
+
+# What the account says about each appliance beyond its name: among it, the
+# key that lets this talk to the appliance directly.
+ACCOUNT_PATH = "/api/account/v1/accounts/details"
+
+# An appliance's own description of itself, as a zip of two XML files. It is
+# the only thing that turns the numbers an appliance speaks in back into keys.
+DESCRIPTION_PATH = "/api/iddf/v1/iddf/{}"
+
 # Config entry keys of our own. The tokens live in the entry because the
 # refresh token rotates on every renewal and has to survive a restart.
+# Which way the appliances are reached. The account is what says they exist
+# either way; this decides only where their state is read from and where a
+# change is sent.
+CONF_TRANSPORT = "transport"
+CLOUD = "cloud"
+LOCAL = "local"
+
 CONF_ACCESS_TOKEN = "access_token"
 CONF_REFRESH_TOKEN = "refresh_token"
 CONF_EXPIRES_AT = "expires_at"

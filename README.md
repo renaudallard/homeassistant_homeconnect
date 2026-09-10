@@ -53,6 +53,10 @@ model nobody has tried works the same way as the one this was written against.
   right now. A washing machine offers the programmes it will run in the state
   it is in, and nothing at all while its door is open or remote control has
   not been armed at the machine itself.
+- **Cloud or local** — reach the appliances through the Home Connect cloud,
+  or straight over your own network with no cloud in the loop at all. Chosen
+  when the account is set up and changed afterwards by reconfiguring it, with
+  the same entities either way.
 - **Live, not polled** — the cloud pushes changes over one Server-Sent Events
   connection carrying the whole account, so a cycle finishing shows up when it
   happens. Polling carries on behind it at half-hourly intervals to catch
@@ -186,6 +190,43 @@ an enumerated value also carries the appliance's own word for it as a `value`
 attribute, which is what an automation should read: that one does not change
 with the language Home Assistant is set to.
 
+## Cloud or local
+
+An appliance answers on the network it is already on, and will do it with no
+cloud involved. **Reconfigure** the entry to move it between the two; nothing
+else changes and there is no need to sign in again.
+
+Signing in is needed either way, and once either way. The account is the only
+place two things are kept, and neither is on the network: the key an appliance
+is reached with, and the appliance's own description of itself. Both are
+fetched once, kept between restarts, and then nothing talks to the cloud
+again.
+
+|  | Through the cloud | Straight to the appliance |
+| --- | --- | --- |
+| works away from home | yes | no |
+| works with the internet down | no | yes |
+| counts against the API quota | yes | no, after the first look |
+| how changes arrive | one stream for the account | each appliance's own connection |
+| finds the appliance by | the account | its own announcement on the network |
+
+Local control needs each appliance to be on the same network as Home
+Assistant and announcing itself on it, which is what the discovery card is
+built on. An appliance that cannot be found that way stays unavailable until
+it turns up.
+
+The entities are the same either way, and so are their names and their unique
+ids, because both sides are turned into the same shapes before anything above
+them sees them. Moving an entry between the two keeps every entity and all of
+its history.
+
+Two differences worth knowing. Talked to directly, an appliance says
+everything in numbers, and the words come from its description file rather
+than from the cloud, so a value reads as its key rather than in the language
+Home Assistant is set to. And stopping a programme is the appliance's own stop
+command rather than emptying the programme slot, which comes to the same thing
+but is only offered by an appliance that describes that command.
+
 ## Reporting a problem
 
 The device page offers to download diagnostics, and that is the one to send:
@@ -272,8 +313,25 @@ one host, so there is nothing to ask the user about.
 | `PUT /api/homeappliances/{id}/commands/{key}` | send a command |
 | `GET /api/homeappliances/events` | the stream, carrying the whole account |
 
-Nothing is asked of the appliance directly. It has a local protocol of its own,
-behind a key only the cloud will hand out, and this does not speak it.
+Set to reach the appliances directly, it asks the account's own service two
+things once and then leaves the cloud alone:
+
+| | |
+| --- | --- |
+| `GET /api/account/v1/accounts/details` | the key each appliance is reached with |
+| `GET /api/iddf/v1/iddf/{id}` | that appliance's own description of itself |
+
+Those live on `eu.services.home-connect.com` or `na.services.home-connect.com`
+depending on the account, which nothing says in advance, so each is tried
+until one answers and the one that did is remembered.
+
+The appliance itself answers on a websocket at `/homeconnect`. Newer ones
+secure the connection with that shared key instead of a certificate, on port
+443; older ones speak plain websocket on port 80 and encrypt each message
+themselves, chaining the cipher and a running digest so that a replayed or
+reordered message is refused. Both are spoken here, and neither needs a
+dependency: shared key TLS has been in the Python standard library since 3.13
+and Home Assistant already ships the rest.
 
 Reading one appliance in full costs a call for every setting it has, which is
 the most expensive thing here and the reason the answers are kept between

@@ -71,13 +71,14 @@ def test_every_error_the_flow_reports_has_text() -> None:
 def test_every_reason_the_flow_gives_up_for_has_text() -> None:
     """A reason with no text shows the user the bare reason code.
 
-    Two of these are Home Assistant's own, given without the flow naming
-    them: it aborts a reauth of its own accord once one has worked, and again
-    when the account signed in to is not the account the entry is for.
+    Three of these are Home Assistant's own, given without the flow naming
+    them: it says so itself when signing in again has worked, when a
+    reconfigure has, and when the account signed in to is not the account the
+    entry is for.
     """
     flow = (COMPONENT / "config_flow.py").read_text()
     given = set(re.findall(r'reason="([a-z_]+)"', flow))
-    given |= {"reauth_successful", "unique_id_mismatch"}
+    given |= {"reauth_successful", "reconfigure_successful", "unique_id_mismatch"}
     assert given <= set(STRINGS["config"]["abort"])
     assert given == set(STRINGS["config"]["abort"])
 
@@ -98,11 +99,13 @@ def test_every_form_field_is_named_and_explained() -> None:
             assert step["data"][field], f"{name}.{field} has no name"
 
 
-def test_every_step_shows_the_address_it_hands_out() -> None:
-    """The flow passes one placeholder to every step it shows. Text that does
-    not use it is a form asking the user to open an address it never shows."""
+def test_every_step_that_asks_for_an_address_shows_one() -> None:
+    """A step asking for the address a browser ended on has to say which
+    address to open, and one asking for anything else has no placeholder to
+    put there. Getting either backwards is a form nobody can complete."""
     for name, step in STRINGS["config"]["step"].items():
-        assert "{url}" in step["description"], name
+        wanted = "code" in step.get("data", {})
+        assert ("{url}" in step["description"]) is wanted, name
 
 
 def _leaves(node: Any, path: str = "") -> list[tuple[str, str]]:

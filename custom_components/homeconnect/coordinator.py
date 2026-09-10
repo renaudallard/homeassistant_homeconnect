@@ -63,6 +63,7 @@ from .errors import (
     HomeConnectTooManyRequests,
 )
 from .events import Event
+from .local import LocalControl, sort
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -84,6 +85,9 @@ REMOTE_START = "BSH.Common.Status.RemoteControlStartAllowed"
 # names them this way; the API calls the same two things active and selected.
 ACTIVE_PROGRAM = "BSH.Common.Root.ActiveProgram"
 SELECTED_PROGRAM = "BSH.Common.Root.SelectedProgram"
+
+# What stops a programme on an appliance talked to directly.
+ABORT = "BSH.Common.Command.AbortProgram"
 
 # What a change to one of these is a sign of: the appliance has moved into a
 # state where a different set of programmes and options applies.
@@ -125,6 +129,16 @@ class ModelStore(Store[dict[str, Any]]):
 def model_store(hass: HomeAssistant, entry: ConfigEntry) -> ModelStore:
     """Where an account's model descriptions are kept between starts."""
     return ModelStore(hass, STORE_VERSION, f"{DOMAIN}.{entry.entry_id}.models")
+
+
+def local_store(hass: HomeAssistant, entry: ConfigEntry) -> ModelStore:
+    """Where what an appliance needs to be talked to directly is kept.
+
+    Its key, which never changes, and its own description of itself, which
+    changes only when the appliance's software does. Both cost a call to the
+    account and neither is worth asking for twice.
+    """
+    return ModelStore(hass, STORE_VERSION, f"{DOMAIN}.{entry.entry_id}.local")
 
 
 @dataclass
@@ -273,6 +287,7 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         hass: HomeAssistant,
         entry: ConfigEntry,
         api: HomeConnectApi,
+        local: LocalControl | None = None,
     ) -> None:
         super().__init__(
             hass,
@@ -282,6 +297,10 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
             update_interval=SCAN_INTERVAL,
         )
         self.api = api
+        # Set when the entry is being driven over the local network. The
+        # account is still what says which appliances exist and what they are
+        # called: only the reading and the setting change.
+        self.local = local
         self._store = model_store(hass, entry)
         # By model, since two appliances of the same model can do the same
         # things and reading it twice is two sets of calls for one answer.
@@ -419,6 +438,8 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
             model=model,
             pending=dict(held.pending) if held else {},
         )
+        if self.local is not None:
+            return self._read_locally(appliance, held)
         if not connected:
             if held is not None:
                 appliance.status = held.status
@@ -432,6 +453,61 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
             return appliance
         await self._refresh(appliance)
         return appliance
+
+    @callback
+    def _read_locally(self, appliance: Appliance, held: Appliance | None) -> Appliance:
+        """One appliance as the local connection has it.
+
+        Nothing is asked of the appliance here. It pushes what it holds as it
+        changes and the connection either exists or does not, so all this does
+        is describe what was learnt from the account and carry over whatever
+        the appliance has said since.
+        """
+        local = self.local
+        assert local is not None
+        haid = appliance.id
+        described = local.described(haid)
+        appliance.model.settings = described.settings
+        appliance.model.options = described.options
+        appliance.model.commands = described.commands
+        appliance.model.described = local.knows(haid)
+        appliance.programs = described.programs
+        appliance.connected = local.talking(haid)
+        if held is not None:
+            appliance.status = held.status
+            appliance.settings = held.settings
+            appliance.events = held.events
+            appliance.options = held.options
+            appliance.program_names = held.program_names
+            appliance.active = held.active
+            appliance.selected = held.selected
+        return appliance
+
+    @callback
+    def apply_locally(self, haid: str, values: dict[int, Any]) -> None:
+        """What one appliance has just said it is holding."""
+        appliance = (self.data or {}).get(haid)
+        local = self.local
+        if appliance is None or local is None:
+            return
+        sorted_out = sort(local.entries(haid), values)
+        appliance.status.update(sorted_out.status)
+        appliance.settings.update(sorted_out.settings)
+        appliance.options.update(sorted_out.options)
+        appliance.events.update(sorted_out.events)
+        if sorted_out.active is not None or sorted_out.selected is not None:
+            appliance.active = sorted_out.active
+            appliance.selected = sorted_out.selected
+        self.async_set_updated_data(self.data)
+
+    @callback
+    def set_talking(self, haid: str, talking: bool) -> None:
+        """Whether one appliance is answering us directly."""
+        appliance = (self.data or {}).get(haid)
+        if appliance is None or appliance.connected == talking:
+            return
+        appliance.connected = talking
+        self.async_set_updated_data(self.data)
 
     async def _refresh(self, appliance: Appliance) -> None:
         """What one appliance is doing, and what it can do at all.
@@ -652,7 +728,10 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         there showing what it was before. So what was asked for is written in
         straight away and the stream corrects it if the appliance disagreed.
         """
-        await self.api.set_setting(haid, key, value)
+        if self.local is not None:
+            await self.local.write(haid, key, value)
+        else:
+            await self.api.set_setting(haid, key, value)
         self.data[haid].settings[key] = _asked_for(
             self.data[haid].model.settings.get(key), value
         )
@@ -660,6 +739,9 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
 
     async def send_command(self, haid: str, key: str) -> None:
         """Tell the appliance to do something once."""
+        if self.local is not None:
+            await self.local.write(haid, key, True)
+            return
         await self.api.send_command(haid, key)
         self._look_again(haid)
 
@@ -676,16 +758,22 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
             appliance.pending[key] = value
             self.async_set_updated_data(self.data)
             return
-        await self.api.set_option(
-            haid, ACTIVE if appliance.running else SELECTED, key, value
-        )
+        if self.local is not None:
+            await self.local.write(haid, key, value)
+        else:
+            await self.api.set_option(
+                haid, ACTIVE if appliance.running else SELECTED, key, value
+            )
         appliance.options[key] = _asked_for(described, value)
         self.async_set_updated_data(self.data)
 
     async def select_program(self, haid: str, program: str) -> None:
         """Set the programme the appliance will run next."""
         appliance = self.data[haid]
-        await self.api.set_program(haid, SELECTED, program, [])
+        if self.local is not None:
+            await self.local.write(haid, SELECTED_PROGRAM, program)
+        else:
+            await self.api.set_program(haid, SELECTED, program, [])
         appliance.selected = program
         await self._read_options(appliance, program)
         self.async_set_updated_data(self.data)
@@ -697,6 +785,14 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         program = appliance.selected
         if program is None:
             raise HomeConnectError("nothing is selected to start")
+        if self.local is not None:
+            # Whatever was held back goes in first, one at a time, there being
+            # no way to start a programme and adjust it in the same breath.
+            for key, value in appliance.pending.items():
+                await self.local.write(haid, key, value)
+            appliance.pending.clear()
+            await self.local.write(haid, ACTIVE_PROGRAM, program)
+            return
         options = [
             {"key": key, "value": value} for key, value in appliance.pending.items()
         ]
@@ -705,7 +801,15 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         self._look_again(haid)
 
     async def stop_program(self, haid: str) -> None:
-        """Stop whatever the appliance is doing."""
+        """Stop whatever the appliance is doing.
+
+        Talked to directly there is no programme slot to empty, so what stops
+        a programme is the command for stopping one, which an appliance that
+        runs programmes describes along with the rest.
+        """
+        if self.local is not None:
+            await self.local.write(haid, ABORT, True)
+            return
         await self.api.stop_program(haid)
         self._look_again(haid)
 
