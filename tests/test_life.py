@@ -29,16 +29,22 @@
 from __future__ import annotations
 
 import copy
+from datetime import timedelta
+from unittest.mock import patch
 
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
+from homeassistant.util import dt as dt_util
+from pytest_homeassistant_custom_component.common import async_fire_time_changed
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
 from custom_components.homeconnect.const import DOMAIN
 from custom_components.homeconnect.coordinator import (
     SCAN_INTERVAL,
     SCAN_INTERVAL_STREAMING,
+    SETTLE,
 )
+from custom_components.homeconnect.events import Event
 
 from .common import API, device_for, entry, fixture, serve, set_up, state_of
 
@@ -195,3 +201,31 @@ async def test_one_appliance_that_will_not_answer_is_one_appliance(
     assert made.state is ConfigEntryState.LOADED
     assert state_of(hass, "sensor.oven_operation_state") == "Inactive"
     assert HAID not in made.runtime_data.coordinator.data
+
+
+async def test_an_appliance_that_was_off_is_described_when_it_answers(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """What a model can do is asked once and kept, and an appliance switched
+    off at the wall cannot be asked. It has to be asked the moment it comes
+    back rather than whenever the next look round the account comes."""
+    offline = copy.deepcopy(fixture("washer"))
+    offline["appliance"]["connected"] = False
+    serve(aioclient_mock, [offline])
+    made = entry(hass)
+    with patch("custom_components.homeconnect.HomeConnectStream.start"):
+        await hass.config_entries.async_setup(made.entry_id)
+        await hass.async_block_till_done()
+
+    coordinator = made.runtime_data.coordinator
+    assert not coordinator.data[HAID].model.described
+    assert hass.states.get("switch.washer_child_lock") is None
+
+    coordinator.apply(Event("CONNECTED", HAID, {}))
+    await hass.async_block_till_done()
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=SETTLE + 1))
+    await hass.async_block_till_done()
+
+    assert coordinator.data[HAID].model.described
+    assert state_of(hass, "switch.washer_child_lock") == "off"
+    assert state_of(hass, "sensor.washer_operation_state") == "Ready"

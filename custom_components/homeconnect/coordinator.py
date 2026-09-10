@@ -353,7 +353,7 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         """
         held = (self.data or {}).get(haid)
         connected = bool(described.get("connected"))
-        model = await self._model(haid, described, connected)
+        model = self._model(haid, described)
         appliance = Appliance(
             id=haid,
             name=str(described.get("name") or haid),
@@ -380,8 +380,16 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         return appliance
 
     async def _refresh(self, appliance: Appliance) -> None:
-        """What one appliance is doing right now."""
+        """What one appliance is doing, and what it can do at all.
+
+        The second of those is asked once per model and kept, so this is
+        where an appliance that was switched off at the wall when Home
+        Assistant started gets described: the moment it answers, rather than
+        whenever the next look round the account happens to come.
+        """
         haid = appliance.id
+        if not appliance.model.described:
+            await self._describe(haid, appliance.model)
         appliance.status = _readings(await self.api.status(haid))
         appliance.settings = _readings(await self.api.settings(haid))
         appliance.events = _readings(await self.api.events(haid))
@@ -414,23 +422,19 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         described = await self.api.program_options(appliance.id, program)
         appliance.model.options[program] = _features(described, OPTION)
 
-    async def _model(
-        self, haid: str, described: dict[str, Any], connected: bool
-    ) -> Model:
-        """What this model can do, read once and kept.
+    @callback
+    def _model(self, haid: str, described: dict[str, Any]) -> Model:
+        """Which description this appliance shares, made if it is new.
 
-        Two appliances of the same model answer these questions identically,
-        and the answers do not change, so they are asked once per model rather
-        than once per appliance per start. An appliance with no model number
-        stands for itself.
+        Two appliances of the same model answer the same way, and what they
+        answer does not change, so they share one description and it is filled
+        in once. An appliance with no model number stands for itself.
         """
         name = str(described.get("enumber") or haid)
         model = self._models.get(name)
         if model is None:
             model = Model()
             self._models[name] = model
-        if connected and not model.described:
-            await self._describe(haid, model)
         return model
 
     async def _describe(self, haid: str, model: Model) -> None:
