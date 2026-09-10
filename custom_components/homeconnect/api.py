@@ -55,6 +55,7 @@ from .const import (
     API_PATH,
     DESCRIPTION_PATH,
     MEDIA_TYPE,
+    PAIRED_ONE_PATH,
     PAIRED_PATH,
     SERVICES_HOSTS,
     TOKEN_EXPIRY_MARGIN,
@@ -507,14 +508,32 @@ class HomeConnectAccount:
         self._hcid = found
         return found
 
-    async def keys(self) -> dict[str, dict[str, str]]:
+    async def keys(self, haids: list[str]) -> dict[str, dict[str, str]]:
         """The key each appliance is reached directly with, by appliance.
 
         The answer carries a great deal besides, and has been reshaped before
         now, so it is walked for what is wanted rather than read by a path
         through it that would break the next time it moves.
+
+        Where the list says only that the appliances are there, each is asked
+        for on its own, that being where the rest of an appliance is kept.
+        What came back is described to the log when neither has a key in it,
+        because a shape nobody here has seen is the one thing a report about
+        this cannot do without.
         """
-        return _keys_in(await self._fetch(PAIRED_PATH.format(await self._whose())))
+        whose = await self._whose()
+        listed = await self._fetch(PAIRED_PATH.format(whose))
+        found = _keys_in(listed)
+        if found:
+            return found
+        _LOGGER.debug("the paired appliances answer is shaped %s", shape(listed))
+        for haid in haids:
+            alone = await self._fetch(PAIRED_ONE_PATH.format(whose, haid))
+            one = _keys_in(alone)
+            if not one:
+                _LOGGER.debug("one paired appliance is shaped %s", shape(alone))
+            found |= one
+        return found
 
     async def description(self, haid: str) -> bytes:
         """One appliance's description of itself, as it was sent."""
@@ -545,6 +564,36 @@ def _in_order(region: str | None) -> list[str]:
     if region:
         hosts.sort(key=lambda host: f"//{region}." not in host)
     return hosts
+
+
+# How deep to describe an answer, and how many members of one thing to name.
+# A description is for reading, and one that runs to pages is not read.
+DEEPEST = 6
+WIDEST = 40
+
+
+def shape(payload: Any, depth: int = 0) -> str:
+    """What an answer is made of, without any of what it says.
+
+    Only the names of the members and the kinds of the values, so that an
+    answer in a shape nobody here has seen can be described in a bug report
+    without any of it being anybody's business but theirs.
+    """
+    if depth >= DEEPEST:
+        return "..."
+    if isinstance(payload, dict):
+        inside = ", ".join(
+            f"{name}: {shape(value, depth + 1)}"
+            for name, value in list(payload.items())[:WIDEST]
+        )
+        return "{" + inside + "}"
+    if isinstance(payload, list):
+        if not payload:
+            return "[]"
+        return f"[{shape(payload[0], depth + 1)}] x{len(payload)}"
+    if payload is None:
+        return "null"
+    return type(payload).__name__
 
 
 # What the account service calls the account itself.

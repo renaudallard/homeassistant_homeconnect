@@ -104,6 +104,10 @@ SERVICES_HOSTS = (
 ACCOUNTS_PATH = "/api/account/v1/accounts"
 PAIRED_PATH = "/api/account/v2/accounts/{}/paired-appliances"
 
+# One paired appliance on its own. The list does not always say how to reach
+# an appliance, only that it is there, and this is where the rest of it is.
+PAIRED_ONE_PATH = "/api/account/v2/accounts/{}/paired-appliances/{}"
+
 # An appliance's own description of itself, as a zip of two XML files. It is
 # the only thing that turns the numbers an appliance speaks in back into keys.
 DESCRIPTION_PATH = "/api/iddf/v1/iddf/{}"

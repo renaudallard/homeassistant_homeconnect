@@ -383,7 +383,7 @@ class LocalControl:
         wanted = [haid for haid in haids if haid not in self._known]
         if not wanted:
             return
-        keys = await self._account.keys()
+        keys = await self._account.keys(wanted)
         _LOGGER.debug("the account named %d appliances with a key", len(keys))
         for haid in wanted:
             secured = _matching(keys, haid)

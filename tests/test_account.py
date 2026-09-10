@@ -33,6 +33,7 @@ is asked once per appliance and then left alone.
 from __future__ import annotations
 
 from collections.abc import AsyncGenerator
+from typing import Any
 
 import aiohttp
 import pytest
@@ -84,21 +85,10 @@ async def test_the_keys_hang_off_the_account_that_owns_them(
 ) -> None:
     aioclient_mock.get(f"{EU}{PAIRED}", json=APPLIANCES)
     account = HomeConnectAccount(api_for(session), WHOSE)
-    assert await account.keys() == {
+    assert await account.keys(["SIEMENS-EX651HEC1E-ABC", "BOSCH-OLD-DEF"]) == {
         "SIEMENS-EX651HEC1E-ABC": {"key": "a-shared-key"},
         "BOSCH-OLD-DEF": {"key": "another-key", "iv": "a-vector"},
     }
-
-
-async def test_an_appliance_with_no_key_is_simply_absent(
-    aioclient_mock: AiohttpClientMocker, session: aiohttp.ClientSession
-) -> None:
-    aioclient_mock.get(
-        f"{EU}{PAIRED}",
-        json={"data": {"pairedAppliances": [{"haId": "X", "type": "Y"}]}},
-    )
-    account = HomeConnectAccount(api_for(session), WHOSE)
-    assert await account.keys() == {}
 
 
 async def test_the_account_is_asked_for_when_it_is_not_already_known(
@@ -109,8 +99,8 @@ async def test_the_account_is_asked_for_when_it_is_not_already_known(
     aioclient_mock.get(f"{EU}/api/account/v1/accounts", json={"data": {"hcId": WHOSE}})
     aioclient_mock.get(f"{EU}{PAIRED}", json=APPLIANCES)
     account = HomeConnectAccount(api_for(session))
-    assert len(await account.keys()) == 2
-    assert len(await account.keys()) == 2
+    assert len(await account.keys(["SIEMENS-EX651HEC1E-ABC", "BOSCH-OLD-DEF"])) == 2
+    assert len(await account.keys(["SIEMENS-EX651HEC1E-ABC", "BOSCH-OLD-DEF"])) == 2
     asked = [str(url) for _, url, _, _ in aioclient_mock.mock_calls]
     assert asked.count(f"{EU}/api/account/v1/accounts") == 1
 
@@ -122,9 +112,9 @@ async def test_the_other_region_is_tried_when_the_first_will_not_answer(
     aioclient_mock.get(f"{EU}{PAIRED}", status=404, json={})
     aioclient_mock.get(f"{NA}{PAIRED}", json=APPLIANCES)
     account = HomeConnectAccount(api_for(session), WHOSE)
-    assert len(await account.keys()) == 2
+    assert len(await account.keys(["SIEMENS-EX651HEC1E-ABC", "BOSCH-OLD-DEF"])) == 2
     # And the one that answered is the one asked next time.
-    await account.keys()
+    await account.keys(["SIEMENS-EX651HEC1E-ABC", "BOSCH-OLD-DEF"])
     asked = [str(url) for _, url, _, _ in aioclient_mock.mock_calls]
     assert asked.count(f"{EU}{PAIRED}") == 1
 
@@ -143,7 +133,9 @@ async def test_the_region_the_cloud_stamped_is_tried_first(
     assert api.region == "na"
 
     aioclient_mock.get(f"{NA}{PAIRED}", json=APPLIANCES)
-    assert len(await HomeConnectAccount(api, WHOSE).keys()) == 2
+    assert (
+        len(await HomeConnectAccount(api, WHOSE).keys(["SIEMENS-EX651HEC1E-ABC"])) == 2
+    )
     asked = [str(url) for _, url, _, _ in aioclient_mock.mock_calls]
     assert not any(one.startswith(EU) for one in asked)
 
@@ -155,7 +147,7 @@ async def test_being_refused_by_the_account_service_is_said_as_such(
     aioclient_mock.get(f"{EU}{PAIRED}", status=403, json={})
     aioclient_mock.get(f"{NA}{PAIRED}", status=403, json={})
     with pytest.raises(HomeConnectAuthError):
-        await HomeConnectAccount(api_for(session), WHOSE).keys()
+        await HomeConnectAccount(api_for(session), WHOSE).keys(["X"])
 
 
 async def test_a_description_comes_back_as_it_was_sent(
@@ -187,3 +179,67 @@ def test_the_account_id_is_found_wherever_it_sits() -> None:
     assert _account_in({"data": {"hcId": "X"}}) == "X"
     assert _account_in({"accounts": [{"accountId": "Y"}]}) == "Y"
     assert _account_in({"nothing": "useful"}) is None
+
+
+async def test_an_appliance_is_asked_for_alone_when_the_list_says_nothing(
+    aioclient_mock: AiohttpClientMocker, session: aiohttp.ClientSession
+) -> None:
+    """The list may only say the appliances are there. The rest of one is
+    kept where that one is, so that is asked for next."""
+    aioclient_mock.get(
+        f"{EU}{PAIRED}",
+        json={"data": {"pairedAppliances": [{"haId": "A-B-C", "name": "Hob"}]}},
+    )
+    aioclient_mock.get(
+        f"{EU}{PAIRED}/A-B-C",
+        json={"data": {"haId": "A-B-C", "tls": {"key": "found-here"}}},
+    )
+    account = HomeConnectAccount(api_for(session), WHOSE)
+    assert await account.keys(["A-B-C"]) == {"A-B-C": {"key": "found-here"}}
+
+
+async def test_an_answer_with_no_key_anywhere_comes_back_empty(
+    aioclient_mock: AiohttpClientMocker, session: aiohttp.ClientSession
+) -> None:
+    aioclient_mock.get(f"{EU}{PAIRED}", json={"data": {"pairedAppliances": []}})
+    aioclient_mock.get(f"{EU}{PAIRED}/A-B-C", json={"data": {"haId": "A-B-C"}})
+    account = HomeConnectAccount(api_for(session), WHOSE)
+    assert await account.keys(["A-B-C"]) == {}
+
+
+def test_an_answer_can_be_described_without_saying_what_it_holds() -> None:
+    """A shape nobody here has seen is the one thing a report cannot do
+    without, and none of it is anybody's business but theirs."""
+    from custom_components.homeconnect.api import shape
+
+    described = shape(
+        {
+            "data": {
+                "pairedAppliances": [
+                    {
+                        "haId": "SIEMENS-EX651HEC1E-335030393548000200",
+                        "name": "Table de cuisson",
+                        "connected": False,
+                        "tls": {"key": "a-real-secret"},
+                    }
+                ]
+            }
+        }
+    )
+    assert described == (
+        "{data: {pairedAppliances: [{haId: str, name: str, connected: bool, "
+        "tls: {key: str}}] x1}}"
+    )
+    for secret in ("335030393548000200", "Table de cuisson", "a-real-secret"):
+        assert secret not in described
+
+
+def test_describing_something_deep_or_wide_stops_rather_than_running_on() -> None:
+    from custom_components.homeconnect.api import shape
+
+    deep: Any = "bottom"
+    for _ in range(20):
+        deep = {"down": deep}
+    assert "..." in shape(deep)
+    assert shape([]) == "[]"
+    assert shape(None) == "null"
