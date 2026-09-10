@@ -44,7 +44,8 @@ from custom_components.homeconnect import auth
 from custom_components.homeconnect.const import (
     API_HOST,
     CLIENT_ID,
-    REDIRECT_URI,
+    REDIRECT_URI_APP,
+    REDIRECT_URI_WEB,
     SCOPES,
     TOKEN_PATH,
 )
@@ -66,17 +67,21 @@ async def session(
     await made.close()
 
 
-def test_the_sign_in_ends_where_no_page_can_swallow_the_code() -> None:
-    """The https address the app also registers loads a page that hands the
-    session to a phone, and is free to tidy the code away while it does."""
-    assert REDIRECT_URI.startswith("hcauth://")
+def test_each_way_in_comes_back_where_it_can_be_caught() -> None:
+    """Walking the sign in here stops at a scheme no browser will open, which
+    is the whole answer in one line. A browser has to be sent somewhere it can
+    actually reach."""
+    assert REDIRECT_URI_APP.startswith("hcauth://")
+    assert REDIRECT_URI_WEB.startswith("https://")
 
 
 def test_the_address_carries_what_the_app_carries() -> None:
     verifier = auth.verifier()
-    query = parse_qs(urlparse(auth.authorize_url(verifier, "a-state")).query)
+    query = parse_qs(
+        urlparse(auth.authorize_url(verifier, "a-state", REDIRECT_URI_APP)).query
+    )
     assert query["client_id"] == [CLIENT_ID]
-    assert query["redirect_uri"] == [REDIRECT_URI]
+    assert query["redirect_uri"] == [REDIRECT_URI_APP]
     assert query["response_type"] == ["code"]
     assert query["scope"] == [" ".join(SCOPES)]
     assert query["prompt"] == ["login"]
@@ -86,11 +91,13 @@ def test_the_address_carries_what_the_app_carries() -> None:
 
 def test_the_secret_is_published_only_as_its_digest() -> None:
     verifier = auth.verifier()
-    query = parse_qs(urlparse(auth.authorize_url(verifier, "s")).query)
+    query = parse_qs(
+        urlparse(auth.authorize_url(verifier, "s", REDIRECT_URI_APP)).query
+    )
     digest = hashlib.sha256(verifier.encode("ascii")).digest()
     expected = base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
     assert query["code_challenge"] == [expected]
-    assert verifier not in auth.authorize_url(verifier, "s")
+    assert verifier not in auth.authorize_url(verifier, "s", REDIRECT_URI_APP)
 
 
 def test_two_sign_ins_do_not_share_a_secret() -> None:
@@ -147,12 +154,13 @@ async def test_the_exchange_sends_the_secret_and_reads_the_pair(
             "id_token": _identity("who-this-is"),
         },
     )
-    tokens = await auth.exchange(session, "the-code", "the-verifier")
+    tokens = await auth.exchange(session, "the-code", "the-verifier", REDIRECT_URI_APP)
     sent = aioclient_mock.mock_calls[0][2]
     assert sent["grant_type"] == "authorization_code"
     assert sent["code"] == "the-code"
     assert sent["code_verifier"] == "the-verifier"
     assert sent["client_id"] == CLIENT_ID
+    assert sent["redirect_uri"] == REDIRECT_URI_APP
     assert tokens.access_token == "an-access-token"
     assert tokens.account == "who-this-is"
     assert tokens.expires_at > time.time() + 3500
@@ -166,7 +174,7 @@ async def test_a_lifetime_that_does_not_read_means_renew_at_once(
         TOKEN_URL,
         json={"access_token": "a", "refresh_token": "b", "expires_in": "soon"},
     )
-    tokens = await auth.exchange(session, "c", "v")
+    tokens = await auth.exchange(session, "c", "v", REDIRECT_URI_APP)
     assert tokens.expired
 
 
@@ -179,7 +187,7 @@ async def test_a_refused_code_asks_for_a_fresh_sign_in(
         json={"error": "invalid_grant", "error_description": "code expired"},
     )
     with pytest.raises(HomeConnectAuthError, match="code expired"):
-        await auth.exchange(session, "stale", "v")
+        await auth.exchange(session, "stale", "v", REDIRECT_URI_APP)
 
 
 async def test_being_asked_to_slow_down_says_for_how_long(
@@ -209,4 +217,4 @@ async def test_an_answer_with_no_pair_in_it_is_not_a_sign_in(
 ) -> None:
     aioclient_mock.post(TOKEN_URL, json={"access_token": "a"})
     with pytest.raises(HomeConnectAuthError):
-        await auth.exchange(session, "c", "v")
+        await auth.exchange(session, "c", "v", REDIRECT_URI_APP)

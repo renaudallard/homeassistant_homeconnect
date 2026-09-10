@@ -48,11 +48,18 @@ def _steps() -> set[str]:
 
 
 def test_every_step_the_flow_shows_has_text() -> None:
-    """A step with no text is a form with a blank title and no explanation."""
+    """A step with no text is a form with a blank title and no explanation.
+
+    A step is a method on the flow, whatever it was reached by, so the methods
+    are what the text is checked against rather than the places a step id
+    happens to be written down.
+    """
     flow = (COMPONENT / "config_flow.py").read_text()
-    shown = set(re.findall(r'step_id="([a-z_]+)"', flow))
-    assert shown <= _steps()
-    assert shown == _steps()
+    # Neither of these is a step anybody is shown: one is how a discovery
+    # arrives and the other only ever hands over to the menu below it.
+    unshown = {"zeroconf", "reauth"}
+    methods = set(re.findall(r"async def async_step_([a-z_]+)\(", flow)) - unshown
+    assert methods == _steps()
 
 
 def test_every_error_the_flow_reports_has_text() -> None:
@@ -67,11 +74,12 @@ def test_every_form_field_is_named_and_explained() -> None:
             assert step["data"][field], f"{name}.{field} has no name"
 
 
-def test_the_address_the_user_must_open_is_offered_in_every_step() -> None:
-    """The flow passes one placeholder, and text that does not use it is a
-    form asking the user to open an address it never shows them."""
+def test_only_the_steps_that_send_you_to_a_browser_show_an_address() -> None:
+    """A step using the placeholder without being given one is a broken form,
+    and one given it without using it asks the user to open nothing."""
     for name, step in STRINGS["config"]["step"].items():
-        assert "{url}" in step["description"], f"{name} never shows the address"
+        wanted = "browser" in name
+        assert ("{url}" in step["description"]) is wanted, name
 
 
 def _leaves(node: Any, path: str = "") -> list[tuple[str, str]]:

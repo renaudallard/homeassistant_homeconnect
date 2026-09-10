@@ -3,28 +3,66 @@
     "step": {
       "user": {
         "title": "Sign in to Home Connect",
-        "description": "Open [this address]({url}) and sign in with the account the app uses. The browser will then refuse to open an address beginning hcauth://, which is what should happen: it is meant for the phone app and there is no app here. Copy that address out of the address bar and paste it below.",
+        "description": "How does this account sign in? An account with a password can be signed in to from here. One with a second factor or a passkey on it can only be signed in to in a browser.",
+        "menu_options": {
+          "password": "With an email address and password",
+          "browser": "In a browser"
+        }
+      },
+      "password": {
+        "title": "Sign in with a password",
+        "description": "Use the same address and password as the Home Connect app.",
+        "data": {
+          "email": "Email address",
+          "password": "Password"
+        },
+        "data_description": {
+          "password": "Sent to SingleKey ID to sign in, and never stored. Only the tokens it hands back are kept."
+        }
+      },
+      "browser": {
+        "title": "Sign in in a browser",
+        "description": "Open [this address]({url}) and sign in with the account the app uses. The browser ends on a Home Connect page meant for a phone; ignore what it shows. Copy the whole address out of the address bar and paste it below.",
         "data": {
           "code": "Address the browser ended on"
         },
         "data_description": {
-          "code": "The whole address, beginning hcauth://, not just part of it. It is only good once and only here."
+          "code": "The whole address, not just part of it. It is only good once and only here."
         }
       },
       "reauth_confirm": {
         "title": "Sign in to Home Connect again",
-        "description": "The stored sign in has stopped working. Open [this address]({url}), sign in with the same account, and paste the hcauth:// address the browser refuses to open below.",
+        "description": "The stored sign in has stopped working. Sign in again with the same account.",
+        "menu_options": {
+          "reauth_password": "With an email address and password",
+          "reauth_browser": "In a browser"
+        }
+      },
+      "reauth_password": {
+        "title": "Sign in with a password",
+        "description": "Use the same address and password as the Home Connect app.",
+        "data": {
+          "email": "Email address",
+          "password": "Password"
+        },
+        "data_description": {
+          "password": "Sent to SingleKey ID to sign in, and never stored. Only the tokens it hands back are kept."
+        }
+      },
+      "reauth_browser": {
+        "title": "Sign in in a browser",
+        "description": "Open [this address]({url}) and sign in with the same account. Copy the whole address the browser ends on out of the address bar and paste it below.",
         "data": {
           "code": "Address the browser ended on"
         },
         "data_description": {
-          "code": "The whole address, beginning hcauth://, not just part of it. It is only good once and only here."
+          "code": "The whole address, not just part of it. It is only good once and only here."
         }
       }
     },
     "error": {
       "cannot_connect": "Could not reach Home Connect. Check your connection and try again.",
-      "invalid_auth": "That address was not accepted. A code is only good once and only for a few minutes, so open the address above again and sign in afresh.",
+      "invalid_auth": "That sign in was not accepted. Check the address and password, and remember that a pasted address is only good once and only for a few minutes.",
       "unknown": "Something unexpected went wrong. Check the log for details."
     },
     "abort": {

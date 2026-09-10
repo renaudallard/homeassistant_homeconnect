@@ -56,7 +56,6 @@ from .const import (
     API_HOST,
     AUTHORIZE_PATH,
     CLIENT_ID,
-    REDIRECT_URI,
     SCOPES,
     TOKEN_EXPIRY_MARGIN,
     TOKEN_PATH,
@@ -113,17 +112,20 @@ def _challenge(code_verifier: str) -> str:
     return urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
 
 
-def authorize_url(code_verifier: str, state: str) -> str:
-    """Where to send the user to sign in.
+def authorize_url(code_verifier: str, state: str, redirect_uri: str) -> str:
+    """Where the sign in starts.
 
     Asking for the login prompt is what the app does, and it is what stops a
     browser already signed in to the account from handing back a code without
     ever showing the user whose account it is.
+
+    Where it ends is the caller's to decide, and has to be the same address
+    the code is later traded against.
     """
     query = {
         "client_id": CLIENT_ID,
         "response_type": "code",
-        "redirect_uri": REDIRECT_URI,
+        "redirect_uri": redirect_uri,
         "scope": " ".join(SCOPES),
         "prompt": "login",
         "state": state,
@@ -255,15 +257,20 @@ async def _token_request(
 
 
 async def exchange(
-    session: aiohttp.ClientSession, code: str, code_verifier: str
+    session: aiohttp.ClientSession, code: str, code_verifier: str, redirect_uri: str
 ) -> Tokens:
-    """Trade the one time code for a token pair."""
+    """Trade the one time code for a token pair.
+
+    The address the sign in came back to is part of what is being proved, so
+    it has to be the one the code was issued against rather than whichever of
+    the two the app also happens to register.
+    """
     return await _token_request(
         session,
         {
             "grant_type": "authorization_code",
             "client_id": CLIENT_ID,
-            "redirect_uri": REDIRECT_URI,
+            "redirect_uri": redirect_uri,
             "code": code,
             "code_verifier": code_verifier,
         },

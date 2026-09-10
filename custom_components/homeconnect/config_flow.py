@@ -26,16 +26,18 @@
 
 """Config flow for the Home Connect integration.
 
-Signing in happens in a browser, because that is the only place a Home
-Connect account can be signed in to: the account may have two factors on it,
-or be reached through a passkey, and none of that can be done from a form
-here. So the user is given an address to open, signs in there as they always
-would, and hands back the address the browser ends on.
+A Home Connect account is signed in to at SingleKey ID, and there are two ways
+to get from there to a token this can use. Neither suits every account, so the
+flow asks which rather than guessing.
 
-That last address carries a one time code. It is worth nothing to anyone who
-has not got the secret this generated before handing out the first address, so
-the code can travel back through a clipboard without any of it being a secret
-worth guarding.
+With a password, this walks the sign in itself and never opens a browser. That
+is the short way and the one most accounts want, and it cannot work for an
+account with a second factor or a passkey on it.
+
+The other way is a browser. The user signs in as they always would, whatever
+that takes, and hands back the address the browser ends on. It carries a one
+time code, worth nothing to anyone without the secret generated before the
+first address was handed out, so it can travel through a clipboard.
 """
 
 from __future__ import annotations
@@ -48,8 +50,11 @@ from urllib.parse import parse_qs, urlparse
 
 import voluptuous as vol
 from homeassistant.config_entries import SOURCE_REAUTH, ConfigFlow, ConfigFlowResult
-from homeassistant.const import CONF_CODE
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.const import CONF_CODE, CONF_EMAIL, CONF_PASSWORD
+from homeassistant.helpers.aiohttp_client import (
+    async_create_clientsession,
+    async_get_clientsession,
+)
 from homeassistant.helpers.selector import (
     TextSelector,
     TextSelectorConfig,
@@ -57,7 +62,7 @@ from homeassistant.helpers.selector import (
 )
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
-from . import auth
+from . import auth, singlekey
 from .api import HomeConnectApi
 from .auth import Tokens
 from .const import (
@@ -65,6 +70,8 @@ from .const import (
     CONF_EXPIRES_AT,
     CONF_REFRESH_TOKEN,
     DOMAIN,
+    REDIRECT_URI_APP,
+    REDIRECT_URI_WEB,
 )
 from .errors import HomeConnectAuthError, HomeConnectError
 
@@ -77,13 +84,26 @@ TYPE = "type"
 BRAND = "brand"
 MODEL = "vib"
 
-SCHEMA = vol.Schema(
+ACCOUNT = vol.Schema(
+    {
+        vol.Required(CONF_EMAIL): TextSelector(
+            TextSelectorConfig(type=TextSelectorType.EMAIL)
+        ),
+        vol.Required(CONF_PASSWORD): TextSelector(
+            TextSelectorConfig(type=TextSelectorType.PASSWORD)
+        ),
+    }
+)
+
+PASTED = vol.Schema(
     {
         vol.Required(CONF_CODE): TextSelector(
             TextSelectorConfig(type=TextSelectorType.URL)
         )
     }
 )
+
+WAYS_IN = ["password", "browser"]
 
 
 class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
@@ -92,40 +112,21 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     def __init__(self) -> None:
-        # Made once per attempt and kept for as long as the form is on screen.
-        # The secret never leaves here until the code comes back, which is
-        # what stops a code read out of somebody's address bar being worth
+        # Made once per attempt and kept for as long as the flow is open. The
+        # secret never leaves here until the code comes back, which is what
+        # stops a code read out of somebody's address bar being worth
         # anything to them.
         self._verifier = auth.verifier()
         self._state = secrets.token_urlsafe(16)
+        self._email = ""
+
+    # Which way in
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """Sign in, and make an entry for the account that answers."""
-        errors: dict[str, str] = {}
-        if user_input is not None:
-            try:
-                tokens = await self._sign_in(user_input[CONF_CODE])
-            except HomeConnectAuthError as err:
-                _LOGGER.warning("signing in failed: %s", err)
-                errors["base"] = "invalid_auth"
-            except HomeConnectError as err:
-                _LOGGER.warning("could not reach the service: %s", err)
-                errors["base"] = "cannot_connect"
-            except Exception:
-                _LOGGER.exception("unexpected failure while signing in")
-                errors["base"] = "unknown"
-            else:
-                return await self._finish(tokens)
-        return self.async_show_form(
-            step_id="user",
-            data_schema=SCHEMA,
-            errors=errors,
-            description_placeholders={
-                "url": auth.authorize_url(self._verifier, self._state)
-            },
-        )
+        """Ask which way this account can be signed in to."""
+        return self.async_show_menu(step_id="user", menu_options=WAYS_IN)
 
     async def async_step_zeroconf(
         self, discovery_info: ZeroconfServiceInfo
@@ -145,61 +146,154 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
         self.context["title_placeholders"] = {"name": _describe(discovery_info)}
         return await self.async_step_user()
 
+    # Signing in with a password
+
+    async def async_step_password(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Sign in without a browser, by walking it here."""
+        return await self._with_password("password", user_input)
+
+    async def async_step_browser(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Sign in in a browser and hand back the address it ends on."""
+        return await self._with_browser("browser", user_input)
+
+    # Signing in again, the stored tokens having stopped working
+
     async def async_step_reauth(
         self, entry_data: Mapping[str, Any]
     ) -> ConfigFlowResult:
-        """Sign in again, the stored tokens having stopped working."""
-        return await self.async_step_reauth_confirm()
+        """Offer the same two ways in as the first time."""
+        self._email = str(entry_data.get(CONF_EMAIL) or "")
+        return self.async_show_menu(
+            step_id="reauth_confirm", menu_options=["reauth_password", "reauth_browser"]
+        )
 
     async def async_step_reauth_confirm(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """The same sign in, ending in the entry that is already there."""
+        return self.async_show_menu(
+            step_id="reauth_confirm", menu_options=["reauth_password", "reauth_browser"]
+        )
+
+    async def async_step_reauth_password(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        return await self._with_password("reauth_password", user_input)
+
+    async def async_step_reauth_browser(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        return await self._with_browser("reauth_browser", user_input)
+
+    # What both ways in have in common
+
+    async def _with_password(
+        self, step: str, user_input: dict[str, Any] | None
+    ) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
+            self._email = user_input[CONF_EMAIL]
             try:
-                tokens = await self._sign_in(user_input[CONF_CODE])
+                tokens = await self._sign_in_here(
+                    user_input[CONF_EMAIL], user_input[CONF_PASSWORD]
+                )
             except HomeConnectAuthError as err:
-                _LOGGER.warning("signing in again failed: %s", err)
+                _LOGGER.warning("signing in failed: %s", err)
                 errors["base"] = "invalid_auth"
             except HomeConnectError as err:
                 _LOGGER.warning("could not reach the service: %s", err)
                 errors["base"] = "cannot_connect"
             except Exception:
-                _LOGGER.exception("unexpected failure while signing in again")
+                _LOGGER.exception("unexpected failure while signing in")
                 errors["base"] = "unknown"
             else:
                 return await self._finish(tokens)
         return self.async_show_form(
-            step_id="reauth_confirm",
-            data_schema=SCHEMA,
+            step_id=step,
+            data_schema=self.add_suggested_values_to_schema(
+                ACCOUNT, {CONF_EMAIL: self._email}
+            ),
+            errors=errors,
+        )
+
+    async def _with_browser(
+        self, step: str, user_input: dict[str, Any] | None
+    ) -> ConfigFlowResult:
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            try:
+                tokens = await self._sign_in_there(user_input[CONF_CODE])
+            except HomeConnectAuthError as err:
+                _LOGGER.warning("signing in failed: %s", err)
+                errors["base"] = "invalid_auth"
+            except HomeConnectError as err:
+                _LOGGER.warning("could not reach the service: %s", err)
+                errors["base"] = "cannot_connect"
+            except Exception:
+                _LOGGER.exception("unexpected failure while signing in")
+                errors["base"] = "unknown"
+            else:
+                return await self._finish(tokens)
+        return self.async_show_form(
+            step_id=step,
+            data_schema=PASTED,
             errors=errors,
             description_placeholders={
-                "url": auth.authorize_url(self._verifier, self._state)
+                "url": auth.authorize_url(self._verifier, self._state, REDIRECT_URI_WEB)
             },
         )
 
-    async def _sign_in(self, answer: str) -> Tokens:
-        """Turn what the user pasted back into a token pair that works.
+    async def _sign_in_here(self, email: str, password: str) -> Tokens:
+        """Walk the sign in ourselves, which needs a session of our own.
 
-        The pair is used once before it is written anywhere, because a token
-        the cloud will hand out and then refuse is a token that makes an entry
-        which fails on every start with nothing to say about why.
+        SingleKey ID carries the sign in in cookies from the first hop to the
+        last. Home Assistant's shared session is shared with everything else,
+        so this gets one that is thrown away with the attempt.
         """
+        session = async_create_clientsession(self.hass)
+        try:
+            code = await singlekey.sign_in(
+                session, email, password, self._verifier, self._state
+            )
+            return await self._prove(
+                await auth.exchange(session, code, self._verifier, REDIRECT_URI_APP)
+            )
+        finally:
+            await session.close()
+
+    async def _sign_in_there(self, answer: str) -> Tokens:
+        """Take what the browser ended on and turn it into a token pair."""
         if not _ours(answer, self._state):
             raise HomeConnectAuthError("that address is from a different sign in")
         session = async_get_clientsession(self.hass)
-        tokens = await auth.exchange(session, auth.code_from(answer), self._verifier)
+        code = auth.code_from(answer)
+        return await self._prove(
+            await auth.exchange(session, code, self._verifier, REDIRECT_URI_WEB)
+        )
+
+    async def _prove(self, tokens: Tokens) -> Tokens:
+        """Use the pair once before writing it anywhere.
+
+        A token the cloud will hand out and then refuse makes an entry that
+        fails on every start with nothing to say about why.
+        """
+        session = async_get_clientsession(self.hass)
         await HomeConnectApi(session, tokens, self.hass.config.language).appliances()
         return tokens
 
     async def _finish(self, tokens: Tokens) -> ConfigFlowResult:
         """Make the entry, or hand the new tokens to the one already there."""
-        data = {
+        data: dict[str, Any] = {
             CONF_ACCESS_TOKEN: tokens.access_token,
             CONF_REFRESH_TOKEN: tokens.refresh_token,
             CONF_EXPIRES_AT: tokens.expires_at,
         }
+        if self._email:
+            # Only so that signing in again knows whose account to offer.
+            data[CONF_EMAIL] = self._email
         if tokens.account is not None:
             await self.async_set_unique_id(tokens.account)
         if self.source == SOURCE_REAUTH:

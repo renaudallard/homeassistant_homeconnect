@@ -62,6 +62,9 @@ model nobody has tried works the same way as the one this was written against.
   is read once and kept between restarts, the stream carries the changes, and
   a fresh look is only arranged when something happened that the stream cannot
   describe.
+- **Two ways in** — an address and a password, walked here without a browser,
+  or a browser for an account with a second factor or a passkey on it, which
+  no scripted sign in can answer.
 - **The words the appliance uses** — the cloud names each programme and each
   value it offers, in whatever language Home Assistant is set to, and that is
   what gets shown. Where it has not, the key says plainly enough what it is.
@@ -86,17 +89,18 @@ appliance it heard. That only shortens the walk to the form: what an appliance
 shouts says it is there and what sort it is, and nothing that would let anyone
 talk to it. The account is what authorises that.
 
-The flow shows an address. Open it and sign in with the account the app uses.
-The browser then refuses to open an address beginning `hcauth://`, which is
-what should happen: that is the app's own scheme and there is no app here to
-catch it. Copy that address out of the address bar and paste it into the form.
-It carries a one time code, which is worth nothing to anybody who has not got
-the secret this generated before it handed out the first address.
+The flow asks which way this account signs in, because nothing says in
+advance. **With a password** is the short way: the address and password go to
+SingleKey ID, the whole sign in is walked here without a browser, and only the
+tokens it hands back are kept. **In a browser** is for an account that has a
+second factor or a passkey on it, which no scripted sign in can answer: open
+the address the form shows, sign in however that account signs in, and paste
+back the address the browser ends on.
 
-The app's other registered address, on `qr.home-connect.com`, is not used. It
-loads a real page whose job is to hand a desktop session over to a phone by
-showing a QR code, which is no use when the thing waiting for the code is Home
-Assistant rather than a phone.
+The browser way ends on a Home Connect page built to hand a phone the session,
+so ignore what it shows and take the address out of the address bar. It
+carries a one time code, worth nothing to anybody without the secret this
+generated before it handed out the first address.
 
 That is the only time you sign in. The tokens go into the config entry and are
 renewed in the background from then on.
@@ -209,17 +213,24 @@ The app is an ordinary OAuth 2 public client with PKCE, and this is the same
 exchange with one manual step in the middle of it.
 
 1. `GET /security/oauth/authorize` on `api.home-connect.com`, with the app's
-   client id, its https redirect address, its scopes, `prompt=login` and the
-   digest of a secret generated a moment earlier. The cloud sends the browser
-   on to SingleKey ID, which is where the account is actually signed in to.
-2. Signing in sends the browser back to `qr.home-connect.com` with a one time
-   code on the address. Home Assistant cannot be sent back to, so that address
-   is pasted into the form instead. The state that went out with the request
-   comes back untouched and is checked, so an address from somebody else's
-   sign in is refused.
+   client id, one of its two registered redirect addresses, its scopes,
+   `prompt=login` and the digest of a secret generated a moment earlier. The
+   cloud sends whoever is walking it on to SingleKey ID, which is where the
+   account is actually signed in to.
+2. SingleKey ID takes the address and then the password, each on its own page,
+   each carrying a verification token of its own, and hands the account back
+   through `api.home-connect.com` to the registered address.
 3. `POST /security/oauth/token` trades the code, the secret and the client id
    for an access token and a refresh token. There is no client secret: a
    public client has none, which is the whole reason PKCE exists.
+
+Which redirect address is asked for in step 1 depends on who is walking it,
+and has to be the same one the code is traded against in step 3. Signing in
+here follows the redirects itself and stops at `hcauth://auth/prod`, the app's
+own scheme, which is the whole answer in one line. A browser cannot be sent
+there: it will not open the scheme, and the failed hop leaves the address bar
+showing the last page that did load. So a browser is sent to
+`qr.home-connect.com` instead, which it can actually reach.
 
 The refresh token rotates on every renewal, so whatever holds it has to write
 the new one back; the client reports each new pair through a listener for that
@@ -288,8 +299,10 @@ work live in `tmp/`, which is not tracked, as is the app package itself.
 
 `tools/check_login.py` walks the whole sign in against a real account outside
 Home Assistant, says which step fails, and logs every request and answer
-redacted. `--dump DIR` writes what every appliance said into that directory
-with the serial numbers taken out, which is what a fixture is made from.
+redacted. It reads the password from the terminal without echoing it and never
+writes it down. `--dump DIR` writes what every appliance said into that
+directory with the serial numbers taken out, which is what a fixture is made
+from.
 
 The tests load a washing machine and an oven and check what comes out of them.
 The config flow tests drive the real Home Assistant flow machinery, so they

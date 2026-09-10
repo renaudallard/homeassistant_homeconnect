@@ -41,6 +41,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import patch
 
+from homeassistant.const import CONF_EMAIL
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -131,17 +132,20 @@ def serve(mock: AiohttpClientMocker, appliances: list[dict[str, Any]]) -> None:
         )
 
 
-def entry(hass: HomeAssistant) -> MockConfigEntry:
+def entry(hass: HomeAssistant, email: str | None = None) -> MockConfigEntry:
     """An account already signed in, with a token that has not expired."""
+    data: dict[str, Any] = {
+        CONF_ACCESS_TOKEN: "an-access-token",
+        CONF_REFRESH_TOKEN: "a-refresh-token",
+        CONF_EXPIRES_AT: time.time() + 3600,
+    }
+    if email is not None:
+        data[CONF_EMAIL] = email
     made = MockConfigEntry(
         domain=DOMAIN,
         title="Home Connect",
         unique_id="account-under-test",
-        data={
-            CONF_ACCESS_TOKEN: "an-access-token",
-            CONF_REFRESH_TOKEN: "a-refresh-token",
-            CONF_EXPIRES_AT: time.time() + 3600,
-        },
+        data=data,
     )
     made.add_to_hass(hass)
     return made

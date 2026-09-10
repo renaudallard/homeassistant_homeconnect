@@ -53,13 +53,19 @@ API_PATH = "/api"
 # The Home Connect app, as it identifies itself to its own cloud.
 CLIENT_ID = "9B75AC9EC512F36C84256AC47D813E2C1DD0D6520DF774B020E1E6E2EB29B1F3"
 
-# The app registers two places to be sent back to once the user has signed in.
-# The https one loads a real page, whose job is to hand a desktop session over
-# to the phone by showing a QR code, and which is free to tidy the code out of
-# the address bar while it is at it. The private scheme loads nothing at all:
-# the browser cannot open it, so it stops with the whole answer sitting in the
-# address bar, which is exactly what is wanted from here.
-REDIRECT_URI = "hcauth://auth/prod"
+# The app registers two places to be sent back to once the user has signed in,
+# and which is wanted depends on who is doing the walking.
+#
+# Signing in here, without a browser, follows the redirects itself and stops at
+# the app's own scheme rather than trying to open it. That is the whole answer
+# in one line, so that is the one to ask for.
+#
+# Signing in through a browser cannot ask for that scheme: the browser will not
+# open it, and the failed hop leaves the address bar showing the last page that
+# did load, with the code nowhere. Such a sign in has to come back to an
+# address a browser can actually reach.
+REDIRECT_URI_APP = "hcauth://auth/prod"
+REDIRECT_URI_WEB = "https://qr.home-connect.com/authorize/prod/"
 
 # What the app asks for. Control, Settings and Monitor are what drive an
 # appliance; ReadOrigApi and WriteOrigApi are what open the REST API this
