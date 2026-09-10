@@ -90,3 +90,15 @@ def test_nothing_is_written_with_an_em_dash_or_a_double_space() -> None:
         assert "—" not in text, where
         assert "--" not in text, where
         assert "  " not in text, where
+
+
+def test_no_address_is_written_into_the_text_itself() -> None:
+    """hassfest refuses one, and it does not run outside CI.
+
+    An address belongs in a placeholder, where it can be built from whatever
+    the flow actually generated rather than repeated in every language it is
+    translated into.
+    """
+    for where, text in _leaves(STRINGS):
+        assert "http://" not in text, where
+        assert "https://" not in text, where

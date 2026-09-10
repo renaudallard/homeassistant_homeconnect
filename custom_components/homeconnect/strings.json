@@ -8,7 +8,7 @@
           "code": "Address the browser ended on"
         },
         "data_description": {
-          "code": "The whole address, starting with https://qr.home-connect.com. It is only good once and only here."
+          "code": "The whole address out of the address bar, not just part of it. It is only good once and only here."
         }
       },
       "reauth_confirm": {
@@ -18,7 +18,7 @@
           "code": "Address the browser ended on"
         },
         "data_description": {
-          "code": "The whole address, starting with https://qr.home-connect.com. It is only good once and only here."
+          "code": "The whole address out of the address bar, not just part of it. It is only good once and only here."
         }
       }
     },
