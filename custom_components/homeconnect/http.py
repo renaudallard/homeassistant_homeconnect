@@ -103,9 +103,16 @@ def redact(data: Any) -> Any:
     return data
 
 
-# Where an appliance id sits in an address. Only the segment right after the
-# listing is one; the words either side of it are parts of the route.
-APPLIANCE_AT = re.compile(r"(/homeappliances/)([^/?#]+)")
+# Where an appliance id sits in an address. Three listings are followed by
+# one: the appliance API, the key kept for one appliance and its description.
+# The last of those repeats the word, so the whole of it is written out.
+APPLIANCE_AT = re.compile(
+    r"(/(?:homeappliances|appliances)/|/iddf/v\d+/iddf/)([^/?#]+)"
+)
+
+# What can follow one of those without being an appliance. The stream lives
+# there, and no appliance has ever been called events.
+ROUTE_WORDS = frozenset({"events"})
 
 
 def hidden_id(haid: str) -> str:
@@ -126,13 +133,19 @@ def hidden_id(haid: str) -> str:
 def redact_url(url: str) -> str:
     """Hide the part of an appliance id that names one particular machine.
 
-    A segment with no dash in it is a word of the route rather than an id: the
-    stream lives at one, and no appliance has ever been called events.
+    Whatever follows one of the listings is an appliance unless it is one of
+    the few words of the route that sit in the same place. Reading it the
+    other way round and taking anything without a dash in it for a route word
+    put an id written as a bare serial into the log whole.
     """
     return APPLIANCE_AT.sub(
         lambda found: (
             found.group(1)
-            + (hidden_id(found.group(2)) if "-" in found.group(2) else found.group(2))
+            + (
+                found.group(2)
+                if found.group(2) in ROUTE_WORDS
+                else hidden_id(found.group(2))
+            )
         ),
         url,
     )

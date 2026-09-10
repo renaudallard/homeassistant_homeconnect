@@ -80,6 +80,30 @@ def test_an_address_with_no_appliance_in_it_is_left_alone() -> None:
         )
 
 
+def test_an_id_that_is_only_a_serial_is_hidden_too() -> None:
+    """Not every appliance is named for its brand and model. A hob is named
+    for its serial alone, which looks like nothing at all and is exactly the
+    thing that must not be published."""
+    hidden = redact_url(
+        "https://api.home-connect.com/api/homeappliances/335030393548000200/settings"
+    )
+    assert "335030393548000200" not in hidden
+    assert hidden.endswith("/settings")
+
+
+def test_the_addresses_on_the_account_service_are_hidden_as_well() -> None:
+    """The key kept for one appliance and its description both name it."""
+    for path in (
+        "/api/appliance/v2/appliances/{}/encryption-information",
+        "/api/iddf/v1/iddf/{}",
+    ):
+        hidden = redact_url(
+            f"https://eu.services.home-connect.com{path}".format("335030393548000200")
+        )
+        assert "335030393548000200" not in hidden
+        assert "/v1/" in hidden or "/v2/" in hidden
+
+
 def test_an_id_not_written_the_usual_way_is_hidden_whole() -> None:
     """Losing the model from a report costs a question. Publishing somebody's
     serial because it did not look like one cannot be taken back."""
