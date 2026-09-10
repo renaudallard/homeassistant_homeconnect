@@ -130,9 +130,14 @@ away on the next look.
 An appliance that the account lists but that has never once answered raises a
 repair notice saying so, because otherwise it arrives as a single Disconnected
 sensor and no explanation, which reads like this failing when it is the
-appliance declining to talk to the cloud. It goes away by itself once the
-appliance answers. A machine that used to work and is switched off today
-raises nothing: that is not something to repair.
+appliance not talking to the cloud. The commonest reason is simply that the
+appliance is switched off: several kinds, hobs above all, only hold a cloud
+connection while they are in use, and one sitting switched off keeps just
+enough of its network module awake to answer the app over the local network.
+It looks perfectly healthy there while the cloud has never heard from it. The
+notice goes away by itself once the appliance answers, and a machine that used
+to work and is switched off today raises nothing at all: that is not something
+to repair.
 
 Every appliance also gets a **Connection** binary sensor, which is where a
 machine going quiet shows up. When the cloud stops calling an appliance
