@@ -1,0 +1,204 @@
+# BSD 2-Clause License
+#
+# Copyright (c) 2026, Renaud Allard <renaud@allard.it>
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright notice, this
+#    list of conditions and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+#    this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+"""Shared HTTP plumbing.
+
+Every cloud call goes through here, so an unreachable host or an unreadable
+body is reported the same way wherever it happens. What a given status means is
+left to the caller, because it differs between the token endpoint and the
+appliance endpoints.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import re
+from typing import Any
+
+import aiohttp
+
+from .const import CONNECT_TIMEOUT, REQUEST_TIMEOUT
+from .errors import HomeConnectBackendError, HomeConnectConnectionError
+
+_LOGGER = logging.getLogger(__name__)
+
+TIMEOUT = aiohttp.ClientTimeout(total=REQUEST_TIMEOUT, connect=CONNECT_TIMEOUT)
+
+# Anything under one of these names is a credential or says whose account this
+# is. Debug logging is meant to be pasted into a bug report, so none of it goes
+# out in the clear, in a body or in the headers either way along.
+SECRETS = frozenset(
+    {
+        "access_token",
+        "authorization",
+        "client_id",
+        "code",
+        "code_challenge",
+        "code_verifier",
+        "cookie",
+        "email",
+        "haid",
+        "id_token",
+        "refresh_token",
+        "set-cookie",
+        "state",
+    }
+)
+
+
+def _hidden(value: Any) -> Any:
+    """What a secret is replaced by.
+
+    A note of its length where it has one, since that is what tells a token
+    that arrived truncated from one that did not. Nothing is not a secret, so
+    it stays as it is and says so.
+    """
+    if value is None or value == "":
+        return value
+    if isinstance(value, str):
+        return f"<{len(value)} chars hidden>"
+    return "<hidden>"
+
+
+def redact(data: Any) -> Any:
+    """Copy a structure with every secret replaced by a note of its length."""
+    if isinstance(data, dict):
+        return {
+            key: (_hidden(value) if str(key).lower() in SECRETS else redact(value))
+            for key, value in data.items()
+        }
+    if isinstance(data, list):
+        return [redact(item) for item in data]
+    return data
+
+
+# An appliance id is the brand, the model and the serial run together, as in
+# BOSCH-HNG6764B6-0000000011FF. The serial is the part that names one machine
+# and one household, and it is the only part worth hiding: the brand and the
+# model are what a bug report is about.
+APPLIANCE_ID = re.compile(r"\b([A-Za-z]+-[0-9A-Za-z_]+-)([0-9A-Fa-f]{8,})\b")
+
+
+def redact_url(url: str) -> str:
+    """Hide the part of an appliance id that names one particular machine."""
+    return APPLIANCE_ID.sub(lambda found: f"{found.group(1)}<serial hidden>", url)
+
+
+# Enough for a list of available programmes, which on an oven runs to several
+# hundred and keeps nothing in any particular order. A shorter cut made the log
+# useless for the one question it was there to answer.
+MOST = 20000
+
+
+def _readable(body: bytes) -> str:
+    """A body fit to log: redacted if it is JSON, described if it is not."""
+    if not body:
+        return "empty"
+    try:
+        readable = json.dumps(redact(json.loads(body)))
+    except ValueError:
+        return f"<{len(body)} bytes that are not JSON>"
+    if len(readable) <= MOST:
+        return readable
+    return f"{readable[:MOST]} <{len(readable) - MOST} more characters>"
+
+
+async def request(
+    session: aiohttp.ClientSession,
+    method: str,
+    url: str,
+    *,
+    headers: dict[str, str] | None = None,
+    params: dict[str, str] | None = None,
+    data: dict[str, str] | None = None,
+    json_body: dict[str, Any] | None = None,
+) -> tuple[int, Any, dict[str, str]]:
+    """Make a request and return the status, the decoded body and the headers.
+
+    Raises when there is no answer worth reading, meaning an unreachable host, a
+    server side failure, or a body that does not parse. An empty body is fine
+    and reads back as None, which is what a request that worked usually gets.
+    """
+    _LOGGER.debug("%s %s params=%s", method, redact_url(url), redact(params or {}))
+    if data is not None:
+        _LOGGER.debug("  form %s", redact(data))
+    if json_body is not None:
+        _LOGGER.debug("  json %s", redact(json_body))
+    try:
+        async with session.request(
+            method,
+            url,
+            headers=headers,
+            params=params,
+            data=data,
+            json=json_body,
+            timeout=TIMEOUT,
+        ) as response:
+            status = response.status
+            body = await response.read()
+            answered = {key.lower(): value for key, value in response.headers.items()}
+            _LOGGER.debug("  <- %s %s", status, redact(dict(answered)))
+    except (aiohttp.ClientError, TimeoutError) as err:
+        _LOGGER.debug("  <- did not answer: %s", err)
+        raise HomeConnectConnectionError(
+            f"{redact_url(url)} is unreachable: {err}"
+        ) from err
+
+    _LOGGER.debug("  <- body %s", _readable(body))
+
+    if status >= 500:
+        raise HomeConnectBackendError(f"{redact_url(url)} failed with status {status}")
+    if not body:
+        return status, None, answered
+    try:
+        return status, json.loads(body), answered
+    except ValueError as err:
+        raise HomeConnectConnectionError(
+            f"{redact_url(url)} answered status {status} with a body that is not JSON"
+        ) from err
+
+
+def failure(payload: Any) -> tuple[str | None, str]:
+    """The key and the description out of an error body.
+
+    Every refusal arrives shaped the same way, with a key naming the kind of
+    thing that went wrong and a description meant to be read. A body that is
+    not shaped that way is described as it stands, since a refusal nobody can
+    explain is still worth reporting.
+    """
+    if isinstance(payload, dict):
+        error = payload.get("error")
+        if isinstance(error, dict):
+            key = error.get("key")
+            described = error.get("description") or error.get("value") or key
+            return (
+                str(key) if key else None,
+                str(described) if described else "no reason given",
+            )
+    if payload is None:
+        return None, "no body"
+    return None, json.dumps(redact(payload))[:300]

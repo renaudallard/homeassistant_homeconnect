@@ -1,0 +1,79 @@
+{
+  "appliance": {
+    "haId": "SIEMENS-HB678GBS6B-FEDCBA987654",
+    "name": "Oven",
+    "type": "Oven",
+    "brand": "SIEMENS",
+    "vib": "HB678GBS6B",
+    "enumber": "HB678GBS6B/50",
+    "connected": true
+  },
+  "status": [
+    {
+      "key": "BSH.Common.Status.OperationState",
+      "value": "BSH.Common.EnumType.OperationState.Inactive",
+      "displayvalue": "Inactive"
+    },
+    {"key": "BSH.Common.Status.RemoteControlActive", "value": true}
+  ],
+  "settings": [
+    {"key": "Cooking.Common.Setting.Lighting", "value": true},
+    {"key": "Cooking.Common.Setting.LightingBrightness", "value": 70, "unit": "%"},
+    {"key": "BSH.Common.Setting.AmbientLightEnabled", "value": false},
+    {"key": "BSH.Common.Setting.AmbientLightBrightness", "value": 40, "unit": "%"},
+    {"key": "BSH.Common.Setting.AmbientLightColor",
+     "value": "BSH.Common.EnumType.AmbientLightColor.Color1"},
+    {"key": "BSH.Common.Setting.AmbientLightCustomColor", "value": "#4a88f8"}
+  ],
+  "setting_details": {
+    "Cooking.Common.Setting.Lighting": {
+      "key": "Cooking.Common.Setting.Lighting",
+      "value": true,
+      "type": "Boolean",
+      "constraints": {"access": "readWrite"}
+    },
+    "Cooking.Common.Setting.LightingBrightness": {
+      "key": "Cooking.Common.Setting.LightingBrightness",
+      "value": 70,
+      "unit": "%",
+      "type": "Double",
+      "constraints": {"min": 10, "max": 100, "access": "readWrite"}
+    },
+    "BSH.Common.Setting.AmbientLightEnabled": {
+      "key": "BSH.Common.Setting.AmbientLightEnabled",
+      "value": false,
+      "type": "Boolean",
+      "constraints": {"access": "readWrite"}
+    },
+    "BSH.Common.Setting.AmbientLightBrightness": {
+      "key": "BSH.Common.Setting.AmbientLightBrightness",
+      "value": 40,
+      "unit": "%",
+      "type": "Double",
+      "constraints": {"min": 10, "max": 100, "access": "readWrite"}
+    },
+    "BSH.Common.Setting.AmbientLightColor": {
+      "key": "BSH.Common.Setting.AmbientLightColor",
+      "value": "BSH.Common.EnumType.AmbientLightColor.Color1",
+      "type": "BSH.Common.EnumType.AmbientLightColor",
+      "constraints": {
+        "allowedvalues": [
+          "BSH.Common.EnumType.AmbientLightColor.Color1",
+          "BSH.Common.EnumType.AmbientLightColor.CustomColor"
+        ],
+        "displayvalues": ["Colour 1", "Custom colour"],
+        "access": "readWrite"
+      }
+    },
+    "BSH.Common.Setting.AmbientLightCustomColor": {
+      "key": "BSH.Common.Setting.AmbientLightCustomColor",
+      "value": "#4a88f8",
+      "type": "String",
+      "constraints": {"access": "readWrite"}
+    }
+  },
+  "commands": [],
+  "events": [],
+  "available": [],
+  "program_options": {}
+}

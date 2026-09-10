@@ -1,0 +1,168 @@
+{
+  "appliance": {
+    "haId": "BOSCH-WAV28MH0GB-1234567890AB",
+    "name": "Washer",
+    "type": "Washer",
+    "brand": "BOSCH",
+    "vib": "WAV28MH0GB",
+    "enumber": "WAV28MH0GB/01",
+    "connected": true
+  },
+  "status": [
+    {
+      "key": "BSH.Common.Status.OperationState",
+      "name": "Operation state",
+      "value": "BSH.Common.EnumType.OperationState.Ready",
+      "displayvalue": "Ready"
+    },
+    {
+      "key": "BSH.Common.Status.DoorState",
+      "name": "Door",
+      "value": "BSH.Common.EnumType.DoorState.Closed",
+      "displayvalue": "Closed"
+    },
+    {"key": "BSH.Common.Status.RemoteControlActive", "value": true},
+    {"key": "BSH.Common.Status.RemoteControlStartAllowed", "value": true},
+    {"key": "BSH.Common.Status.LocalControlActive", "value": false},
+    {"key": "BSH.Common.Status.WiFiSignalStrength", "value": -55, "unit": "dBm"}
+  ],
+  "settings": [
+    {"key": "BSH.Common.Setting.PowerState", "value": "BSH.Common.EnumType.PowerState.On"},
+    {"key": "BSH.Common.Setting.ChildLock", "value": false},
+    {"key": "LaundryCare.Washer.Setting.IDos1BaseLevel", "value": 200, "unit": "ml"},
+    {"key": "BSH.Common.Setting.Sound.Volume", "value": 3}
+  ],
+  "setting_details": {
+    "BSH.Common.Setting.PowerState": {
+      "key": "BSH.Common.Setting.PowerState",
+      "value": "BSH.Common.EnumType.PowerState.On",
+      "displayvalue": "On",
+      "type": "BSH.Common.EnumType.PowerState",
+      "constraints": {
+        "allowedvalues": [
+          "BSH.Common.EnumType.PowerState.On",
+          "BSH.Common.EnumType.PowerState.Off"
+        ],
+        "displayvalues": ["On", "Off"],
+        "access": "readWrite"
+      }
+    },
+    "BSH.Common.Setting.ChildLock": {
+      "key": "BSH.Common.Setting.ChildLock",
+      "value": false,
+      "type": "Boolean",
+      "constraints": {"access": "readWrite"}
+    },
+    "LaundryCare.Washer.Setting.IDos1BaseLevel": {
+      "key": "LaundryCare.Washer.Setting.IDos1BaseLevel",
+      "value": 200,
+      "unit": "ml",
+      "type": "Double",
+      "constraints": {"min": 0, "max": 500, "stepsize": 10, "access": "readWrite"}
+    },
+    "BSH.Common.Setting.Sound.Volume": {
+      "key": "BSH.Common.Setting.Sound.Volume",
+      "value": 3,
+      "type": "Int",
+      "constraints": {"min": 0, "max": 6, "access": "readWrite"}
+    }
+  },
+  "commands": [
+    {"key": "BSH.Common.Command.PauseProgram", "name": "Stop the programme"},
+    {"key": "BSH.Common.Command.ResumeProgram", "name": "Continue the programme"}
+  ],
+  "events": [
+    {
+      "key": "LaundryCare.Washer.Event.IDos1FillLevelPoor",
+      "value": "BSH.Common.EnumType.EventPresentState.Off",
+      "timestamp": 1756000000,
+      "level": "hint",
+      "handling": "none"
+    }
+  ],
+  "available": [
+    {"key": "LaundryCare.Washer.Program.Cotton", "name": "Cottons",
+     "constraints": {"execution": "selectandstart"}},
+    {"key": "LaundryCare.Washer.Program.EasyCare", "name": "Easy care",
+     "constraints": {"execution": "selectandstart"}}
+  ],
+  "program_options": {
+    "LaundryCare.Washer.Program.Cotton": {
+      "key": "LaundryCare.Washer.Program.Cotton",
+      "name": "Cottons",
+      "options": [
+        {
+          "key": "LaundryCare.Washer.Option.Temperature",
+          "name": "Temperature",
+          "type": "LaundryCare.Washer.EnumType.Temperature",
+          "constraints": {
+            "allowedvalues": [
+              "LaundryCare.Washer.EnumType.Temperature.GC40",
+              "LaundryCare.Washer.EnumType.Temperature.GC60"
+            ],
+            "displayvalues": ["40 °C", "60 °C"],
+            "default": "LaundryCare.Washer.EnumType.Temperature.GC40",
+            "access": "readWrite"
+          }
+        },
+        {
+          "key": "LaundryCare.Washer.Option.SpinSpeed",
+          "name": "Spin speed",
+          "type": "LaundryCare.Washer.EnumType.SpinSpeed",
+          "constraints": {
+            "allowedvalues": [
+              "LaundryCare.Washer.EnumType.SpinSpeed.RPM800",
+              "LaundryCare.Washer.EnumType.SpinSpeed.RPM1200"
+            ],
+            "displayvalues": ["800 rpm", "1200 rpm"],
+            "access": "readWrite"
+          }
+        },
+        {
+          "key": "BSH.Common.Option.StartInRelative",
+          "name": "Start time",
+          "unit": "seconds",
+          "type": "Int",
+          "constraints": {
+            "min": 0,
+            "max": 86400,
+            "stepsize": 60,
+            "execution": "startonly",
+            "access": "readWrite"
+          }
+        },
+        {
+          "key": "BSH.Common.Option.RemainingProgramTime",
+          "name": "Remaining programme running time",
+          "unit": "seconds",
+          "type": "Int",
+          "constraints": {"min": 0, "max": 86400, "access": "read"}
+        },
+        {
+          "key": "LaundryCare.Washer.Option.IDos1Active",
+          "name": "i-Dos 1",
+          "type": "Boolean",
+          "constraints": {"access": "readWrite"}
+        }
+      ]
+    }
+  },
+  "selected": {
+    "key": "LaundryCare.Washer.Program.Cotton",
+    "name": "Cottons",
+    "options": [
+      {
+        "key": "LaundryCare.Washer.Option.Temperature",
+        "value": "LaundryCare.Washer.EnumType.Temperature.GC40",
+        "displayvalue": "40 °C"
+      },
+      {
+        "key": "LaundryCare.Washer.Option.SpinSpeed",
+        "value": "LaundryCare.Washer.EnumType.SpinSpeed.RPM1200",
+        "displayvalue": "1200 rpm"
+      },
+      {"key": "LaundryCare.Washer.Option.IDos1Active", "value": false},
+      {"key": "BSH.Common.Option.RemainingProgramTime", "value": 7200, "unit": "seconds"}
+    ]
+  }
+}

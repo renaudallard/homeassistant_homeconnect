@@ -1,0 +1,36 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Sign in to Home Connect",
+        "description": "Open [this address]({url}) and sign in with the account the app uses. The browser will end on a Home Connect page that looks blank or broken; that is expected. Copy the whole address out of the address bar and paste it below.",
+        "data": {
+          "code": "Address the browser ended on"
+        },
+        "data_description": {
+          "code": "The whole address, starting with https://qr.home-connect.com. It is only good once and only here."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Sign in to Home Connect again",
+        "description": "The stored sign in has stopped working. Open [this address]({url}), sign in with the same account, and paste the address the browser ends on below.",
+        "data": {
+          "code": "Address the browser ended on"
+        },
+        "data_description": {
+          "code": "The whole address, starting with https://qr.home-connect.com. It is only good once and only here."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Could not reach Home Connect. Check your connection and try again.",
+      "invalid_auth": "That address was not accepted. A code is only good once and only for a few minutes, so open the address above again and sign in afresh.",
+      "unknown": "Something unexpected went wrong. Check the log for details."
+    },
+    "abort": {
+      "already_configured": "This account is already set up.",
+      "reauth_successful": "Signed in again successfully.",
+      "unique_id_mismatch": "That is a different account. Sign in with the one this entry was set up for."
+    }
+  }
+}

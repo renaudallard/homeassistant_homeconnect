@@ -1,0 +1,298 @@
+<p align="center">
+  <a href="https://github.com/renaudallard/homeassistant_homeconnect/releases/latest">
+    <img src="https://img.shields.io/github/v/release/renaudallard/homeassistant_homeconnect?label=version&style=flat-square&sort=semver" alt="Latest release"/>
+  </a>
+  <a href="https://github.com/renaudallard/homeassistant_homeconnect/releases">
+    <img src="https://img.shields.io/github/downloads/renaudallard/homeassistant_homeconnect/total?style=flat-square&label=downloads" alt="Downloads"/>
+  </a>
+  <a href="https://github.com/renaudallard/homeassistant_homeconnect/actions/workflows/validate.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/renaudallard/homeassistant_homeconnect/validate.yml?style=flat-square&label=hacs%20%2F%20hassfest" alt="Validate"/>
+  </a>
+  <a href="https://github.com/renaudallard/homeassistant_homeconnect/actions/workflows/test.yml">
+    <img src="https://img.shields.io/github/actions/workflow/status/renaudallard/homeassistant_homeconnect/test.yml?style=flat-square&label=tests" alt="Tests"/>
+  </a>
+  <a href="https://www.home-assistant.io/">
+    <img src="https://img.shields.io/badge/Home%20Assistant-2026.9%2B-41BDF5?logo=home-assistant&logoColor=white&style=flat-square" alt="Home Assistant"/>
+  </a>
+  <a href="https://hacs.xyz">
+    <img src="https://img.shields.io/badge/HACS-Custom-41BDF5.svg?style=flat-square" alt="HACS"/>
+  </a>
+  <a href="./LICENSE">
+    <img src="https://img.shields.io/github/license/renaudallard/homeassistant_homeconnect?style=flat-square" alt="License"/>
+  </a>
+</p>
+
+---
+
+Home Assistant integration for **Bosch, Siemens, Neff, Gaggenau, Thermador
+and Balay appliances**, talking to the Home Connect cloud the way
+the Home Connect app does. Pair the appliance with the app once, then drive it
+from here.
+
+**No developer account.** It signs in as the app itself, with the app's own
+credentials, so an ordinary Home Connect login is the whole of the setup.
+Nothing has to be registered anywhere and there is no client of your own to
+create or keep.
+
+**Nothing in it knows what a washing machine is.** Every appliance describes
+itself, key by key, and the entities are built from that description, so a
+model nobody has tried works the same way as the one this was written against.
+
+> Unofficial. Not affiliated with, endorsed by, or supported by BSH Hausgeräte
+> or any of its brands. Targets Home Assistant **2026.9 or newer**. The domain
+> is `homeconnect`, which is not the `home_connect` of the integration that
+> ships with Home Assistant: the two can be installed side by side, and this
+> one asks for no developer registration.
+
+## Highlights
+
+- **Built from what the appliance says** — a command becomes a button, a
+  settable flag a switch, a choice a select, a bounded number a number. No
+  per-model tables, and no list of appliance types to keep up to date.
+- **Only what it will accept** — an appliance also says what it will take
+  right now. A washing machine offers the programmes it will run in the state
+  it is in, and nothing at all while its door is open or remote control has
+  not been armed at the machine itself.
+- **Live, not polled** — the cloud pushes changes over one Server-Sent Events
+  connection carrying the whole account, so a cycle finishing shows up when it
+  happens. Polling carries on behind it at half-hourly intervals to catch
+  whatever a dropped connection missed, and drops back to every minute the
+  moment the stream goes down.
+- **Careful with the quota** — the API counts every call. What a model can do
+  is read once and kept between restarts, the stream carries the changes, and
+  a fresh look is only arranged when something happened that the stream cannot
+  describe.
+- **The words the appliance uses** — the cloud names each programme and each
+  value it offers, in whatever language Home Assistant is set to, and that is
+  what gets shown. Where it has not, the key says plainly enough what it is.
+- **Delayed start** — the option that sets one can only be given as a
+  programme starts, so it is held here until it does and sent along with the
+  start. Set it, press start, and the machine waits.
+- **Lamps as lamps** — an appliance keeps a light as two or three separate
+  settings. They are gathered into one light entity with brightness and, for
+  the decorative sort, colour.
+
+## Installing
+
+Add this repository to [HACS](https://hacs.xyz) as a custom repository of
+category **Integration** and install it from there, or copy
+`custom_components/homeconnect` into the `custom_components` directory of your
+Home Assistant configuration by hand. Either way, restart, then add **Home
+Connect** from *Settings → Devices & services*.
+
+The flow shows an address. Open it, sign in with the account the app uses, and
+the browser will land on a Home Connect page that looks blank or broken. That
+is expected: it is the address the app is sent back to, and there is no app
+here to catch it. Copy the whole address out of the address bar and paste it
+into the form. It carries a one time code, which is worth nothing to anybody
+who has not got the secret this generated before it handed out the first
+address.
+
+Tokens are written into the config entry and renewed in the background. If they
+stop working, Home Assistant asks you to sign in again rather than failing
+quietly. It has to be the same account: signing in as somebody else is refused
+rather than quietly pointing the entry at another household's appliances.
+
+An appliance unpaired in the app stops being listed, and its device is taken
+away on the next look.
+
+## What you get
+
+| The appliance says | You get |
+| --- | --- |
+| a flag it will let you set | a switch |
+| a choice between on and off | a switch, whichever two words it uses |
+| a choice, and the values it takes | a select |
+| a number with a range | a number |
+| a flag it only reports | a binary sensor |
+| the door | a door binary sensor, with locked told from merely shut |
+| whatever it is complaining about | a binary sensor each |
+| the commands it takes | a button each |
+| the programmes it will run | a **Programme** select, with **Start** and **Stop** |
+| how long is left | a duration sensor, and a **Finish at** timestamp |
+| anything else it reports | a sensor |
+
+Every appliance also gets a **Connection** binary sensor, which is where a
+machine going quiet shows up. When the cloud stops calling an appliance
+reachable, what it last said stays readable, so a wash can be looked at
+afterwards; `binary_sensor.<appliance>_connection` is what says the machine has
+gone, rather than every other entity saying it at once. Controls do go
+unavailable, since there is nothing to set on an appliance that cannot be
+reached.
+
+The device is named for what the account calls it, with the type code from its
+rating plate as the model and the full number with the customer index beside
+it.
+
+Four details worth knowing, because they look like faults and are not:
+
+- **The controls are unavailable until remote control is armed** at the
+  machine. An appliance whose panel has not been told to accept instructions
+  refuses everything, and the app greys the same controls out. Starting needs
+  a second permission on top of that, which is why **Start** can be
+  unavailable while the rest of the appliance is not.
+- **The programme list shrinks and grows.** An appliance that is off, or whose
+  door is open, offers nothing; one mid-cycle offers only what it is doing.
+  That is the appliance's own rule, and offering anything else earns a
+  refusal.
+- **The programme decides what can be adjusted.** A cotton wash takes a
+  temperature and a spin speed that a wool wash will not, so the options that
+  belong to another programme go unavailable rather than disappearing. They
+  come back when that programme is chosen again.
+- **A refusal says why.** An appliance that will not do as it is told names the
+  reason, and that reason is what appears in Home Assistant rather than a bare
+  failure, because it is the only thing that says what to go and do about it.
+
+The **Finish at** timestamp is held still while the estimate is. An appliance
+counts down in whole minutes and repeats itself in between, so working the
+finishing time out afresh every time it says anything would move it about by a
+minute in each direction for the whole of a cycle. It is only moved when the
+appliance has changed its mind by more than the counting down explains.
+
+Entity names come from the key rather than from the cloud, because a key is
+stable and says what a thing is: `BSH.Common.Status.OperationState` reads as
+**Operation state** wherever it turns up. The values are the other way round,
+because a key is a poor name for a value and the cloud has a good one:
+`LaundryCare.Washer.EnumType.Temperature.GC40` is **40 °C** to the appliance
+and would be **GC 40** to anything working it out for itself. Every reading of
+an enumerated value also carries the appliance's own word for it as a `value`
+attribute, which is what an automation should read: that one does not change
+with the language Home Assistant is set to.
+
+## Reporting a problem
+
+The device page offers to download diagnostics, and that is the one to send:
+it carries the whole of what that appliance said about itself, what it can do,
+what it is doing, and how often the account is being asked. The integration
+entry offers the same thing for every appliance on the account at once, which
+is worth having only when the trouble is with the account rather than with a
+machine.
+
+Both are redacted the same way the logs are, so tokens and the serial number
+that names one particular machine are replaced by a note of their length. The
+brand, the model and everything the appliance said about itself stay readable.
+
+For a model this has never seen, that download is the one thing a report cannot
+do without.
+
+## When the controls go unavailable
+
+An appliance that the cloud has stopped hearing from cannot be set to anything,
+so every control on it goes unavailable. Readings stay, holding whatever it
+last said. The **Connection** binary sensor says which it is.
+
+An appliance talks to the Home Connect cloud itself, not through Home
+Assistant, so an appliance that has dropped off its own network looks exactly
+like this while the integration carries on talking to the cloud quite happily.
+Check the connection sensor first, and the appliance's own network settings
+after that.
+
+If every control is unavailable and the connection sensor says the appliance is
+there, remote control has not been armed at the machine.
+
+## How the login works
+
+The app is an ordinary OAuth 2 public client with PKCE, and this is the same
+exchange with one manual step in the middle of it.
+
+1. `GET /security/oauth/authorize` on `api.home-connect.com`, with the app's
+   client id, its https redirect address, its scopes, `prompt=login` and the
+   digest of a secret generated a moment earlier. The cloud sends the browser
+   on to SingleKey ID, which is where the account is actually signed in to.
+2. Signing in sends the browser back to `qr.home-connect.com` with a one time
+   code on the address. Home Assistant cannot be sent back to, so that address
+   is pasted into the form instead. The state that went out with the request
+   comes back untouched and is checked, so an address from somebody else's
+   sign in is refused.
+3. `POST /security/oauth/token` trades the code, the secret and the client id
+   for an access token and a refresh token. There is no client secret: a
+   public client has none, which is the whole reason PKCE exists.
+
+The refresh token rotates on every renewal, so whatever holds it has to write
+the new one back; the client reports each new pair through a listener for that
+reason. Renewing a token that was issued moments earlier is refused with a 429,
+which is not a failure while the token in hand still works, so it is kept.
+
+The credentials in `const.py` are the production values shipped in the Home
+Connect Android package. They identify the app rather than the user, are the
+same for every installation, and are not secrets: an appliance answers only to
+a client its account has been paired with, and the app's client is the one
+every account already trusts. That is what makes an ordinary login enough.
+
+## What it talks to
+
+`https://api.home-connect.com` and nothing else. Both the OAuth endpoints and
+the appliance API live there, and both regions the app knows about share the
+one host, so there is nothing to ask the user about.
+
+| | |
+| --- | --- |
+| `GET /api/homeappliances` | what is on the account |
+| `GET /api/homeappliances/{id}/status` | what it reports about itself |
+| `GET /api/homeappliances/{id}/settings` | what it has, then one call each for what they take |
+| `GET /api/homeappliances/{id}/commands` | what it can be told to do |
+| `GET /api/homeappliances/{id}/events` | what it is complaining about now |
+| `GET /api/homeappliances/{id}/programs/available` | what it will run, and one call for what each takes |
+| `GET/PUT /api/homeappliances/{id}/programs/{active,selected}` | what it is doing, and what it is set to |
+| `PUT /api/homeappliances/{id}/settings/{key}` | change a setting |
+| `PUT /api/homeappliances/{id}/programs/{slot}/options/{key}` | change an option |
+| `PUT /api/homeappliances/{id}/commands/{key}` | send a command |
+| `GET /api/homeappliances/events` | the stream, carrying the whole account |
+
+Reading one appliance in full costs a call for every setting it has, which is
+the most expensive thing here and the reason the answers are kept between
+restarts. They describe the model rather than what it is doing, so two
+appliances of the same model ask once between them, and a restart asks not at
+all.
+
+## Development
+
+    ruff check .
+    ruff format --check .
+    mypy custom_components/ tests/ tools/
+    pytest tests/
+
+`aiohttp` is the only runtime dependency, and Home Assistant ships it. The
+checks need `homeassistant` and `pytest-homeassistant-custom-component`.
+Neither is needed to run the integration. The decompiled app and the scratch
+work live in `tmp/`, which is not tracked, as is the app package itself.
+
+`tools/check_login.py` walks the whole sign in against a real account outside
+Home Assistant, says which step fails, and logs every request and answer
+redacted. `--dump DIR` writes what every appliance said into that directory
+with the serial numbers taken out, which is what a fixture is made from.
+
+The tests load a washing machine and an oven and check what comes out of them.
+The config flow tests drive the real Home Assistant flow machinery, so they
+cover which step follows which, what lands in the config entry, and which
+message a failure puts on the form. Nothing in them touches the network.
+
+**Validate** runs HACS validation and hassfest on every push, on any branch.
+**Tests** runs the lint, the type check and the suite, but only on `main` and
+on pull requests, so a push to a branch with no pull request open runs
+Validate alone and a green tick there is not the whole set of checks.
+
+Neither HACS validation nor hassfest runs locally. hassfest reads a good deal
+more than the manifest: the strings and the translations are held to rules of
+its own, so that workflow is the first sign of anything it covers.
+
+A third, **Autorelease**, runs only when the version in the manifest changes.
+It holds the release back on the same three checks, then tags the commit,
+writes the release with the notes running from the tag before it, and puts a
+zip of `custom_components/homeconnect` on it. Releasing is therefore a matter
+of bumping the version and pushing. A release written by hand before the
+workflow gets there keeps its own notes and is only given the zip, which is
+how a release worth writing up properly still gets one.
+
+### Where the credentials came from
+
+`Home+Connect_12.20.0_APKPure.xapk`, decompiled. The class holding them is
+`HC-App`'s OAuth configuration: the authorize, token and revoke paths, the two
+redirect addresses the client is registered for, the client id and the ten
+scopes. The backend hosts come from `HubBackend`, and the media type the API
+insists on comes from the one place in the app that calls this API rather than
+the appliance protocol.
+
+Nothing about an appliance is hardcoded from the package. The key vocabulary,
+the units and the words for each value all come from the cloud at run time,
+which is what lets a model nobody has tried work.
