@@ -1,13 +1,17 @@
 {
   "domain": "homeconnect",
   "name": "Home Connect",
-  "codeowners": ["@renaudallard"],
+  "codeowners": [
+    "@renaudallard"
+  ],
   "config_flow": true,
   "documentation": "https://github.com/renaudallard/homeassistant_homeconnect",
   "integration_type": "hub",
   "iot_class": "cloud_push",
   "issue_tracker": "https://github.com/renaudallard/homeassistant_homeconnect/issues",
   "requirements": [],
-  "zeroconf": ["_homeconnect._tcp.local."],
-  "version": "0.0.2"
+  "version": "0.0.2",
+  "zeroconf": [
+    "_homeconnect._tcp.local."
+  ]
 }
