@@ -32,7 +32,8 @@ import base64
 import hashlib
 import json
 import time
-from collections.abc import AsyncGenerator
+from base64 import b64encode, urlsafe_b64encode
+from collections.abc import AsyncGenerator, Callable
 from urllib.parse import parse_qs, urlparse
 
 import aiohttp
@@ -44,8 +45,7 @@ from custom_components.homeconnect import auth
 from custom_components.homeconnect.const import (
     API_HOST,
     CLIENT_ID,
-    REDIRECT_URI_APP,
-    REDIRECT_URI_WEB,
+    REDIRECT_URI,
     SCOPES,
     TOKEN_PATH,
 )
@@ -67,21 +67,17 @@ async def session(
     await made.close()
 
 
-def test_each_way_in_comes_back_where_it_can_be_caught() -> None:
-    """Walking the sign in here stops at a scheme no browser will open, which
-    is the whole answer in one line. A browser has to be sent somewhere it can
-    actually reach."""
-    assert REDIRECT_URI_APP.startswith("hcauth://")
-    assert REDIRECT_URI_WEB.startswith("https://")
+def test_the_sign_in_comes_back_somewhere_a_browser_can_reach() -> None:
+    """The app's other registered address is a scheme no browser will open,
+    which leaves the address bar on the last page that did load."""
+    assert REDIRECT_URI.startswith("https://")
 
 
 def test_the_address_carries_what_the_app_carries() -> None:
     verifier = auth.verifier()
-    query = parse_qs(
-        urlparse(auth.authorize_url(verifier, "a-state", REDIRECT_URI_APP)).query
-    )
+    query = parse_qs(urlparse(auth.authorize_url(verifier, "a-state")).query)
     assert query["client_id"] == [CLIENT_ID]
-    assert query["redirect_uri"] == [REDIRECT_URI_APP]
+    assert query["redirect_uri"] == [REDIRECT_URI]
     assert query["response_type"] == ["code"]
     assert query["scope"] == [" ".join(SCOPES)]
     assert query["prompt"] == ["login"]
@@ -91,13 +87,11 @@ def test_the_address_carries_what_the_app_carries() -> None:
 
 def test_the_secret_is_published_only_as_its_digest() -> None:
     verifier = auth.verifier()
-    query = parse_qs(
-        urlparse(auth.authorize_url(verifier, "s", REDIRECT_URI_APP)).query
-    )
+    query = parse_qs(urlparse(auth.authorize_url(verifier, "s")).query)
     digest = hashlib.sha256(verifier.encode("ascii")).digest()
     expected = base64.urlsafe_b64encode(digest).rstrip(b"=").decode()
     assert query["code_challenge"] == [expected]
-    assert verifier not in auth.authorize_url(verifier, "s", REDIRECT_URI_APP)
+    assert verifier not in auth.authorize_url(verifier, "s")
 
 
 def test_two_sign_ins_do_not_share_a_secret() -> None:
@@ -107,11 +101,10 @@ def test_two_sign_ins_do_not_share_a_secret() -> None:
 @pytest.mark.parametrize(
     ("answer", "expected"),
     [
-        # What the browser refuses to open, which is what the flow asks for.
-        ("hcauth://auth/prod?code=abc&state=s", "abc"),
-        ("  hcauth://auth/prod?state=s&code=abc  ", "abc"),
-        # The app's other registered address, in case a browser gets that far.
         ("https://qr.home-connect.com/authorize/prod/?code=abc&state=s", "abc"),
+        ("  https://qr.home-connect.com/authorize/prod/?state=s&code=abc  ", "abc"),
+        # The app's other registered address, in case a browser gets that far.
+        ("hcauth://auth/prod?code=abc&state=s", "abc"),
         # Somebody who has picked the code out themselves is not made to put
         # it back into an address.
         ("abc", "abc"),
@@ -128,7 +121,28 @@ def test_an_address_that_says_no_says_why() -> None:
 
 def test_an_address_with_no_code_is_refused() -> None:
     with pytest.raises(HomeConnectAuthError):
-        auth.code_from("hcauth://auth/prod")
+        auth.code_from("https://qr.home-connect.com/authorize/prod/")
+
+
+@pytest.mark.parametrize("encode", [b64encode, urlsafe_b64encode])
+def test_the_hand_off_meant_for_a_phone_is_read_as_well(
+    encode: Callable[[bytes], bytes],
+) -> None:
+    """The page the browser ends on takes its instruction as one base64
+    argument rather than as named parameters, so an address copied off it can
+    carry the answer that way. Both alphabets, since the two differ only in
+    the characters a URL would otherwise escape."""
+    deep = b"homeconnect://auth/prod?code=the-code&state=s"
+    handed = encode(deep).decode().rstrip("=")
+    assert auth.code_from(f"https://qr.home-connect.com/authorize/prod/?{handed}") == (
+        "the-code"
+    )
+
+
+def test_an_argument_that_is_not_a_hand_off_is_not_mistaken_for_one() -> None:
+    assert auth.code_from("https://qr.home-connect.com/x/?code=plain") == "plain"
+    with pytest.raises(HomeConnectAuthError):
+        auth.code_from("https://qr.home-connect.com/x/?bm90aGluZyB1c2VmdWw")
 
 
 def test_nothing_pasted_is_refused() -> None:
@@ -154,13 +168,13 @@ async def test_the_exchange_sends_the_secret_and_reads_the_pair(
             "id_token": _identity("who-this-is"),
         },
     )
-    tokens = await auth.exchange(session, "the-code", "the-verifier", REDIRECT_URI_APP)
+    tokens = await auth.exchange(session, "the-code", "the-verifier")
     sent = aioclient_mock.mock_calls[0][2]
     assert sent["grant_type"] == "authorization_code"
     assert sent["code"] == "the-code"
     assert sent["code_verifier"] == "the-verifier"
     assert sent["client_id"] == CLIENT_ID
-    assert sent["redirect_uri"] == REDIRECT_URI_APP
+    assert sent["redirect_uri"] == REDIRECT_URI
     assert tokens.access_token == "an-access-token"
     assert tokens.account == "who-this-is"
     assert tokens.expires_at > time.time() + 3500
@@ -174,7 +188,7 @@ async def test_a_lifetime_that_does_not_read_means_renew_at_once(
         TOKEN_URL,
         json={"access_token": "a", "refresh_token": "b", "expires_in": "soon"},
     )
-    tokens = await auth.exchange(session, "c", "v", REDIRECT_URI_APP)
+    tokens = await auth.exchange(session, "c", "v")
     assert tokens.expired
 
 
@@ -187,7 +201,7 @@ async def test_a_refused_code_asks_for_a_fresh_sign_in(
         json={"error": "invalid_grant", "error_description": "code expired"},
     )
     with pytest.raises(HomeConnectAuthError, match="code expired"):
-        await auth.exchange(session, "stale", "v", REDIRECT_URI_APP)
+        await auth.exchange(session, "stale", "v")
 
 
 async def test_being_asked_to_slow_down_says_for_how_long(
@@ -217,4 +231,4 @@ async def test_an_answer_with_no_pair_in_it_is_not_a_sign_in(
 ) -> None:
     aioclient_mock.post(TOKEN_URL, json={"access_token": "a"})
     with pytest.raises(HomeConnectAuthError):
-        await auth.exchange(session, "c", "v", REDIRECT_URI_APP)
+        await auth.exchange(session, "c", "v")

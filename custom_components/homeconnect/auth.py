@@ -44,7 +44,7 @@ import json
 import logging
 import secrets
 import time
-from base64 import urlsafe_b64decode, urlsafe_b64encode
+from base64 import b64decode, urlsafe_b64decode, urlsafe_b64encode
 from dataclasses import dataclass, replace
 from typing import Any
 from urllib.parse import parse_qs, urlencode, urlparse
@@ -56,6 +56,7 @@ from .const import (
     API_HOST,
     AUTHORIZE_PATH,
     CLIENT_ID,
+    REDIRECT_URI,
     SCOPES,
     TOKEN_EXPIRY_MARGIN,
     TOKEN_PATH,
@@ -112,20 +113,17 @@ def _challenge(code_verifier: str) -> str:
     return urlsafe_b64encode(digest).rstrip(b"=").decode("ascii")
 
 
-def authorize_url(code_verifier: str, state: str, redirect_uri: str) -> str:
-    """Where the sign in starts.
+def authorize_url(code_verifier: str, state: str) -> str:
+    """Where to send the user to sign in.
 
     Asking for the login prompt is what the app does, and it is what stops a
     browser already signed in to the account from handing back a code without
     ever showing the user whose account it is.
-
-    Where it ends is the caller's to decide, and has to be the same address
-    the code is later traded against.
     """
     query = {
         "client_id": CLIENT_ID,
         "response_type": "code",
-        "redirect_uri": redirect_uri,
+        "redirect_uri": REDIRECT_URI,
         "scope": " ".join(SCOPES),
         "prompt": "login",
         "state": state,
@@ -136,21 +134,57 @@ def authorize_url(code_verifier: str, state: str, redirect_uri: str) -> str:
     return f"{API_HOST}{AUTHORIZE_PATH}?{urlencode(query)}"
 
 
+# What the page the browser ends on knows how to be handed. Its own script
+# looks for a single argument that decodes to one of these, rather than for
+# named parameters, so an address copied off it can carry the answer that way
+# instead of in plain sight.
+HANDED_OVER = ("homeconnect://", "hcalexa://")
+
+
+def _handed_over(query: str) -> str | None:
+    """The address hidden in a base64 argument, if one is hidden there.
+
+    Read out of the query as it was written rather than out of a parsed copy
+    of it: base64 uses the plus sign, and a parsed query turns that into a
+    space, which is the one edit that would stop it decoding.
+    """
+    for argument in query.split("&"):
+        # Either alphabet, since the two differ only in the two characters
+        # that a URL would otherwise have to escape.
+        plainly = argument.replace("-", "+").replace("_", "/")
+        padded = plainly + "=" * (-len(plainly) % 4)
+        try:
+            plain = b64decode(padded, validate=True).decode("utf-8")
+        except (ValueError, binascii.Error, UnicodeDecodeError):
+            continue
+        if plain.startswith(HANDED_OVER):
+            return plain
+    return None
+
+
 def code_from(answer: str) -> str:
     """The one time code out of whatever the user pasted back.
 
-    The address the browser ends on carries the code in its query, and that
-    whole address is the easiest thing to copy. Somebody who has picked the
-    code out themselves is not made to put it back, so a bare code is taken as
-    it stands: it has no query and no scheme, and nothing else looks like one.
+    Three things can be pasted and all three are taken. The address can carry
+    the code as a plain parameter. It can carry the whole hand-off encoded
+    into one argument, which is how the page meant for a phone is given its
+    instructions. And somebody who has picked the code out themselves is not
+    made to put it back into an address: a bare code has no query and no
+    scheme, and nothing else looks like one.
     """
     pasted = answer.strip()
     if not pasted:
         raise HomeConnectAuthError("nothing was pasted back")
-    query = parse_qs(urlparse(pasted).query)
+    written = urlparse(pasted).query
+    query = parse_qs(written)
     found = query.get("code")
     if found:
         return found[0]
+    handed = _handed_over(written)
+    if handed is not None:
+        inside = parse_qs(urlparse(handed).query).get("code")
+        if inside:
+            return inside[0]
     if "error" in query:
         raise HomeConnectAuthError(
             f"signing in was refused: {query['error'][0]}",
@@ -257,20 +291,19 @@ async def _token_request(
 
 
 async def exchange(
-    session: aiohttp.ClientSession, code: str, code_verifier: str, redirect_uri: str
+    session: aiohttp.ClientSession, code: str, code_verifier: str
 ) -> Tokens:
     """Trade the one time code for a token pair.
 
     The address the sign in came back to is part of what is being proved, so
-    it has to be the one the code was issued against rather than whichever of
-    the two the app also happens to register.
+    the same one goes out here as went out with the request for the code.
     """
     return await _token_request(
         session,
         {
             "grant_type": "authorization_code",
             "client_id": CLIENT_ID,
-            "redirect_uri": redirect_uri,
+            "redirect_uri": REDIRECT_URI,
             "code": code,
             "code_verifier": code_verifier,
         },

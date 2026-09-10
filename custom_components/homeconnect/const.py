@@ -53,19 +53,19 @@ API_PATH = "/api"
 # The Home Connect app, as it identifies itself to its own cloud.
 CLIENT_ID = "9B75AC9EC512F36C84256AC47D813E2C1DD0D6520DF774B020E1E6E2EB29B1F3"
 
-# The app registers two places to be sent back to once the user has signed in,
-# and which is wanted depends on who is doing the walking.
+# Where the sign in comes back to. The app registers two of these and only one
+# of them is any use from here.
 #
-# Signing in here, without a browser, follows the redirects itself and stops at
-# the app's own scheme rather than trying to open it. That is the whole answer
-# in one line, so that is the one to ask for.
+# The other is a private scheme, hcauth://auth/prod, which only a phone can
+# open. A browser will not, and the hop that fails leaves the address bar
+# showing the last page that did load, with the code nowhere at all. Nor can
+# the sign in be walked without a browser to get round that: the page it goes
+# through is behind a captcha, and says so to anything that tries.
 #
-# Signing in through a browser cannot ask for that scheme: the browser will not
-# open it, and the failed hop leaves the address bar showing the last page that
-# did load, with the code nowhere. Such a sign in has to come back to an
-# address a browser can actually reach.
-REDIRECT_URI_APP = "hcauth://auth/prod"
-REDIRECT_URI_WEB = "https://qr.home-connect.com/authorize/prod/"
+# So the sign in comes back to an address a browser can actually reach. The
+# page there is built to hand a phone the session, which is not what happens
+# next here, but it does end up holding the answer.
+REDIRECT_URI = "https://qr.home-connect.com/authorize/prod/"
 
 # What the app asks for. Control, Settings and Monitor are what drive an
 # appliance; ReadOrigApi and WriteOrigApi are what open the REST API this

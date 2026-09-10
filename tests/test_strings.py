@@ -88,12 +88,11 @@ def test_every_form_field_is_named_and_explained() -> None:
             assert step["data"][field], f"{name}.{field} has no name"
 
 
-def test_only_the_steps_that_send_you_to_a_browser_show_an_address() -> None:
-    """A step using the placeholder without being given one is a broken form,
-    and one given it without using it asks the user to open nothing."""
+def test_every_step_shows_the_address_it_hands_out() -> None:
+    """The flow passes one placeholder to every step it shows. Text that does
+    not use it is a form asking the user to open an address it never shows."""
     for name, step in STRINGS["config"]["step"].items():
-        wanted = "browser" in name
-        assert ("{url}" in step["description"]) is wanted, name
+        assert "{url}" in step["description"], name
 
 
 def _leaves(node: Any, path: str = "") -> list[tuple[str, str]]:

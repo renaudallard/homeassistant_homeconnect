@@ -30,9 +30,9 @@ This is not part of the integration. It walks the whole sign in, says which
 step fails, and logs every request and answer so a failure can be diagnosed
 without guessing.
 
-It asks for the address and password of the account and walks the sign in the
-way the integration does, without a browser. The password is read from the
-terminal, never echoed and never written down.
+It prints an address to open in a browser. Sign in there with the account the
+app uses, and paste back the address the browser ends on, whatever that page
+happens to show.
 
 Pass --dump DIR to write what every appliance is, what it can do and what it
 is doing into that directory, with the serial numbers taken out, which is what
@@ -55,7 +55,6 @@ import logging
 import secrets
 import sys
 import time
-from getpass import getpass
 from pathlib import Path
 from typing import Any
 
@@ -63,9 +62,8 @@ import aiohttp
 
 sys.path.insert(0, ".")
 
-from custom_components.homeconnect import auth, singlekey
+from custom_components.homeconnect import auth
 from custom_components.homeconnect.api import ACTIVE, SELECTED, HomeConnectApi
-from custom_components.homeconnect.const import REDIRECT_URI_APP
 from custom_components.homeconnect.errors import HomeConnectError
 from custom_components.homeconnect.http import redact
 
@@ -136,21 +134,14 @@ async def run(into: Path | None) -> int:
     verifier = auth.verifier()
     state = secrets.token_urlsafe(16)
 
-    _step(1, "Signing in to SingleKey ID")
-    email = input("   Email address: ").strip()
-    password = getpass("   Password: ")
+    _step(1, "Open this address and sign in")
+    print(f"\n   {auth.authorize_url(verifier, state)}\n")
+    pasted = input("   Address the browser ended on: ").strip()
 
     async with aiohttp.ClientSession() as session:
-        try:
-            code = await singlekey.sign_in(session, email, password, verifier, state)
-        except HomeConnectError as err:
-            print(f"   failed: {err}")
-            return 1
-        print(f"   signed in, and handed back {len(code)} characters")
-
         _step(2, "Trading the code for a token pair")
         try:
-            tokens = await auth.exchange(session, code, verifier, REDIRECT_URI_APP)
+            tokens = await auth.exchange(session, auth.code_from(pasted), verifier)
         except HomeConnectError as err:
             print(f"   failed: {err}")
             return 1

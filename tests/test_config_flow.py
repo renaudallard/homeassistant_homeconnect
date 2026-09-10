@@ -35,11 +35,10 @@ from collections.abc import Mapping
 from dataclasses import replace
 from ipaddress import ip_address
 from typing import Any
-from unittest.mock import patch
 from urllib.parse import parse_qs, urlparse
 
 from homeassistant import config_entries
-from homeassistant.const import CONF_CODE, CONF_EMAIL, CONF_PASSWORD
+from homeassistant.const import CONF_CODE
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
@@ -52,7 +51,6 @@ from custom_components.homeconnect.const import (
     DOMAIN,
     TOKEN_PATH,
 )
-from custom_components.homeconnect.errors import HomeConnectAuthError
 
 from .common import API, entry, fixture, serve
 
@@ -80,27 +78,10 @@ def pair(mock: AiohttpClientMocker, **extra: Any) -> None:
 
 
 async def browser_step(hass: HomeAssistant) -> Any:
-    """Start a flow and take the browser branch off the menu."""
-    menu = await hass.config_entries.flow.async_init(
+    """Start a flow, which asks for the pasted address straight away."""
+    return await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
-    assert menu["type"] is FlowResultType.MENU
-    return await hass.config_entries.flow.async_configure(
-        menu["flow_id"], {"next_step_id": "browser"}
-    )
-
-
-async def test_the_flow_offers_both_ways_in(
-    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
-) -> None:
-    """One account has a password, another has a passkey, and nothing says
-    which in advance."""
-    menu = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": config_entries.SOURCE_USER}
-    )
-    assert menu["type"] is FlowResultType.MENU
-    assert "password" in menu["menu_options"]
-    assert "browser" in menu["menu_options"]
 
 
 async def test_signing_in_makes_an_entry(
@@ -195,13 +176,8 @@ async def test_signing_in_again_hands_the_new_pair_to_the_entry_there(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
 ) -> None:
     made = entry(hass)
-    menu = await made.start_reauth_flow(hass)
-    assert menu["type"] is FlowResultType.MENU
-    assert "reauth_password" in menu["menu_options"]
-    assert "reauth_browser" in menu["menu_options"]
-    shown = await hass.config_entries.flow.async_configure(
-        menu["flow_id"], {"next_step_id": "reauth_browser"}
-    )
+    shown = await made.start_reauth_flow(hass)
+    assert shown["step_id"] == "reauth_confirm"
 
     pair(aioclient_mock)
     serve(aioclient_mock, [fixture("washer")])
@@ -240,7 +216,7 @@ async def test_an_appliance_on_the_network_offers_the_sign_in(
     shown = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_ZEROCONF}, data=HOB
     )
-    assert shown["type"] is FlowResultType.MENU
+    assert shown["type"] is FlowResultType.FORM
     assert shown["step_id"] == "user"
 
 
@@ -278,81 +254,6 @@ async def test_an_appliance_that_says_little_is_still_named(
     assert flow["context"]["title_placeholders"] == {"name": "Hob SIEMENS EX651HEC1E"}
 
 
-async def password_step(hass: HomeAssistant) -> Any:
-    """Start a flow and take the password branch off the menu."""
-    menu = await hass.config_entries.flow.async_init(
-        DOMAIN, context={"source": config_entries.SOURCE_USER}
-    )
-    return await hass.config_entries.flow.async_configure(
-        menu["flow_id"], {"next_step_id": "password"}
-    )
-
-
-async def test_signing_in_with_a_password_needs_no_browser(
-    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
-) -> None:
-    shown = await password_step(hass)
-    assert shown["type"] is FlowResultType.FORM
-    assert shown["step_id"] == "password"
-    # Nothing to open, so nothing to show an address for.
-    assert not (shown["description_placeholders"] or {})
-
-    pair(aioclient_mock)
-    serve(aioclient_mock, [fixture("washer")])
-    with patch(
-        "custom_components.homeconnect.config_flow.singlekey.sign_in",
-        return_value="a-code",
-    ) as walked:
-        made = await hass.config_entries.flow.async_configure(
-            shown["flow_id"],
-            {CONF_EMAIL: "someone@example.invalid", CONF_PASSWORD: "hunter2"},
-        )
-    assert made["type"] is FlowResultType.CREATE_ENTRY
-    assert made["data"][CONF_ACCESS_TOKEN] == "an-access-token"
-    # The address is kept so that signing in again knows whose account it is.
-    assert made["data"][CONF_EMAIL] == "someone@example.invalid"
-    # The password is not.
-    assert CONF_PASSWORD not in made["data"]
-    assert walked.call_args.args[1:3] == ("someone@example.invalid", "hunter2")
-
-
-async def test_a_password_the_account_refuses_stays_on_the_form(
-    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
-) -> None:
-    shown = await password_step(hass)
-    with patch(
-        "custom_components.homeconnect.config_flow.singlekey.sign_in",
-        side_effect=HomeConnectAuthError("the account would not accept that password"),
-    ):
-        again = await hass.config_entries.flow.async_configure(
-            shown["flow_id"],
-            {CONF_EMAIL: "someone@example.invalid", CONF_PASSWORD: "wrong"},
-        )
-    assert again["type"] is FlowResultType.FORM
-    assert again["errors"] == {"base": "invalid_auth"}
-
-
-async def test_signing_in_again_with_a_password_offers_the_same_address(
-    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
-) -> None:
-    """The entry remembers whose account it is, so nobody retypes it."""
-    made = entry(hass, email="someone@example.invalid")
-    menu = await made.start_reauth_flow(hass)
-    shown = await hass.config_entries.flow.async_configure(
-        menu["flow_id"], {"next_step_id": "reauth_password"}
-    )
-    assert shown["step_id"] == "reauth_password"
-    schema = shown["data_schema"]
-    assert schema is not None
-    suggested = {
-        str(key): (key.description or {}).get("suggested_value")
-        for key in schema.schema
-    }
-    assert suggested[CONF_EMAIL] == "someone@example.invalid"
-    # Nothing is suggested for the password, which is not ours to remember.
-    assert suggested[CONF_PASSWORD] is None
-
-
 async def test_a_kitchen_of_appliances_puts_up_one_card(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
 ) -> None:
@@ -366,7 +267,7 @@ async def test_a_kitchen_of_appliances_puts_up_one_card(
     first = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_ZEROCONF}, data=HOB
     )
-    assert first["type"] is FlowResultType.MENU
+    assert first["type"] is FlowResultType.FORM
 
     second = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": config_entries.SOURCE_ZEROCONF}, data=oven
