@@ -138,11 +138,17 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
         authorises that, so this leads to the same sign in as any other way
         in, with the appliance named on the card to say what prompted it.
 
-        One entry covers every appliance on the account, so the second
-        appliance to shout has nothing to offer and says so.
+        One sign in covers every appliance on the account, so the second
+        appliance to shout has nothing to add: not to an account already set
+        up, and not to a card already waiting to be clicked either. A kitchen
+        of them would otherwise put up a card each, all of them asking for the
+        same sign in and all but one of them going stale the moment it is
+        given.
         """
         if self._async_current_entries():
             return self.async_abort(reason="already_configured")
+        if self._async_in_progress(include_uninitialized=True):
+            return self.async_abort(reason="already_in_progress")
         self.context["title_placeholders"] = {"name": _describe(discovery_info)}
         return await self.async_step_user()
 

@@ -68,6 +68,20 @@ def test_every_error_the_flow_reports_has_text() -> None:
     assert reported <= set(STRINGS["config"]["error"])
 
 
+def test_every_reason_the_flow_gives_up_for_has_text() -> None:
+    """A reason with no text shows the user the bare reason code.
+
+    Two of these are Home Assistant's own, given without the flow naming
+    them: it aborts a reauth of its own accord once one has worked, and again
+    when the account signed in to is not the account the entry is for.
+    """
+    flow = (COMPONENT / "config_flow.py").read_text()
+    given = set(re.findall(r'reason="([a-z_]+)"', flow))
+    given |= {"reauth_successful", "unique_id_mismatch"}
+    assert given <= set(STRINGS["config"]["abort"])
+    assert given == set(STRINGS["config"]["abort"])
+
+
 def test_every_form_field_is_named_and_explained() -> None:
     for name, step in STRINGS["config"]["step"].items():
         for field in step.get("data", {}):

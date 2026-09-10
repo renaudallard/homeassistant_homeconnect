@@ -67,6 +67,7 @@
     },
     "abort": {
       "already_configured": "This account is already set up.",
+      "already_in_progress": "Another appliance has already asked. One sign in covers every appliance on the account.",
       "reauth_successful": "Signed in again successfully.",
       "unique_id_mismatch": "That is a different account. Sign in with the one this entry was set up for."
     }

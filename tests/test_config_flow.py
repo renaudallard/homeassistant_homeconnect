@@ -351,3 +351,26 @@ async def test_signing_in_again_with_a_password_offers_the_same_address(
     assert suggested[CONF_EMAIL] == "someone@example.invalid"
     # Nothing is suggested for the password, which is not ours to remember.
     assert suggested[CONF_PASSWORD] is None
+
+
+async def test_a_kitchen_of_appliances_puts_up_one_card(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """One sign in covers the account, so the second appliance to shout has
+    nothing to add to the card already waiting to be clicked."""
+    oven = replace(
+        HOB,
+        name="Oven SIEMENS HB678GBS6B._homeconnect._tcp.local.",
+        properties={**HOB.properties, "type": "Oven", "vib": "HB678GBS6B"},
+    )
+    first = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_ZEROCONF}, data=HOB
+    )
+    assert first["type"] is FlowResultType.MENU
+
+    second = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_ZEROCONF}, data=oven
+    )
+    assert second["type"] is FlowResultType.ABORT
+    assert second["reason"] == "already_in_progress"
+    assert len(hass.config_entries.flow.async_progress()) == 1
