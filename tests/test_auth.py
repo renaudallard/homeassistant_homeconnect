@@ -66,6 +66,12 @@ async def session(
     await made.close()
 
 
+def test_the_sign_in_ends_where_no_page_can_swallow_the_code() -> None:
+    """The https address the app also registers loads a page that hands the
+    session to a phone, and is free to tidy the code away while it does."""
+    assert REDIRECT_URI.startswith("hcauth://")
+
+
 def test_the_address_carries_what_the_app_carries() -> None:
     verifier = auth.verifier()
     query = parse_qs(urlparse(auth.authorize_url(verifier, "a-state")).query)
@@ -94,8 +100,11 @@ def test_two_sign_ins_do_not_share_a_secret() -> None:
 @pytest.mark.parametrize(
     ("answer", "expected"),
     [
+        # What the browser refuses to open, which is what the flow asks for.
+        ("hcauth://auth/prod?code=abc&state=s", "abc"),
+        ("  hcauth://auth/prod?state=s&code=abc  ", "abc"),
+        # The app's other registered address, in case a browser gets that far.
         ("https://qr.home-connect.com/authorize/prod/?code=abc&state=s", "abc"),
-        ("  https://qr.home-connect.com/authorize/prod/?state=s&code=abc  ", "abc"),
         # Somebody who has picked the code out themselves is not made to put
         # it back into an address.
         ("abc", "abc"),
@@ -112,7 +121,7 @@ def test_an_address_that_says_no_says_why() -> None:
 
 def test_an_address_with_no_code_is_refused() -> None:
     with pytest.raises(HomeConnectAuthError):
-        auth.code_from("https://qr.home-connect.com/authorize/prod/")
+        auth.code_from("hcauth://auth/prod")
 
 
 def test_nothing_pasted_is_refused() -> None:

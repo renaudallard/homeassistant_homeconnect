@@ -92,6 +92,15 @@ def test_nothing_is_written_with_an_em_dash_or_a_double_space() -> None:
         assert "  " not in text, where
 
 
+# What hassfest calls a URL, copied from its own translations check. Only the
+# schemes it lists count, so the private scheme the sign in ends on can be
+# named in the text while an https address cannot.
+URL = re.compile(
+    r"(((ftp|ftps|scp|http|https|mqtt|mqtts|socket|socks5):\/\/|www\.)"
+    r"[a-z0-9]+([\-\.]{1}[a-z0-9]+)*\.[a-z]{2,5}(:[0-9]{1,5})?(\/.*)?)"
+)
+
+
 def test_no_address_is_written_into_the_text_itself() -> None:
     """hassfest refuses one, and it does not run outside CI.
 
@@ -100,5 +109,4 @@ def test_no_address_is_written_into_the_text_itself() -> None:
     translated into.
     """
     for where, text in _leaves(STRINGS):
-        assert "http://" not in text, where
-        assert "https://" not in text, where
+        assert not URL.search(text), where

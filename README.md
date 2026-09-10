@@ -80,13 +80,17 @@ category **Integration** and install it from there, or copy
 Home Assistant configuration by hand. Either way, restart, then add **Home
 Connect** from *Settings → Devices & services*.
 
-The flow shows an address. Open it, sign in with the account the app uses, and
-the browser lands on a Home Connect page meant for the phone app. There is no
-app here to catch it, and whatever that page says does not matter: what is
-wanted is the address itself. Copy the whole thing out of the address bar and
-paste it into the form. It carries a one time code, which is worth nothing to
-anybody who has not got the secret this generated before it handed out the
-first address.
+The flow shows an address. Open it and sign in with the account the app uses.
+The browser then refuses to open an address beginning `hcauth://`, which is
+what should happen: that is the app's own scheme and there is no app here to
+catch it. Copy that address out of the address bar and paste it into the form.
+It carries a one time code, which is worth nothing to anybody who has not got
+the secret this generated before it handed out the first address.
+
+The app's other registered address, on `qr.home-connect.com`, is not used. It
+loads a real page whose job is to hand a desktop session over to a phone by
+showing a QR code, which is no use when the thing waiting for the code is Home
+Assistant rather than a phone.
 
 That is the only time you sign in. The tokens go into the config entry and are
 renewed in the background from then on.

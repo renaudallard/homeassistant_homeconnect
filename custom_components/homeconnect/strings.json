@@ -3,22 +3,22 @@
     "step": {
       "user": {
         "title": "Sign in to Home Connect",
-        "description": "Open [this address]({url}) and sign in with the account the app uses. The browser then lands on a Home Connect page meant for the phone app. Whatever it says does not matter: the code is in the address bar. Copy the whole address and paste it below.",
+        "description": "Open [this address]({url}) and sign in with the account the app uses. The browser will then refuse to open an address beginning hcauth://, which is what should happen: it is meant for the phone app and there is no app here. Copy that address out of the address bar and paste it below.",
         "data": {
           "code": "Address the browser ended on"
         },
         "data_description": {
-          "code": "The whole address out of the address bar, not just part of it. It is only good once and only here."
+          "code": "The whole address, beginning hcauth://, not just part of it. It is only good once and only here."
         }
       },
       "reauth_confirm": {
         "title": "Sign in to Home Connect again",
-        "description": "The stored sign in has stopped working. Open [this address]({url}), sign in with the same account, and paste the address the browser ends on below.",
+        "description": "The stored sign in has stopped working. Open [this address]({url}), sign in with the same account, and paste the hcauth:// address the browser refuses to open below.",
         "data": {
           "code": "Address the browser ended on"
         },
         "data_description": {
-          "code": "The whole address out of the address bar, not just part of it. It is only good once and only here."
+          "code": "The whole address, beginning hcauth://, not just part of it. It is only good once and only here."
         }
       }
     },
