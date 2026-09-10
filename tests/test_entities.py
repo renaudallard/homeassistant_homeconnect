@@ -60,6 +60,8 @@ async def test_the_appliance_becomes_a_device(
     assert device.manufacturer == "Bosch"
     assert device.model == "WAV28MH0GB"
     assert device.model_id == "WAV28MH0GB/01"
+    # Taken from the listing, which gives it outright, rather than read out
+    # of the identifier, which not every appliance writes it into.
     assert device.serial_number == "1234567890AB"
 
 

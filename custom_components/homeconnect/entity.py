@@ -112,7 +112,7 @@ def device_info(appliance: Appliance) -> DeviceInfo:
         manufacturer=appliance.brand.title() or None,
         model=appliance.vib or appliance.type or None,
         model_id=appliance.enumber or None,
-        serial_number=serial_of(appliance.id),
+        serial_number=appliance.serial or serial_of(appliance.id),
     )
 
 

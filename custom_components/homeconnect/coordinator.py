@@ -203,6 +203,7 @@ class Appliance:
     vib: str
     enumber: str
     type: str
+    serial: str
     connected: bool
     model: Model
     status: dict[str, Reading] = field(default_factory=dict)
@@ -434,6 +435,11 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
             vib=str(described.get("vib") or ""),
             enumber=str(described.get("enumber") or ""),
             type=str(described.get("type") or ""),
+            # The listing gives this outright. Reading it out of the
+            # identifier works only for the appliances whose identifier is
+            # written as the brand, the model and the serial run together,
+            # and not every appliance's is.
+            serial=str(described.get("serialnumber") or ""),
             connected=connected,
             model=model,
             pending=dict(held.pending) if held else {},
