@@ -122,7 +122,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: HomeConnectConfigEntry) 
         local = LocalControl(
             hass,
             session,
-            HomeConnectAccount(api),
+            # Signing in said which account this is, and the keys hang off it,
+            # so the account service does not have to be asked who we are.
+            HomeConnectAccount(api, entry.unique_id),
             local_store(hass, entry),
             coordinator.apply_locally,
             coordinator.set_talking,
@@ -183,14 +185,23 @@ async def _learn(api: HomeConnectApi, local: LocalControl) -> None:
     """
     try:
         listed = await api.appliances()
+    except HomeConnectAuthError as err:
+        # The appliance API turning the token down is the token being spent.
+        raise ConfigEntryAuthFailed(str(err)) from err
+    except HomeConnectError as err:
+        raise ConfigEntryNotReady(f"could not read the account: {err}") from err
+
+    try:
         await local.learn(
             [str(one["haId"]) for one in listed if isinstance(one.get("haId"), str)]
         )
-    except HomeConnectAuthError as err:
-        raise ConfigEntryAuthFailed(str(err)) from err
     except HomeConnectError as err:
+        # The account's own service refusing is not the token being spent:
+        # the appliance API took the same one a moment ago. Asking the user
+        # to sign in again would send them round a loop that cannot help.
         raise ConfigEntryNotReady(
-            f"could not read what the appliances need: {err}"
+            f"could not read what the appliances need for local control: {err}. "
+            "Reconfigure this entry to reach them through the cloud instead."
         ) from err
 
 

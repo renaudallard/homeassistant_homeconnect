@@ -38,12 +38,14 @@ from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
+from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
 from custom_components.homeconnect import iddf, local
 from custom_components.homeconnect.const import CONF_TRANSPORT, LOCAL
+from custom_components.homeconnect.errors import HomeConnectAuthError
 
 from .common import entry, fixture, serve, state_of
 
@@ -196,3 +198,28 @@ async def test_nothing_is_asked_of_the_cloud_beyond_the_listing(
     asked = [str(url) for _, url, _, _ in aioclient_mock.mock_calls]
     assert any(one.endswith("/homeappliances") for one in asked)
     assert not any("/status" in one or "/settings" in one for one in asked)
+
+
+async def test_the_account_service_refusing_is_not_a_reason_to_sign_in_again(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """The appliance API took the same token a moment earlier, so sending the
+    user round the sign in again cannot help and only confuses."""
+    serve(aioclient_mock, [fixture("washer")])
+    made = entry(hass)
+    hass.config_entries.async_update_entry(
+        made, data={**made.data, CONF_TRANSPORT: LOCAL}
+    )
+    with patch(
+        "custom_components.homeconnect.api.HomeConnectAccount.keys",
+        AsyncMock(side_effect=HomeConnectAuthError("rejected the access token (403)")),
+    ):
+        await hass.config_entries.async_setup(made.entry_id)
+        await hass.async_block_till_done()
+
+    assert made.state is ConfigEntryState.SETUP_RETRY
+    assert not [
+        flow
+        for flow in hass.config_entries.flow.async_progress()
+        if flow["context"].get("source") == "reauth"
+    ]
