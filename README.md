@@ -245,6 +245,19 @@ restarts. They describe the model rather than what it is doing, so two
 appliances of the same model ask once between them, and a restart asks not at
 all.
 
+## Branding
+
+`custom_components/homeconnect/brand/` holds the two PNGs Home Assistant looks
+for when an integration is not listed in home-assistant/brands. Both are the
+Home Connect application icon scaled, and `tools/make_icons.py` regenerates
+them from it; it needs Pillow, which Home Assistant already ships. There is no
+logo pair, a logo being a wordmark and the application icon being a square
+mark.
+
+The Home Connect name and mark belong to BSH Hausgeräte. They are here to
+identify the appliances this integration talks to, the same way every other
+manufacturer logo appears in home-assistant/brands.
+
 ## Development
 
     ruff check .
