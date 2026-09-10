@@ -3,7 +3,7 @@
     "step": {
       "user": {
         "title": "Sign in to Home Connect",
-        "description": "Open [this address]({url}) and sign in with the account the app uses. The browser will end on a Home Connect page that looks blank or broken; that is expected. Copy the whole address out of the address bar and paste it below.",
+        "description": "Open [this address]({url}) and sign in with the account the app uses. The browser then lands on a Home Connect page meant for the phone app. Whatever it says does not matter: the code is in the address bar. Copy the whole address and paste it below.",
         "data": {
           "code": "Address the browser ended on"
         },

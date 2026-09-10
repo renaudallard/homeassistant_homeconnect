@@ -81,12 +81,15 @@ Home Assistant configuration by hand. Either way, restart, then add **Home
 Connect** from *Settings → Devices & services*.
 
 The flow shows an address. Open it, sign in with the account the app uses, and
-the browser will land on a Home Connect page that looks blank or broken. That
-is expected: it is the address the app is sent back to, and there is no app
-here to catch it. Copy the whole address out of the address bar and paste it
-into the form. It carries a one time code, which is worth nothing to anybody
-who has not got the secret this generated before it handed out the first
-address.
+the browser lands on a Home Connect page meant for the phone app. There is no
+app here to catch it, and whatever that page says does not matter: what is
+wanted is the address itself. Copy the whole thing out of the address bar and
+paste it into the form. It carries a one time code, which is worth nothing to
+anybody who has not got the secret this generated before it handed out the
+first address.
+
+That is the only time you sign in. The tokens go into the config entry and are
+renewed in the background from then on.
 
 Tokens are written into the config entry and renewed in the background. If they
 stop working, Home Assistant asks you to sign in again rather than failing
