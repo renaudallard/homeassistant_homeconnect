@@ -45,7 +45,7 @@ import pytest
 from aiohttp import web
 
 from custom_components.homeconnect.errors import HomeConnectError
-from custom_components.homeconnect.hcp import HcpLink, Sealed
+from custom_components.homeconnect.hcp import CIPHERS, HcpLink, Sealed, context
 
 KEY = urlsafe_b64encode(bytes(range(32))).decode().rstrip("=")
 IV = urlsafe_b64encode(bytes(range(16))).decode().rstrip("=")
@@ -319,3 +319,17 @@ def test_an_appliance_found_at_an_ipv6_address_is_written_with_brackets(
         HcpLink(session, "172.20.0.209", KEY, IV, lambda _v: None, lambda _c: None).url
         == "ws://172.20.0.209:80/homeconnect"
     )
+
+
+def test_the_offer_is_the_two_suites_the_app_offers() -> None:
+    """An appliance takes the first of these and refuses anything that does
+    not agree a fresh secret first, so the pair is offered and nothing else.
+    """
+    made = context(PSK)
+    offered = [
+        one["name"] for one in made.get_ciphers() if one["name"].startswith("ECDHE-PSK")
+    ]
+    assert offered == CIPHERS.split(":")
+    # Only the shared key suites, and only the version they belong to.
+    assert not [one for one in made.get_ciphers() if one["name"].startswith("PSK-")]
+    assert made.minimum_version is made.maximum_version

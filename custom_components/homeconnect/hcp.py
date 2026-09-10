@@ -66,9 +66,11 @@ PATH = "/homeconnect"
 TLS_PORT = 443
 PLAIN_PORT = 80
 
-# What the app negotiates. An appliance offers a handful of shared key suites
-# and this is the one it settles on, so it is the one asked for.
-CIPHER = "ECDHE-PSK-CHACHA20-POLY1305"
+# What the app offers, in the order it offers it. Asking for the same two
+# means an appliance that will not do the first is still reachable, and
+# nothing outside the pair is asked for: a hob refuses the shared key suites
+# that do not agree a fresh secret first, so offering them is only noise.
+CIPHERS = "ECDHE-PSK-CHACHA20-POLY1305:ECDHE-PSK-AES128-CBC-SHA256"
 
 # The resources a conversation is made of. Only a few are of any use here: the
 # appliance opens with one, and the rest are what it will say about itself.
@@ -186,7 +188,7 @@ def context(psk: bytes) -> Any:
     # a handshake the appliance cannot finish.
     made.minimum_version = ssl.TLSVersion.TLSv1_2
     made.maximum_version = ssl.TLSVersion.TLSv1_2
-    made.set_ciphers(f"{CIPHER}:PSK")
+    made.set_ciphers(CIPHERS)
     made.set_psk_client_callback(lambda hint: (None, psk))
     return made
 
