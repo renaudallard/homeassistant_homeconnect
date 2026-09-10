@@ -191,6 +191,17 @@ def context(psk: bytes) -> Any:
     return made
 
 
+def _written(host: str) -> str:
+    """A host as it goes into an address.
+
+    An IPv6 address is written with brackets round it, so that the colon
+    before the port can be told from the colons in the address itself. An
+    address without brackets is a different address, not a malformed one, so
+    nothing complains: the connection is simply made to the wrong place.
+    """
+    return f"[{host}]" if ":" in host else host
+
+
 class HcpLink:
     """One appliance, talked to directly, for as long as it will answer.
 
@@ -232,7 +243,7 @@ class HcpLink:
     def url(self) -> str:
         scheme = "ws" if self._sealed else "wss"
         usual = PLAIN_PORT if self._sealed else TLS_PORT
-        return f"{scheme}://{self._host}:{self._port or usual}{PATH}"
+        return f"{scheme}://{_written(self._host)}:{self._port or usual}{PATH}"
 
     @property
     def talking(self) -> bool:

@@ -297,3 +297,25 @@ def test_which_way_in_follows_how_it_is_secured(
         ).url
         == "wss://hob:8443/homeconnect"
     )
+
+
+def test_an_appliance_found_at_an_ipv6_address_is_written_with_brackets(
+    session: aiohttp.ClientSession,
+) -> None:
+    """The colon before the port has to be told from the colons in the
+    address. Without the brackets it is a different address rather than a
+    malformed one, so the connection is simply made to the wrong place."""
+    six = "fd74:8e83:4254:c6b0:9627:70ff:fe84:7dcd"
+    assert (
+        HcpLink(session, six, KEY, None, lambda _v: None, lambda _c: None).url
+        == f"wss://[{six}]:443/homeconnect"
+    )
+    assert (
+        HcpLink(session, six, KEY, IV, lambda _v: None, lambda _c: None).url
+        == f"ws://[{six}]:80/homeconnect"
+    )
+    # An address that is not one of those is left as it is.
+    assert (
+        HcpLink(session, "172.20.0.209", KEY, IV, lambda _v: None, lambda _c: None).url
+        == "ws://172.20.0.209:80/homeconnect"
+    )
