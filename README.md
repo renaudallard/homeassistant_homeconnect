@@ -209,20 +209,19 @@ again.
 | counts against the API quota | yes | no, after the first look |
 | how changes arrive | one stream for the account | each appliance's own connection |
 | finds the appliance by | the account | its own announcement on the network |
-| works with a newer appliance | yes | only if the account publishes a key for it |
+| needs a key from the account | no | yes, one per appliance |
 
 Local control needs each appliance to be on the same network as Home
 Assistant and announcing itself on it, which is what the discovery card is
 built on. An appliance that cannot be found that way stays unavailable until
 it turns up.
 
-**It also needs the account to publish a key for that appliance, and newer
-ones have none to publish.** The account says how each appliance is reached,
-and one it calls `CERTIFICATE` is reached with a client certificate the app
-enrols for while it pairs, not with a shared key. Enrolling is part of
-pairing, which this deliberately does not do, so those appliances can only be
-reached through the cloud. Setting an entry to local says so plainly rather
-than failing obscurely.
+It also needs the account to publish a key for that appliance. Each key
+stands under the appliance it belongs to rather than in the account's list of
+what is paired with it, and it is asked for one appliance at a time. An
+appliance the account has no key for is left out and said so in the log; an
+account with no key for anything at all cannot be reached this way, and
+setting an entry to local says that plainly rather than failing obscurely.
 
 The entities are the same either way, and so are their names and their unique
 ids, because both sides are turned into the same shapes before anything above
@@ -323,11 +322,11 @@ one host, so there is nothing to ask the user about.
 | `GET /api/homeappliances/events` | the stream, carrying the whole account |
 
 Set to reach the appliances directly, it asks the account's own service two
-things once and then leaves the cloud alone:
+things about each appliance once and then leaves the cloud alone:
 
 | | |
 | --- | --- |
-| `GET /api/account/v1/accounts/details` | the key each appliance is reached with |
+| `GET /api/appliance/v2/appliances/{id}/encryption-information` | the key that appliance is reached with |
 | `GET /api/iddf/v1/iddf/{id}` | that appliance's own description of itself |
 
 Those live on `eu.services.home-connect.com` or `na.services.home-connect.com`

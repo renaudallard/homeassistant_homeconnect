@@ -376,9 +376,8 @@ class LocalControl:
     async def learn(self, haids: list[str]) -> None:
         """Ask the account for whatever is not known yet.
 
-        The key comes with the account and the description one appliance at a
-        time, so an account of six appliances costs seven calls once and none
-        thereafter.
+        The key and the description both come one appliance at a time, so an
+        account of six appliances costs twelve calls once and none thereafter.
         """
         wanted = [haid for haid in haids if haid not in self._known]
         if not wanted:
@@ -387,14 +386,12 @@ class LocalControl:
         _LOGGER.debug("the account named %d appliances with a key", len(keys))
         if not keys:
             raise HomeConnectError(
-                "the account publishes no key for any appliance on it. An "
-                "appliance reached with a certificate has none to publish: "
-                "the app enrols for one when it pairs, which is not "
-                "something this does. Reach these appliances through the "
-                "cloud instead"
+                "the account publishes no key for any appliance on it, so "
+                "there is no way to reach one directly. Reach these "
+                "appliances through the cloud instead"
             )
         for haid in wanted:
-            secured = _matching(keys, haid)
+            secured = keys.get(haid)
             if secured is None:
                 _LOGGER.warning("the account holds no key for %s", hidden_id(haid))
                 continue
@@ -480,29 +477,6 @@ class LocalControl:
             await link.write(uid, wanted)
             return
         await link.write(uid, _as_sent(entries[uid], value))
-
-
-def _matching(keys: dict[str, dict[str, str]], haid: str) -> dict[str, str] | None:
-    """The key for one appliance, however the two services spell its name.
-
-    The appliance API and the account service do not always name an appliance
-    the same way. One writes the brand, the model and the serial run
-    together where the other writes the serial alone, and the punctuation
-    between them is not consistent either. So an exact match is tried first
-    and then a comparison with the punctuation and the case taken out, one
-    name being allowed to sit inside the other.
-    """
-    exact = keys.get(haid)
-    if exact is not None:
-        return exact
-    wanted = _plainly(haid)
-    if not wanted:
-        return None
-    for named, secured in keys.items():
-        plain = _plainly(named)
-        if plain and (plain == wanted or plain in wanted or wanted in plain):
-            return secured
-    return None
 
 
 def _as_sent(entry: Entry, value: Any) -> Any:

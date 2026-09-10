@@ -228,8 +228,8 @@ async def test_the_account_service_refusing_is_not_a_reason_to_sign_in_again(
 async def test_an_account_that_publishes_no_key_says_why(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
 ) -> None:
-    """An appliance reached with a certificate has none to publish. Saying so
-    is the difference between a bug and a thing that cannot be done."""
+    """Not every appliance has a key kept for it. Saying so is the difference
+    between a bug and a thing that cannot be done."""
     serve(aioclient_mock, [fixture("washer")])
     made = entry(hass)
     hass.config_entries.async_update_entry(
@@ -243,5 +243,5 @@ async def test_an_account_that_publishes_no_key_says_why(
         await hass.async_block_till_done()
 
     assert made.state is ConfigEntryState.SETUP_RETRY
-    assert "certificate" in str(made.reason)
+    assert "no key" in str(made.reason)
     assert "cloud" in str(made.reason)

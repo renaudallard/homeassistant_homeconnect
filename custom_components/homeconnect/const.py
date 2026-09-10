@@ -98,15 +98,11 @@ SERVICES_HOSTS = (
     "https://na.services.home-connect.com",
 )
 
-# The account itself, and the appliances paired with it. The second is where
-# the key that lets this talk to an appliance directly is kept, and it hangs
-# off the account's own identifier rather than standing on its own.
-ACCOUNTS_PATH = "/api/account/v1/accounts"
-PAIRED_PATH = "/api/account/v2/accounts/{}/paired-appliances"
-
-# One paired appliance on its own. The list does not always say how to reach
-# an appliance, only that it is there, and this is where the rest of it is.
-PAIRED_ONE_PATH = "/api/account/v2/accounts/{}/paired-appliances/{}"
+# The key that lets this talk to one appliance directly. It stands on its own
+# under the appliance rather than hanging off the account, and it is the only
+# place the key is published: the account's own list of paired appliances says
+# a great deal about each of them and never carries the key.
+ENCRYPTION_PATH = "/api/appliance/v2/appliances/{}/encryption-information"
 
 # An appliance's own description of itself, as a zip of two XML files. It is
 # the only thing that turns the numbers an appliance speaks in back into keys.

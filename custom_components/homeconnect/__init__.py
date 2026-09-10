@@ -122,9 +122,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: HomeConnectConfigEntry) 
         local = LocalControl(
             hass,
             session,
-            # Signing in said which account this is, and the keys hang off it,
-            # so the account service does not have to be asked who we are.
-            HomeConnectAccount(api, entry.unique_id),
+            HomeConnectAccount(api),
             local_store(hass, entry),
             coordinator.apply_locally,
             coordinator.set_talking,

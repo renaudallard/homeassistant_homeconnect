@@ -50,13 +50,11 @@ import aiohttp
 from . import auth, http
 from .auth import Tokens
 from .const import (
-    ACCOUNTS_PATH,
     API_HOST,
     API_PATH,
     DESCRIPTION_PATH,
+    ENCRYPTION_PATH,
     MEDIA_TYPE,
-    PAIRED_ONE_PATH,
-    PAIRED_PATH,
     SERVICES_HOSTS,
     TOKEN_EXPIRY_MARGIN,
 )
@@ -67,7 +65,7 @@ from .errors import (
     HomeConnectRefused,
     HomeConnectTooManyRequests,
 )
-from .http import failure, redact_url
+from .http import failure, hidden_id, redact_url
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -460,14 +458,10 @@ class HomeConnectAccount:
     client that does the minute to minute work.
     """
 
-    def __init__(self, api: HomeConnectApi, hcid: str | None = None) -> None:
+    def __init__(self, api: HomeConnectApi) -> None:
         self._api = api
         # Which half of the world this account belongs to, once it is known.
         self._host: str | None = None
-        # Which account this is. The keys hang off it rather than standing on
-        # their own, and it is known from signing in, so it is passed in
-        # where it is known and asked for where it is not.
-        self._hcid = hcid
 
     async def _fetch(self, path: str, binary: bool = False) -> Any:
         """Ask each service host in turn until one of them answers.
@@ -491,59 +485,33 @@ class HomeConnectAccount:
             return found
         raise last or HomeConnectConnectionError(f"nothing answered for {path}")
 
-    async def _whose(self) -> str:
-        """Which account this is.
-
-        Signing in says so, and that is where it comes from when it is known.
-        Otherwise the account service is asked, which answers with the
-        account rather than a list of them, there being one.
-        """
-        if self._hcid:
-            return self._hcid
-        found = _account_in(await self._fetch(ACCOUNTS_PATH))
-        if found is None:
-            raise HomeConnectConnectionError(
-                "the account service did not say which account this is"
-            )
-        self._hcid = found
-        return found
-
     async def keys(self, haids: list[str]) -> dict[str, dict[str, str]]:
         """The key each appliance is reached directly with, by appliance.
 
-        The answer carries a great deal besides, and has been reshaped before
-        now, so it is walked for what is wanted rather than read by a path
-        through it that would break the next time it moves.
-
-        Where the list says only that the appliances are there, each is asked
-        for on its own, that being where the rest of an appliance is kept.
-        What came back is described to the log when neither has a key in it,
-        because a shape nobody here has seen is the one thing a report about
-        this cannot do without.
+        Each appliance is asked for on its own, that being where its key is
+        kept. One that has none is left out rather than stopping the rest,
+        since an appliance without a key says nothing about the next one.
+        What came back is described to the log when it holds no key, because
+        a shape nobody here has seen is the one thing a report about this
+        cannot do without.
         """
-        whose = await self._whose()
-        listed = await self._fetch(PAIRED_PATH.format(whose))
-        found = _keys_in(listed)
-        if found:
-            return found
-        _LOGGER.debug("the paired appliances answer is shaped %s", shape(listed))
-        _LOGGER.debug(
-            "the account reaches its appliances by %s",
-            ", ".join(_how_reached(listed)) or "some way it did not say",
-        )
+        found: dict[str, dict[str, str]] = {}
         for haid in haids:
             try:
-                alone = await self._fetch(PAIRED_ONE_PATH.format(whose, haid))
+                answer = await self._fetch(ENCRYPTION_PATH.format(haid))
+            except HomeConnectAuthError:
+                # The token is the account's rather than the appliance's, so
+                # being refused once is being refused for all of them, and
+                # signing in again is the only way out of it.
+                raise
             except HomeConnectError as err:
-                # There is not always a resource for one appliance on its
-                # own. Not finding one is not a failure worth stopping for:
-                # it only means the key is not there either.
-                _LOGGER.debug("nothing to read about one appliance alone: %s", err)
+                _LOGGER.debug("no key to be had for %s: %s", hidden_id(haid), err)
                 continue
-            one = _keys_in(alone)
-            if not one:
-                _LOGGER.debug("one paired appliance is shaped %s", shape(alone))
-            found |= one
+            secured = _key_in(answer)
+            if secured is None:
+                _LOGGER.debug("the key for one appliance is shaped %s", shape(answer))
+                continue
+            found[haid] = secured
         return found
 
     async def description(self, haid: str) -> bytes:
@@ -554,12 +522,9 @@ class HomeConnectAccount:
         return found
 
 
-# What the account calls an appliance, in the half of it that carries keys.
-IDENTIFIERS = ("haId", "identifier", "id")
-
-# How an appliance is secured. One of the two is present, never both: the key
-# alone means the connection is secured, and a starting vector beside it means
-# the messages are.
+# How an appliance is secured. One of the two is filled in and the other is
+# null: the key alone means the connection is secured, and a starting vector
+# beside it means the messages are.
 TLS = "tls"
 AES = "aes"
 
@@ -607,78 +572,19 @@ def shape(payload: Any, depth: int = 0) -> str:
     return type(payload).__name__
 
 
-# How the account says an appliance is reached. An appliance reached with a
-# certificate publishes no key, because there is none to publish.
-COMMUNICATION = "communicationType"
-BY_CERTIFICATE = "CERTIFICATE"
+def _key_in(payload: Any) -> dict[str, str] | None:
+    """The key one appliance is reached with, out of its own answer.
 
-
-def _how_reached(payload: Any) -> set[str]:
-    """The ways the account says its appliances are reached."""
-    found: set[str] = set()
-
-    def walk(node: Any) -> None:
-        if isinstance(node, list):
-            for member in node:
-                walk(member)
-        elif isinstance(node, dict):
-            if isinstance(node.get(COMMUNICATION), str):
-                found.add(node[COMMUNICATION])
-            for member in node.values():
-                walk(member)
-
-    walk(payload)
-    return found
-
-
-# What the account service calls the account itself.
-ACCOUNT_IDS = ("hcId", "hcid", "accountId", "id")
-
-
-def _account_in(payload: Any) -> str | None:
-    """The account's own identifier, from wherever in the answer it sits."""
-
-    def walk(node: Any) -> str | None:
-        if isinstance(node, list):
-            return next((found for one in node if (found := walk(one))), None)
-        if not isinstance(node, dict):
-            return None
-        for name in ACCOUNT_IDS:
-            if isinstance(node.get(name), str) and node[name]:
-                return str(node[name])
-        return next((found for one in node.values() if (found := walk(one))), None)
-
-    return walk(payload)
-
-
-def _keys_in(payload: Any) -> dict[str, dict[str, str]]:
-    """Every appliance and its key, from wherever in the answer they sit.
-
-    Walked rather than read out of a known place. What is looked for is an
-    object that names an appliance and carries one of the two ways of
-    securing it, which is a shape that cannot be mistaken for anything else.
+    One of the two ways of securing it is filled in and the other is null.
+    The key on its own means the connection is secured; a starting vector
+    beside it means the messages are.
     """
-    found: dict[str, dict[str, str]] = {}
-
-    def walk(node: Any) -> None:
-        if isinstance(node, list):
-            for member in node:
-                walk(member)
-            return
-        if not isinstance(node, dict):
-            return
-        secured = node.get(TLS) or node.get(AES)
-        named = next(
-            (str(node[one]) for one in IDENTIFIERS if isinstance(node.get(one), str)),
-            None,
-        )
-        if named and isinstance(secured, dict) and secured.get("key"):
-            found[named] = {
-                "key": str(secured["key"]),
-                **({"iv": str(secured["iv"])} if secured.get("iv") else {}),
-            }
-        for member in node.values():
-            walk(member)
-
-    walk(payload)
-    return found
+    if not isinstance(payload, dict):
+        return None
+    secured = payload.get(TLS) or payload.get(AES)
+    if not isinstance(secured, dict) or not secured.get("key"):
+        return None
+    return {
+        "key": str(secured["key"]),
+        **({"iv": str(secured["iv"])} if secured.get("iv") else {}),
+    }
