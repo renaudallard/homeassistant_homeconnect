@@ -50,11 +50,12 @@ import aiohttp
 from . import auth, http
 from .auth import Tokens
 from .const import (
-    ACCOUNT_PATH,
+    ACCOUNTS_PATH,
     API_HOST,
     API_PATH,
     DESCRIPTION_PATH,
     MEDIA_TYPE,
+    PAIRED_PATH,
     SERVICES_HOSTS,
     TOKEN_EXPIRY_MARGIN,
 )
@@ -124,6 +125,23 @@ class HomeConnectApi:
         self._language = language
         self._on_tokens = on_tokens
         self._lock = asyncio.Lock()
+        # Which half of the world the cloud says it answered from. It says so
+        # in a header on every answer, which is better than guessing at the
+        # account service later.
+        self._env: str | None = None
+
+    @property
+    def region(self) -> str | None:
+        """Which regional service this account belongs to, where it has said.
+
+        The cloud stamps every answer with the environment it came from, as
+        in EU-PRD, and the first word of that is the region. It is only ever
+        a hint: it decides which service host to try first, and being wrong
+        costs one refused call rather than a failure.
+        """
+        if not self._env:
+            return None
+        return self._env.split("-", 1)[0].lower()
 
     @property
     def tokens(self) -> Tokens:
@@ -195,6 +213,8 @@ class HomeConnectApi:
         status, payload, answered = await http.request(
             self._session, method, url, headers=headers, json_body=json_body
         )
+        if answered.get("hc-env"):
+            self._env = answered["hc-env"]
         if status == 401 and retry:
             # The token was refused early. Renew once and try again, so a clock
             # that drifted or a token revoked server side does not surface as a
@@ -439,10 +459,14 @@ class HomeConnectAccount:
     client that does the minute to minute work.
     """
 
-    def __init__(self, api: HomeConnectApi) -> None:
+    def __init__(self, api: HomeConnectApi, hcid: str | None = None) -> None:
         self._api = api
         # Which half of the world this account belongs to, once it is known.
         self._host: str | None = None
+        # Which account this is. The keys hang off it rather than standing on
+        # their own, and it is known from signing in, so it is passed in
+        # where it is known and asked for where it is not.
+        self._hcid = hcid
 
     async def _fetch(self, path: str, binary: bool = False) -> Any:
         """Ask each service host in turn until one of them answers.
@@ -451,7 +475,7 @@ class HomeConnectAccount:
         it. Which is which is not something the account says in advance, so
         the one that answers is the answer, and it is remembered.
         """
-        hosts = [self._host] if self._host else list(SERVICES_HOSTS)
+        hosts = [self._host] if self._host else _in_order(self._api.region)
         last: Exception | None = None
         for host in hosts:
             try:
@@ -466,6 +490,23 @@ class HomeConnectAccount:
             return found
         raise last or HomeConnectConnectionError(f"nothing answered for {path}")
 
+    async def _whose(self) -> str:
+        """Which account this is.
+
+        Signing in says so, and that is where it comes from when it is known.
+        Otherwise the account service is asked, which answers with the
+        account rather than a list of them, there being one.
+        """
+        if self._hcid:
+            return self._hcid
+        found = _account_in(await self._fetch(ACCOUNTS_PATH))
+        if found is None:
+            raise HomeConnectConnectionError(
+                "the account service did not say which account this is"
+            )
+        self._hcid = found
+        return found
+
     async def keys(self) -> dict[str, dict[str, str]]:
         """The key each appliance is reached directly with, by appliance.
 
@@ -473,7 +514,7 @@ class HomeConnectAccount:
         now, so it is walked for what is wanted rather than read by a path
         through it that would break the next time it moves.
         """
-        return _keys_in(await self._fetch(ACCOUNT_PATH))
+        return _keys_in(await self._fetch(PAIRED_PATH.format(await self._whose())))
 
     async def description(self, haid: str) -> bytes:
         """One appliance's description of itself, as it was sent."""
@@ -491,6 +532,39 @@ IDENTIFIERS = ("haId", "identifier", "id")
 # the messages are.
 TLS = "tls"
 AES = "aes"
+
+
+def _in_order(region: str | None) -> list[str]:
+    """The service hosts, likeliest first.
+
+    The cloud says which region answered, so the host for that region is
+    tried before the other. Where it has not said, or says something nobody
+    here has seen, they are tried in the order they are written.
+    """
+    hosts = list(SERVICES_HOSTS)
+    if region:
+        hosts.sort(key=lambda host: f"//{region}." not in host)
+    return hosts
+
+
+# What the account service calls the account itself.
+ACCOUNT_IDS = ("hcId", "hcid", "accountId", "id")
+
+
+def _account_in(payload: Any) -> str | None:
+    """The account's own identifier, from wherever in the answer it sits."""
+
+    def walk(node: Any) -> str | None:
+        if isinstance(node, list):
+            return next((found for one in node if (found := walk(one))), None)
+        if not isinstance(node, dict):
+            return None
+        for name in ACCOUNT_IDS:
+            if isinstance(node.get(name), str) and node[name]:
+                return str(node[name])
+        return next((found for one in node.values() if (found := walk(one))), None)
+
+    return walk(payload)
 
 
 def _keys_in(payload: Any) -> dict[str, dict[str, str]]:
