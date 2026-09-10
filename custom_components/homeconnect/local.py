@@ -50,6 +50,7 @@ from zeroconf.asyncio import AsyncServiceBrowser, AsyncServiceInfo
 
 from .capability import OPTION, SETTING, STATUS, Feature, Reading
 from .errors import HomeConnectError
+from .http import hidden_id
 from .iddf import Entry, named_value, uids_by_key, unpack
 
 _LOGGER = logging.getLogger(__name__)
@@ -383,10 +384,11 @@ class LocalControl:
         if not wanted:
             return
         keys = await self._account.keys()
+        _LOGGER.debug("the account named %d appliances with a key", len(keys))
         for haid in wanted:
-            secured = keys.get(haid)
+            secured = _matching(keys, haid)
             if secured is None:
-                _LOGGER.warning("the account holds no key for %s", haid)
+                _LOGGER.warning("the account holds no key for %s", hidden_id(haid))
                 continue
             entries = unpack(await self._account.description(haid))
             self._known[haid] = Known(
@@ -470,6 +472,29 @@ class LocalControl:
             await link.write(uid, wanted)
             return
         await link.write(uid, _as_sent(entries[uid], value))
+
+
+def _matching(keys: dict[str, dict[str, str]], haid: str) -> dict[str, str] | None:
+    """The key for one appliance, however the two services spell its name.
+
+    The appliance API and the account service do not always name an appliance
+    the same way. One writes the brand, the model and the serial run
+    together where the other writes the serial alone, and the punctuation
+    between them is not consistent either. So an exact match is tried first
+    and then a comparison with the punctuation and the case taken out, one
+    name being allowed to sit inside the other.
+    """
+    exact = keys.get(haid)
+    if exact is not None:
+        return exact
+    wanted = _plainly(haid)
+    if not wanted:
+        return None
+    for named, secured in keys.items():
+        plain = _plainly(named)
+        if plain and (plain == wanted or plain in wanted or wanted in plain):
+            return secured
+    return None
 
 
 def _as_sent(entry: Entry, value: Any) -> Any:

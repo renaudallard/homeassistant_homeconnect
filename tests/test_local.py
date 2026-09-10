@@ -187,3 +187,23 @@ def test_what_is_needed_to_talk_to_one_survives_being_written_down() -> None:
 def test_something_written_down_that_no_longer_reads_is_dropped() -> None:
     assert local.Known.from_stored({"key": "a", "entries": "not a mapping"}) is None
     assert local.Known.from_stored("nonsense") is None
+
+
+def test_the_two_services_may_spell_an_appliance_differently() -> None:
+    """One writes the brand, the model and the serial run together where the
+    other writes the serial alone, and the join has to survive that."""
+    keys = {"SIEMENS-EX651HEC1E-335030393548000200": {"key": "k"}}
+    assert local._matching(keys, "335030393548000200") == {"key": "k"}
+    assert local._matching(keys, "SIEMENS-EX651HEC1E-335030393548000200") == {
+        "key": "k"
+    }
+    assert local._matching(
+        {"335030393548000200": {"key": "k"}}, "SIEMENS-X-335030393548000200"
+    ) == {"key": "k"}
+
+
+def test_an_appliance_the_account_has_no_key_for_matches_nothing() -> None:
+    keys = {"SIEMENS-EX651HEC1E-111111111111": {"key": "k"}}
+    assert local._matching(keys, "999999999999") is None
+    assert local._matching({}, "anything") is None
+    assert local._matching(keys, "") is None
