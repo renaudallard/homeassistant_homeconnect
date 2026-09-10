@@ -28,7 +28,12 @@
 
 from __future__ import annotations
 
-from custom_components.homeconnect.http import failure, redact, redact_url
+from custom_components.homeconnect.http import (
+    failure,
+    hidden_id,
+    redact,
+    redact_url,
+)
 
 
 def test_a_token_is_replaced_by_a_note_of_its_length() -> None:
@@ -69,9 +74,23 @@ def test_only_the_serial_is_taken_out_of_an_address() -> None:
 
 
 def test_an_address_with_no_appliance_in_it_is_left_alone() -> None:
-    assert redact_url(f"{'https://api.home-connect.com'}/api/homeappliances") == (
-        "https://api.home-connect.com/api/homeappliances"
+    for path in ("/api/homeappliances", "/api/homeappliances/events"):
+        assert redact_url(f"https://api.home-connect.com{path}") == (
+            f"https://api.home-connect.com{path}"
+        )
+
+
+def test_an_id_not_written_the_usual_way_is_hidden_whole() -> None:
+    """Losing the model from a report costs a question. Publishing somebody's
+    serial because it did not look like one cannot be taken back."""
+    assert hidden_id("SIEMENS-EX651HEC1E68A40E") == "<appliance hidden>"
+    assert hidden_id("nonsense") == "<appliance hidden>"
+    hidden = redact_url(
+        "https://api.home-connect.com/api/homeappliances/"
+        "SIEMENS-EX651HEC1E68A40E/status"
     )
+    assert "EX651HEC1E68A40E" not in hidden
+    assert hidden.endswith("/status")
 
 
 def test_a_refusal_is_read_for_its_key_and_its_reason() -> None:

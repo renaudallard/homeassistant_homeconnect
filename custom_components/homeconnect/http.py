@@ -96,16 +96,39 @@ def redact(data: Any) -> Any:
     return data
 
 
-# An appliance id is the brand, the model and the serial run together, as in
-# BOSCH-HNG6764B6-0000000011FF. The serial is the part that names one machine
-# and one household, and it is the only part worth hiding: the brand and the
-# model are what a bug report is about.
-APPLIANCE_ID = re.compile(r"\b([A-Za-z]+-[0-9A-Za-z_]+-)([0-9A-Fa-f]{8,})\b")
+# Where an appliance id sits in an address. Only the segment right after the
+# listing is one; the words either side of it are parts of the route.
+APPLIANCE_AT = re.compile(r"(/homeappliances/)([^/?#]+)")
+
+
+def hidden_id(haid: str) -> str:
+    """An appliance id with the part that names one household taken out.
+
+    An id is usually the brand, the model and the serial run together, and the
+    first two of those are what a bug report is about. An id written some
+    other way is hidden whole rather than guessed at: losing the model from a
+    report costs a question, and publishing somebody's serial because it did
+    not look like one cannot be taken back.
+    """
+    parts = haid.split("-")
+    if len(parts) < 3:
+        return "<appliance hidden>"
+    return "-".join([*parts[:2], "<serial hidden>"])
 
 
 def redact_url(url: str) -> str:
-    """Hide the part of an appliance id that names one particular machine."""
-    return APPLIANCE_ID.sub(lambda found: f"{found.group(1)}<serial hidden>", url)
+    """Hide the part of an appliance id that names one particular machine.
+
+    A segment with no dash in it is a word of the route rather than an id: the
+    stream lives at one, and no appliance has ever been called events.
+    """
+    return APPLIANCE_AT.sub(
+        lambda found: (
+            found.group(1)
+            + (hidden_id(found.group(2)) if "-" in found.group(2) else found.group(2))
+        ),
+        url,
+    )
 
 
 # Enough for a list of available programmes, which on an oven runs to several

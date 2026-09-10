@@ -52,8 +52,7 @@ from . import HomeConnectConfigEntry
 from .capability import Feature, platform_for
 from .const import DOMAIN
 from .coordinator import Appliance
-from .entity import serial_of
-from .http import redact
+from .http import hidden_id, redact
 
 
 def _described(features: dict[str, Feature]) -> list[dict[str, Any]]:
@@ -74,7 +73,6 @@ def _readings(readings: dict[str, Any]) -> dict[str, Any]:
 
 def _appliance(appliance: Appliance) -> dict[str, Any]:
     """Everything worth knowing about one machine."""
-    serial = serial_of(appliance.id)
     return {
         "type": appliance.type,
         "brand": appliance.brand,
@@ -83,7 +81,7 @@ def _appliance(appliance: Appliance) -> dict[str, Any]:
         # The serial is the only part of the identifier that names one
         # household's machine, and the shape of the identifier is worth
         # keeping even so.
-        "id": appliance.id.replace(serial, "<serial hidden>") if serial else "hidden",
+        "id": hidden_id(appliance.id),
         "connected": appliance.connected,
         "status": _readings(appliance.status),
         "settings": _readings(appliance.settings),
