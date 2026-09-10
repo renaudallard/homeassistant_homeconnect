@@ -104,3 +104,22 @@ def test_a_refusal_shaped_some_other_way_still_says_something() -> None:
     assert key is None
     assert "oops" in described
     assert failure(None) == (None, "no body")
+
+
+def test_the_serial_number_is_hidden_along_with_the_identifier() -> None:
+    """An appliance listing carries it in full beside the identifier, which
+    made hiding the one pointless while the other went out in the clear."""
+    listed = redact(
+        {
+            "brand": "Siemens",
+            "haId": "SIEMENS-EX651HEC1E-000000000000",
+            "serialnumber": "335030393548000200",
+            "type": "Hob",
+            "vib": "EX651HEC1E",
+        }
+    )
+    assert listed["serialnumber"] == "<18 chars hidden>"
+    assert "000000000000" not in str(listed)
+    # What the appliance is stays readable, that being what a report is about.
+    assert listed["vib"] == "EX651HEC1E"
+    assert listed["type"] == "Hob"

@@ -48,9 +48,14 @@ _LOGGER = logging.getLogger(__name__)
 
 TIMEOUT = aiohttp.ClientTimeout(total=REQUEST_TIMEOUT, connect=CONNECT_TIMEOUT)
 
-# Anything under one of these names is a credential or says whose account this
-# is. Debug logging is meant to be pasted into a bug report, so none of it goes
-# out in the clear, in a body or in the headers either way along.
+# Anything under one of these names is a credential or says whose account or
+# whose machine this is. Debug logging is meant to be pasted into a bug
+# report, so none of it goes out in the clear, in a body or in the headers
+# either way along.
+#
+# The serial number is here because an appliance listing carries it in full
+# beside the identifier that has it hidden, which made hiding the one pointless
+# while the other went out in the clear.
 SECRETS = frozenset(
     {
         "access_token",
@@ -64,6 +69,8 @@ SECRETS = frozenset(
         "haid",
         "id_token",
         "refresh_token",
+        "serialnumber",
+        "serial_number",
         "set-cookie",
         "state",
     }
