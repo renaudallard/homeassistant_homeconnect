@@ -82,6 +82,16 @@ def test_every_reason_the_flow_gives_up_for_has_text() -> None:
     assert given == set(STRINGS["config"]["abort"])
 
 
+def test_every_notice_the_integration_raises_has_text() -> None:
+    """A repair with no text shows the bare translation key and helps nobody."""
+    coordinator = (COMPONENT / "coordinator.py").read_text()
+    raised = set(re.findall(r'translation_key="([a-z_]+)"', coordinator))
+    assert raised == set(STRINGS["issues"])
+    for name, notice in STRINGS["issues"].items():
+        assert notice["title"], name
+        assert notice["description"], name
+
+
 def test_every_form_field_is_named_and_explained() -> None:
     for name, step in STRINGS["config"]["step"].items():
         for field in step.get("data", {}):

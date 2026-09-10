@@ -49,6 +49,7 @@ from typing import Any
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -93,6 +94,9 @@ UNSETTLING = frozenset(
 # Long enough that a burst of events arriving together, which is what the end
 # of a cycle looks like, costs one look rather than six.
 SETTLE = 3.0
+
+# What one appliance's complaint is filed under.
+_NEVER_ANSWERED = "never_answered_{}"
 
 SCAN_INTERVAL = timedelta(minutes=1)
 # Once the cloud is really pushing, polling is only there to catch what a
@@ -288,6 +292,9 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         # than only what it will run.
         self._thoroughly: set[str] = set()
         self._looking: set[str] = set()
+        # Appliances we have said something about, so that what is said can
+        # be taken back when it stops being true.
+        self._complained_about: set[str] = set()
 
     async def async_load_models(self) -> None:
         """Read back what was learnt about these models last time."""
@@ -355,8 +362,41 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
                     appliances[haid] = held
         if not appliances and listed:
             raise UpdateFailed("no appliance on the account would answer")
+        self._report(appliances)
         await self._save_models()
         return appliances
+
+    @callback
+    def _report(self, appliances: dict[str, Appliance]) -> None:
+        """Say plainly when an appliance is on the account and never answers.
+
+        Such an appliance gets one entity saying it is disconnected and no
+        explanation, which reads like the integration failing when it is the
+        appliance declining to talk to the cloud at all. Only one that has
+        never once answered is worth raising: a machine that used to work and
+        is switched off today is not something to repair.
+        """
+        silent = {
+            haid
+            for haid, appliance in appliances.items()
+            if not appliance.connected and not appliance.model.described
+        }
+        for haid in self._complained_about - silent:
+            ir.async_delete_issue(self.hass, DOMAIN, _NEVER_ANSWERED.format(haid))
+        for haid in silent:
+            ir.async_create_issue(
+                self.hass,
+                DOMAIN,
+                _NEVER_ANSWERED.format(haid),
+                is_fixable=False,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key="never_answered",
+                translation_placeholders={
+                    "name": appliances[haid].name,
+                    "type": appliances[haid].type or "appliance",
+                },
+            )
+        self._complained_about = silent
 
     async def _read(self, haid: str, described: dict[str, Any]) -> Appliance:
         """Everything about one appliance, as much of it as it will say.
@@ -572,6 +612,7 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
             _LOGGER.debug("could not look at %s again: %s", appliance.name, err)
         finally:
             self._looking.discard(haid)
+        self._report(self.data)
         self.async_set_updated_data(self.data)
 
     @callback

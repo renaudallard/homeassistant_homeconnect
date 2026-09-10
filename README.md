@@ -127,6 +127,13 @@ away on the next look.
 | how long is left | a duration sensor, and a **Finish at** timestamp |
 | anything else it reports | a sensor |
 
+An appliance that the account lists but that has never once answered raises a
+repair notice saying so, because otherwise it arrives as a single Disconnected
+sensor and no explanation, which reads like this failing when it is the
+appliance declining to talk to the cloud. It goes away by itself once the
+appliance answers. A machine that used to work and is switched off today
+raises nothing: that is not something to repair.
+
 Every appliance also gets a **Connection** binary sensor, which is where a
 machine going quiet shows up. When the cloud stops calling an appliance
 reachable, what it last said stays readable, so a wash can be looked at

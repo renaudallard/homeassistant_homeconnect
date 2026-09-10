@@ -34,6 +34,7 @@ from unittest.mock import patch
 
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import async_fire_time_changed
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
@@ -229,3 +230,72 @@ async def test_an_appliance_that_was_off_is_described_when_it_answers(
     assert coordinator.data[HAID].model.described
     assert state_of(hass, "switch.washer_child_lock") == "off"
     assert state_of(hass, "sensor.washer_operation_state") == "Ready"
+
+
+def complaint(hass: HomeAssistant, haid: str) -> ir.IssueEntry | None:
+    return ir.async_get(hass).async_get_issue(DOMAIN, f"never_answered_{haid}")
+
+
+async def test_an_appliance_that_never_answers_is_explained(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """One entity saying disconnected and no explanation reads like the
+    integration failing, when it is the appliance declining to talk."""
+    offline = copy.deepcopy(fixture("washer"))
+    offline["appliance"]["connected"] = False
+    serve(aioclient_mock, [offline])
+    made = entry(hass)
+    with patch("custom_components.homeconnect.HomeConnectStream.start"):
+        await hass.config_entries.async_setup(made.entry_id)
+        await hass.async_block_till_done()
+
+    raised = complaint(hass, HAID)
+    assert raised is not None
+    assert raised.translation_key == "never_answered"
+    assert raised.translation_placeholders == {"name": "Washer", "type": "Washer"}
+    assert not raised.is_fixable
+
+
+async def test_an_appliance_that_answers_is_not_complained_about(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    await set_up(hass, aioclient_mock, "washer")
+    assert complaint(hass, HAID) is None
+
+
+async def test_the_complaint_is_taken_back_once_it_answers(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    offline = copy.deepcopy(fixture("washer"))
+    offline["appliance"]["connected"] = False
+    serve(aioclient_mock, [offline])
+    made = entry(hass)
+    with patch("custom_components.homeconnect.HomeConnectStream.start"):
+        await hass.config_entries.async_setup(made.entry_id)
+        await hass.async_block_till_done()
+    assert complaint(hass, HAID) is not None
+
+    made.runtime_data.coordinator.apply(Event("CONNECTED", HAID, {}))
+    await hass.async_block_till_done()
+    async_fire_time_changed(hass, dt_util.utcnow() + timedelta(seconds=SETTLE + 1))
+    await hass.async_block_till_done()
+
+    assert complaint(hass, HAID) is None
+
+
+async def test_a_machine_that_used_to_work_is_not_a_repair(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """Switched off today is not something to fix, and saying so would put a
+    notice up every time somebody turned an oven off at the wall."""
+    made = await set_up(hass, aioclient_mock, "washer")
+    coordinator = made.runtime_data.coordinator
+    described = copy.deepcopy(fixture("washer"))
+    described["appliance"]["connected"] = False
+    aioclient_mock.clear_requests()
+    serve(aioclient_mock, [described])
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    assert not coordinator.data[HAID].connected
+    assert complaint(hass, HAID) is None
