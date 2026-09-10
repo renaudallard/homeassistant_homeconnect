@@ -399,7 +399,7 @@ class LocalControl:
             self._known[haid] = Known(
                 key=secured["key"], iv=secured.get("iv"), entries=entries
             )
-            _LOGGER.debug("learnt %d things about %s", len(entries), haid)
+            _LOGGER.debug("learnt %d things about %s", len(entries), hidden_id(haid))
         await self._store.async_save(
             {haid: known.as_stored() for haid, known in self._known.items()}
         )
@@ -443,7 +443,7 @@ class LocalControl:
             link = self._make(haid, known, where)
             self._links[haid] = link
             link.start(self._spawn)
-            _LOGGER.debug("talking to %s at %s", haid, where.host)
+            _LOGGER.debug("talking to %s at %s", hidden_id(haid), where.host)
 
     def _make(self, haid: str, known: Known, where: Where) -> Any:
         from .hcp import HcpLink

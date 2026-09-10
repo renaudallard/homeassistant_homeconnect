@@ -33,6 +33,7 @@ point of these is that nothing above the coordinator can tell which it was.
 
 from __future__ import annotations
 
+import logging
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, patch
@@ -92,9 +93,16 @@ def _standing_in(link: Stub) -> Any:
 
 @pytest.fixture
 async def talking(
-    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    caplog: pytest.LogCaptureFixture,
 ) -> tuple[MockConfigEntry, Stub]:
-    """An entry set up locally, with one appliance answering."""
+    """An entry set up locally, with one appliance answering.
+
+    Everything it says on the way up is captured, since what goes into the
+    log on a normal setup is itself worth a test.
+    """
+    caplog.set_level(logging.DEBUG, logger="custom_components.homeconnect")
     serve(aioclient_mock, [fixture("washer")])
     made = entry(hass)
     hass.config_entries.async_update_entry(
@@ -124,6 +132,27 @@ async def talking(
         await hass.config_entries.async_setup(made.entry_id)
         await hass.async_block_till_done()
     return made, link
+
+
+async def test_the_serial_stays_out_of_the_log(
+    hass: HomeAssistant,
+    talking: tuple[MockConfigEntry, Stub],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Setting up locally names the appliance in the log more than once, and
+    the part of the name that says whose it is must not go in."""
+    # Setting the entry up is the fixture's work, so what it said is kept
+    # under that phase rather than under the test's own. Only what this
+    # integration wrote counts: the harness standing in for the store logs
+    # everything it is handed, which the real one does not.
+    said = "\n".join(
+        record.getMessage()
+        for record in caplog.get_records("setup")
+        if record.name.startswith("custom_components.homeconnect")
+    )
+    assert "learnt" in said
+    assert "talking to" in said
+    assert "1234567890AB" not in said
 
 
 async def test_the_entities_come_from_the_appliance_rather_than_the_cloud(
