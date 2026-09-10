@@ -283,16 +283,3 @@ zip of `custom_components/homeconnect` on it. Releasing is therefore a matter
 of bumping the version and pushing. A release written by hand before the
 workflow gets there keeps its own notes and is only given the zip, which is
 how a release worth writing up properly still gets one.
-
-### Where the credentials came from
-
-`Home+Connect_12.20.0_APKPure.xapk`, decompiled. The class holding them is
-`HC-App`'s OAuth configuration: the authorize, token and revoke paths, the two
-redirect addresses the client is registered for, the client id and the ten
-scopes. The backend hosts come from `HubBackend`, and the media type the API
-insists on comes from the one place in the app that calls this API rather than
-the appliance protocol.
-
-Nothing about an appliance is hardcoded from the package. The key vocabulary,
-the units and the words for each value all come from the cloud at run time,
-which is what lets a model nobody has tried work.
