@@ -32,6 +32,8 @@ import base64
 import json
 import time
 from collections.abc import Mapping
+from dataclasses import replace
+from ipaddress import ip_address
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
@@ -39,6 +41,7 @@ from homeassistant import config_entries
 from homeassistant.const import CONF_CODE
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
 from custom_components.homeconnect.const import (
@@ -191,3 +194,69 @@ async def test_signing_in_again_hands_the_new_pair_to_the_entry_there(
     assert again["reason"] == "reauth_successful"
     assert made.data[CONF_ACCESS_TOKEN] == "an-access-token"
     assert made.data["expires_at"] > time.time()
+
+
+HOB = ZeroconfServiceInfo(
+    ip_address=ip_address("172.20.0.209"),
+    ip_addresses=[ip_address("172.20.0.209")],
+    port=80,
+    hostname="Hob-SIEMENS-EX651HEC1E.local.",
+    type="_homeconnect._tcp.local.",
+    name="Hob SIEMENS EX651HEC1E._homeconnect._tcp.local.",
+    properties={
+        "txtvers": "1",
+        "type": "Hob",
+        "brand": "SIEMENS",
+        "vib": "EX651HEC1E",
+        "mac": "94277084 7DCD",
+    },
+)
+
+
+async def test_an_appliance_on_the_network_offers_the_sign_in(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """Discovery says an appliance is there. The account is still what
+    authorises talking to it, so it leads to the same sign in."""
+    shown = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_ZEROCONF}, data=HOB
+    )
+    assert shown["type"] is FlowResultType.FORM
+    assert shown["step_id"] == "user"
+    placeholders = shown["description_placeholders"]
+    assert placeholders is not None
+    assert placeholders["url"].startswith(API_HOST)
+
+
+async def test_the_discovery_card_names_the_appliance(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_ZEROCONF}, data=HOB
+    )
+    (flow,) = hass.config_entries.flow.async_progress()
+    assert flow["context"]["title_placeholders"] == {"name": "SIEMENS Hob EX651HEC1E"}
+
+
+async def test_a_second_appliance_has_nothing_to_add(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """One entry covers every appliance on the account."""
+    entry(hass)
+    again = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_ZEROCONF}, data=HOB
+    )
+    assert again["type"] is FlowResultType.ABORT
+    assert again["reason"] == "already_configured"
+
+
+async def test_an_appliance_that_says_little_is_still_named(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """Nothing is invented for a record that leaves the details out."""
+    quiet = replace(HOB, properties={"txtvers": "1"})
+    await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_ZEROCONF}, data=quiet
+    )
+    (flow,) = hass.config_entries.flow.async_progress()
+    assert flow["context"]["title_placeholders"] == {"name": "Hob SIEMENS EX651HEC1E"}

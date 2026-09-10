@@ -55,6 +55,7 @@ from homeassistant.helpers.selector import (
     TextSelectorConfig,
     TextSelectorType,
 )
+from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 
 from . import auth
 from .api import HomeConnectApi
@@ -68,6 +69,13 @@ from .const import (
 from .errors import HomeConnectAuthError, HomeConnectError
 
 _LOGGER = logging.getLogger(__name__)
+
+# What an appliance puts in the record it shouts on the network. Only the
+# first three are worth reading: they are what turns "something Home Connect
+# is on the network" into "a Siemens hob" on the discovery card.
+TYPE = "type"
+BRAND = "brand"
+MODEL = "vib"
 
 SCHEMA = vol.Schema(
     {
@@ -118,6 +126,24 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
                 "url": auth.authorize_url(self._verifier, self._state)
             },
         )
+
+    async def async_step_zeroconf(
+        self, discovery_info: ZeroconfServiceInfo
+    ) -> ConfigFlowResult:
+        """An appliance shouted on the network, so offer to sign in.
+
+        Discovery says an appliance is there and what sort it is. It says
+        nothing that would let anyone talk to it: the account is what
+        authorises that, so this leads to the same sign in as any other way
+        in, with the appliance named on the card to say what prompted it.
+
+        One entry covers every appliance on the account, so the second
+        appliance to shout has nothing to offer and says so.
+        """
+        if self._async_current_entries():
+            return self.async_abort(reason="already_configured")
+        self.context["title_placeholders"] = {"name": _describe(discovery_info)}
+        return await self.async_step_user()
 
     async def async_step_reauth(
         self, entry_data: Mapping[str, Any]
@@ -184,6 +210,19 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
             return self.async_update_reload_and_abort(entry, data=data)
         self._abort_if_unique_id_configured()
         return self.async_create_entry(title="Home Connect", data=data)
+
+
+def _describe(found: ZeroconfServiceInfo) -> str:
+    """What to call the appliance that prompted this.
+
+    An appliance names itself in the record it shouts, as a brand, a type and
+    the code on its rating plate. Anything it leaves out is left out here too
+    rather than guessed at, and one that says nothing useful falls back to
+    what the network calls it.
+    """
+    said = found.properties
+    words = [str(said[key]) for key in (BRAND, TYPE, MODEL) if said.get(key)]
+    return " ".join(words) if words else found.name.split(".")[0]
 
 
 def _ours(answer: str, state: str) -> bool:

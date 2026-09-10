@@ -80,6 +80,12 @@ category **Integration** and install it from there, or copy
 Home Assistant configuration by hand. Either way, restart, then add **Home
 Connect** from *Settings → Devices & services*.
 
+An appliance announces itself on the local network as `_homeconnect._tcp`, so
+Home Assistant will usually offer the integration on its own, naming whichever
+appliance it heard. That only shortens the walk to the form: what an appliance
+shouts says it is there and what sort it is, and nothing that would let anyone
+talk to it. The account is what authorises that.
+
 The flow shows an address. Open it and sign in with the account the app uses.
 The browser then refuses to open an address beginning `hcauth://`, which is
 what should happen: that is the app's own scheme and there is no app here to
@@ -245,6 +251,9 @@ one host, so there is nothing to ask the user about.
 | `PUT /api/homeappliances/{id}/programs/{slot}/options/{key}` | change an option |
 | `PUT /api/homeappliances/{id}/commands/{key}` | send a command |
 | `GET /api/homeappliances/events` | the stream, carrying the whole account |
+
+Nothing is asked of the appliance directly. It has a local protocol of its own,
+behind a key only the cloud will hand out, and this does not speak it.
 
 Reading one appliance in full costs a call for every setting it has, which is
 the most expensive thing here and the reason the answers are kept between
