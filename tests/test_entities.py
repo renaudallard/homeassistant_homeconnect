@@ -35,11 +35,11 @@ from __future__ import annotations
 import pytest
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
-from .common import set_up, state_of
+from .common import device_for, set_up, state_of
 
 WASHER = "sensor.washer_operation_state"
 
@@ -47,18 +47,14 @@ WASHER = "sensor.washer_operation_state"
 @pytest.fixture
 async def washer(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
-) -> AiohttpClientMocker:
-    await set_up(hass, aioclient_mock, "washer")
-    return aioclient_mock
+) -> MockConfigEntry:
+    return await set_up(hass, aioclient_mock, "washer")
 
 
 async def test_the_appliance_becomes_a_device(
-    hass: HomeAssistant, washer: AiohttpClientMocker
+    hass: HomeAssistant, washer: MockConfigEntry
 ) -> None:
-    registry = dr.async_get(hass)
-    device = registry.async_get_device(
-        {("homeconnect", "BOSCH-WAV28MH0GB-1234567890AB")}
-    )
+    device = device_for(hass, washer, "BOSCH-WAV28MH0GB-1234567890AB")
     assert device is not None
     assert device.name == "Washer"
     assert device.manufacturer == "Bosch"
@@ -68,7 +64,7 @@ async def test_the_appliance_becomes_a_device(
 
 
 async def test_a_status_becomes_a_reading(
-    hass: HomeAssistant, washer: AiohttpClientMocker
+    hass: HomeAssistant, washer: MockConfigEntry
 ) -> None:
     state = hass.states.get(WASHER)
     assert state is not None
@@ -78,15 +74,13 @@ async def test_a_status_becomes_a_reading(
 
 
 async def test_a_status_holding_a_flag_becomes_a_binary_sensor(
-    hass: HomeAssistant, washer: AiohttpClientMocker
+    hass: HomeAssistant, washer: MockConfigEntry
 ) -> None:
     assert state_of(hass, "binary_sensor.washer_remote_control_active") == "on"
     assert state_of(hass, "binary_sensor.washer_local_control_active") == "off"
 
 
-async def test_the_door_is_a_door(
-    hass: HomeAssistant, washer: AiohttpClientMocker
-) -> None:
+async def test_the_door_is_a_door(hass: HomeAssistant, washer: MockConfigEntry) -> None:
     state = hass.states.get("binary_sensor.washer_door_state")
     assert state is not None
     assert state.state == "off"
@@ -94,7 +88,7 @@ async def test_the_door_is_a_door(
 
 
 async def test_being_reachable_is_its_own_reading(
-    hass: HomeAssistant, washer: AiohttpClientMocker
+    hass: HomeAssistant, washer: MockConfigEntry
 ) -> None:
     state = hass.states.get("binary_sensor.washer_connection")
     assert state is not None
@@ -102,7 +96,7 @@ async def test_being_reachable_is_its_own_reading(
 
 
 async def test_a_settable_flag_becomes_a_switch(
-    hass: HomeAssistant, washer: AiohttpClientMocker
+    hass: HomeAssistant, washer: MockConfigEntry
 ) -> None:
     state = hass.states.get("switch.washer_child_lock")
     assert state is not None
@@ -110,7 +104,7 @@ async def test_a_settable_flag_becomes_a_switch(
 
 
 async def test_a_choice_between_on_and_off_becomes_a_switch(
-    hass: HomeAssistant, washer: AiohttpClientMocker
+    hass: HomeAssistant, washer: MockConfigEntry
 ) -> None:
     """The power setting offers two values and one of them is on."""
     state = hass.states.get("switch.washer_power_state")
@@ -119,7 +113,7 @@ async def test_a_choice_between_on_and_off_becomes_a_switch(
 
 
 async def test_a_bounded_figure_becomes_a_number(
-    hass: HomeAssistant, washer: AiohttpClientMocker
+    hass: HomeAssistant, washer: MockConfigEntry
 ) -> None:
     state = hass.states.get("number.washer_i_dos_1_base_level")
     assert state is not None
@@ -130,7 +124,7 @@ async def test_a_bounded_figure_becomes_a_number(
 
 
 async def test_the_programme_is_a_choice_of_what_is_on_offer(
-    hass: HomeAssistant, washer: AiohttpClientMocker
+    hass: HomeAssistant, washer: MockConfigEntry
 ) -> None:
     state = hass.states.get("select.washer_programme")
     assert state is not None
@@ -139,7 +133,7 @@ async def test_the_programme_is_a_choice_of_what_is_on_offer(
 
 
 async def test_an_option_of_the_programme_becomes_a_choice(
-    hass: HomeAssistant, washer: AiohttpClientMocker
+    hass: HomeAssistant, washer: MockConfigEntry
 ) -> None:
     """The words are the appliance's own, which is where 40 °C comes from."""
     state = hass.states.get("select.washer_spin_speed")
@@ -149,7 +143,7 @@ async def test_an_option_of_the_programme_becomes_a_choice(
 
 
 async def test_an_option_counted_in_seconds_is_a_length_of_time(
-    hass: HomeAssistant, washer: AiohttpClientMocker
+    hass: HomeAssistant, washer: MockConfigEntry
 ) -> None:
     state = hass.states.get("sensor.washer_remaining_programme_time")
     assert state is not None
@@ -159,14 +153,14 @@ async def test_an_option_counted_in_seconds_is_a_length_of_time(
 
 
 async def test_the_commands_the_appliance_offers_become_buttons(
-    hass: HomeAssistant, washer: AiohttpClientMocker
+    hass: HomeAssistant, washer: MockConfigEntry
 ) -> None:
     assert hass.states.get("button.washer_pause_programme") is not None
     assert hass.states.get("button.washer_resume_programme") is not None
 
 
 async def test_starting_is_offered_and_stopping_is_not(
-    hass: HomeAssistant, washer: AiohttpClientMocker
+    hass: HomeAssistant, washer: MockConfigEntry
 ) -> None:
     """A programme is selected and nothing is running, so one of the two."""
     start = hass.states.get("button.washer_start")
@@ -176,13 +170,13 @@ async def test_starting_is_offered_and_stopping_is_not(
 
 
 async def test_pausing_is_not_offered_while_nothing_is_running(
-    hass: HomeAssistant, washer: AiohttpClientMocker
+    hass: HomeAssistant, washer: MockConfigEntry
 ) -> None:
     assert state_of(hass, "button.washer_pause_programme") == "unavailable"
 
 
 async def test_an_event_becomes_something_that_is_happening_or_not(
-    hass: HomeAssistant, washer: AiohttpClientMocker
+    hass: HomeAssistant, washer: MockConfigEntry
 ) -> None:
     state = hass.states.get("binary_sensor.washer_i_dos_1_fill_level_poor")
     assert state is not None
@@ -190,7 +184,7 @@ async def test_an_event_becomes_something_that_is_happening_or_not(
 
 
 async def test_what_says_how_it_is_reached_is_kept_out_of_the_way(
-    hass: HomeAssistant, washer: AiohttpClientMocker
+    hass: HomeAssistant, washer: MockConfigEntry
 ) -> None:
     registry = er.async_get(hass)
     remote = registry.async_get("binary_sensor.washer_remote_control_active")
@@ -199,7 +193,7 @@ async def test_what_says_how_it_is_reached_is_kept_out_of_the_way(
 
 
 async def test_a_measured_setting_is_a_control_and_an_unmeasured_one_is_not(
-    hass: HomeAssistant, washer: AiohttpClientMocker
+    hass: HomeAssistant, washer: MockConfigEntry
 ) -> None:
     """A dose in millilitres is a control; a volume with no unit is a setting."""
     registry = er.async_get(hass)
@@ -210,7 +204,7 @@ async def test_a_measured_setting_is_a_control_and_an_unmeasured_one_is_not(
 
 
 async def test_switching_an_appliance_on_is_never_filed_as_configuration(
-    hass: HomeAssistant, washer: AiohttpClientMocker
+    hass: HomeAssistant, washer: MockConfigEntry
 ) -> None:
     registry = er.async_get(hass)
     power = registry.async_get("switch.washer_power_state")

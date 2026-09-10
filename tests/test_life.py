@@ -32,7 +32,6 @@ import copy
 
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
 from custom_components.homeconnect.const import DOMAIN
@@ -41,7 +40,7 @@ from custom_components.homeconnect.coordinator import (
     SCAN_INTERVAL_STREAMING,
 )
 
-from .common import API, entry, fixture, serve, set_up, state_of
+from .common import API, device_for, entry, fixture, serve, set_up, state_of
 
 HAID = "BOSCH-WAV28MH0GB-1234567890AB"
 
@@ -69,8 +68,7 @@ async def test_an_appliance_that_is_off_at_the_wall_still_has_a_device(
     await hass.config_entries.async_setup(made.entry_id)
     await hass.async_block_till_done()
 
-    registry = dr.async_get(hass)
-    assert registry.async_get_device({("homeconnect", HAID)}) is not None
+    assert device_for(hass, made, HAID) is not None
     assert state_of(hass, "binary_sensor.washer_connection") == "off"
 
 
@@ -151,7 +149,7 @@ async def test_an_appliance_taken_off_the_account_loses_its_device(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
 ) -> None:
     made = await set_up(hass, aioclient_mock, "washer")
-    assert dr.async_get(hass).async_get_device({("homeconnect", HAID)}) is not None
+    assert device_for(hass, made, HAID) is not None
 
     await hass.config_entries.async_unload(made.entry_id)
     await hass.async_block_till_done()
@@ -160,9 +158,7 @@ async def test_an_appliance_taken_off_the_account_loses_its_device(
     await hass.config_entries.async_setup(made.entry_id)
     await hass.async_block_till_done()
 
-    registry = dr.async_get(hass)
-    gone = registry.async_get_device({("homeconnect", HAID)})
-    assert gone is None or made.entry_id not in gone.config_entries
+    assert device_for(hass, made, HAID) is None
 
 
 async def test_an_appliance_that_refuses_a_question_is_not_a_failure(

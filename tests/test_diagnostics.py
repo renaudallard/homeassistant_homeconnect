@@ -31,7 +31,6 @@ from __future__ import annotations
 import json
 
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
 from custom_components.homeconnect.diagnostics import (
@@ -39,7 +38,7 @@ from custom_components.homeconnect.diagnostics import (
     async_get_device_diagnostics,
 )
 
-from .common import set_up
+from .common import device_for, set_up
 
 HAID = "BOSCH-WAV28MH0GB-1234567890AB"
 
@@ -77,7 +76,7 @@ async def test_one_appliance_reports_only_itself(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
 ) -> None:
     entry = await set_up(hass, aioclient_mock, "washer")
-    device = dr.async_get(hass).async_get_device({("homeconnect", HAID)})
+    device = device_for(hass, entry, HAID)
     assert device is not None
     report = await async_get_device_diagnostics(hass, entry, device)
     assert len(report["appliances"]) == 1

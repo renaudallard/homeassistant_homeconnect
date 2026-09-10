@@ -42,6 +42,7 @@ from typing import Any
 from unittest.mock import patch
 
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import device_registry as dr
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
@@ -61,6 +62,18 @@ def fixture(name: str) -> dict[str, Any]:
     path = Path(__file__).parent / "fixtures" / f"{name}.json"
     loaded: dict[str, Any] = json.loads(path.read_text())
     return loaded
+
+
+def device_for(
+    hass: HomeAssistant, made: MockConfigEntry, haid: str
+) -> dr.DeviceEntry | None:
+    """The device one appliance was given, if it still has one.
+
+    An identifier is only unique within a config entry, so the entry is part
+    of the question rather than something to be worked out from the answer.
+    """
+    registry = dr.async_get(hass)
+    return registry.async_get_device_by_identifier((DOMAIN, haid), made.entry_id)
 
 
 def state_of(hass: HomeAssistant, entity_id: str) -> str:
