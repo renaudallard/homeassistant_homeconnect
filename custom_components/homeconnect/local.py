@@ -385,6 +385,14 @@ class LocalControl:
             return
         keys = await self._account.keys(wanted)
         _LOGGER.debug("the account named %d appliances with a key", len(keys))
+        if not keys:
+            raise HomeConnectError(
+                "the account publishes no key for any appliance on it. An "
+                "appliance reached with a certificate has none to publish: "
+                "the app enrols for one when it pairs, which is not "
+                "something this does. Reach these appliances through the "
+                "cloud instead"
+            )
         for haid in wanted:
             secured = _matching(keys, haid)
             if secured is None:

@@ -209,11 +209,20 @@ again.
 | counts against the API quota | yes | no, after the first look |
 | how changes arrive | one stream for the account | each appliance's own connection |
 | finds the appliance by | the account | its own announcement on the network |
+| works with a newer appliance | yes | only if the account publishes a key for it |
 
 Local control needs each appliance to be on the same network as Home
 Assistant and announcing itself on it, which is what the discovery card is
 built on. An appliance that cannot be found that way stays unavailable until
 it turns up.
+
+**It also needs the account to publish a key for that appliance, and newer
+ones have none to publish.** The account says how each appliance is reached,
+and one it calls `CERTIFICATE` is reached with a client certificate the app
+enrols for while it pairs, not with a shared key. Enrolling is part of
+pairing, which this deliberately does not do, so those appliances can only be
+reached through the cloud. Setting an entry to local says so plainly rather
+than failing obscurely.
 
 The entities are the same either way, and so are their names and their unique
 ids, because both sides are turned into the same shapes before anything above

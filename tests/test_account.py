@@ -207,6 +207,36 @@ async def test_an_answer_with_no_key_anywhere_comes_back_empty(
     assert await account.keys(["A-B-C"]) == {}
 
 
+async def test_no_resource_for_one_appliance_alone_is_not_a_failure(
+    aioclient_mock: AiohttpClientMocker, session: aiohttp.ClientSession
+) -> None:
+    """There is not always one. Not finding it only means the key is not
+    there either, which the caller works out from the empty answer."""
+    aioclient_mock.get(
+        f"{EU}{PAIRED}",
+        json={"appliances": [{"haId": "A-B-C", "communicationType": "CERTIFICATE"}]},
+    )
+    aioclient_mock.get(f"{EU}{PAIRED}/A-B-C", status=404, json={})
+    account = HomeConnectAccount(api_for(session), WHOSE)
+    assert await account.keys(["A-B-C"]) == {}
+
+
+def test_how_the_account_says_it_reaches_its_appliances() -> None:
+    """An appliance reached with a certificate has no key to publish, and
+    knowing that is what tells a missing key from a moved one."""
+    from custom_components.homeconnect.api import _how_reached
+
+    assert _how_reached(
+        {
+            "appliances": [
+                {"communicationType": "CERTIFICATE"},
+                {"communicationType": "TLS"},
+            ]
+        }
+    ) == {"CERTIFICATE", "TLS"}
+    assert _how_reached({"nothing": "useful"}) == set()
+
+
 def test_an_answer_can_be_described_without_saying_what_it_holds() -> None:
     """A shape nobody here has seen is the one thing a report cannot do
     without, and none of it is anybody's business but theirs."""

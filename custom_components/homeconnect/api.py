@@ -527,8 +527,19 @@ class HomeConnectAccount:
         if found:
             return found
         _LOGGER.debug("the paired appliances answer is shaped %s", shape(listed))
+        _LOGGER.debug(
+            "the account reaches its appliances by %s",
+            ", ".join(_how_reached(listed)) or "some way it did not say",
+        )
         for haid in haids:
-            alone = await self._fetch(PAIRED_ONE_PATH.format(whose, haid))
+            try:
+                alone = await self._fetch(PAIRED_ONE_PATH.format(whose, haid))
+            except HomeConnectError as err:
+                # There is not always a resource for one appliance on its
+                # own. Not finding one is not a failure worth stopping for:
+                # it only means the key is not there either.
+                _LOGGER.debug("nothing to read about one appliance alone: %s", err)
+                continue
             one = _keys_in(alone)
             if not one:
                 _LOGGER.debug("one paired appliance is shaped %s", shape(alone))
@@ -594,6 +605,30 @@ def shape(payload: Any, depth: int = 0) -> str:
     if payload is None:
         return "null"
     return type(payload).__name__
+
+
+# How the account says an appliance is reached. An appliance reached with a
+# certificate publishes no key, because there is none to publish.
+COMMUNICATION = "communicationType"
+BY_CERTIFICATE = "CERTIFICATE"
+
+
+def _how_reached(payload: Any) -> set[str]:
+    """The ways the account says its appliances are reached."""
+    found: set[str] = set()
+
+    def walk(node: Any) -> None:
+        if isinstance(node, list):
+            for member in node:
+                walk(member)
+        elif isinstance(node, dict):
+            if isinstance(node.get(COMMUNICATION), str):
+                found.add(node[COMMUNICATION])
+            for member in node.values():
+                walk(member)
+
+    walk(payload)
+    return found
 
 
 # What the account service calls the account itself.
