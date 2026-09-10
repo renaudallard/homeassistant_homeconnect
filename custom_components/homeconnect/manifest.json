@@ -10,7 +10,7 @@
   "iot_class": "cloud_push",
   "issue_tracker": "https://github.com/renaudallard/homeassistant_homeconnect/issues",
   "requirements": [],
-  "version": "0.0.6",
+  "version": "0.0.7",
   "zeroconf": [
     "_homeconnect._tcp.local."
   ]
