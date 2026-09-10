@@ -38,6 +38,7 @@ import json
 from base64 import urlsafe_b64encode
 from collections.abc import AsyncGenerator
 from typing import Any
+from urllib.parse import urlparse
 
 import aiohttp
 import pytest
@@ -188,7 +189,10 @@ async def appliance(socket_enabled: None) -> AsyncGenerator[tuple[Appliance, int
     await runner.setup()
     site = web.TCPSite(runner, "127.0.0.1", 0)
     await site.start()
-    port = site._server.sockets[0].getsockname()[1]
+    # Port zero means the machine picks one, which keeps two tests running at
+    # once from colliding. The site says which it got, as the address it is
+    # serving on.
+    port = int(urlparse(site.name).port or 0)
     yield pretend, port
     await runner.cleanup()
 
