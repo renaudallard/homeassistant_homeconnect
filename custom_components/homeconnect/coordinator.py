@@ -321,6 +321,20 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         except HomeConnectError as err:
             raise UpdateFailed(str(err)) from err
 
+        # What the account holds and which of it is answering, which is the
+        # first thing worth knowing when an appliance has no entities but its
+        # connection. The cloud says an appliance is not connected when the
+        # appliance itself is not talking to the cloud, which nothing here can
+        # do anything about, so it is worth being able to see plainly.
+        _LOGGER.debug(
+            "the account holds %s",
+            ", ".join(
+                f"{one.get('type') or 'something'}"
+                f" {'connected' if one.get('connected') else 'not connected'}"
+                for one in listed
+            )
+            or "nothing",
+        )
         appliances: dict[str, Appliance] = {}
         for described in listed:
             haid = str(described.get("haId") or "")
