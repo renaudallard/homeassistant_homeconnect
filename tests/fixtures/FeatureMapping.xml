@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<featureMappingFile version="1.0">
+  <deviceTypeList>
+    <deviceType>Hob</deviceType>
+  </deviceTypeList>
+  <featureDescriptionList>
+    <feature refUID="0x0100">BSH.Common.Setting.PowerState</feature>
+    <feature refUID="0x0101">BSH.Common.Status.OperationState</feature>
+    <feature refUID="0x0102">BSH.Common.Setting.ChildLock</feature>
+    <feature refUID="0x0103">Cooking.Hob.Status.Zone.001.PowerLevel</feature>
+    <feature refUID="0x0104">BSH.Common.Command.AcknowledgeEvent</feature>
+    <feature refUID="0x0105">BSH.Common.Event.ProgramFinished</feature>
+  </featureDescriptionList>
+  <errorDescriptionList>
+    <error refEID="0x0001">SomeError</error>
+  </errorDescriptionList>
+  <enumDescriptionList>
+    <enumDescription refENID="0x0200" enumKey="BSH.Common.EnumType.PowerState">
+      <enumMember refValue="1">Off</enumMember>
+      <enumMember refValue="2">On</enumMember>
+      <enumMember refValue="3">Standby</enumMember>
+    </enumDescription>
+    <enumDescription refENID="0x0201" enumKey="BSH.Common.EnumType.OperationState">
+      <enumMember refValue="0">Inactive</enumMember>
+      <enumMember refValue="2">Ready</enumMember>
+      <enumMember refValue="5">Run</enumMember>
+    </enumDescription>
+  </enumDescriptionList>
+</featureMappingFile>

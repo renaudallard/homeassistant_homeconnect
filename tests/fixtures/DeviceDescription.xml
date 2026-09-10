@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<device version="1.0">
+  <deviceInfo>
+    <deviceName>Hob</deviceName>
+    <deviceType>Hob</deviceType>
+  </deviceInfo>
+  <statusList>
+    <status uid="0x0101" access="read" available="true" enumerationType="0x0201"/>
+    <status uid="0x0103" access="read" available="true" min="0" max="9" stepSize="1"/>
+  </statusList>
+  <settingList>
+    <setting uid="0x0100" access="readWrite" available="true" enumerationType="0x0200"/>
+    <setting uid="0x0102" access="readWrite" available="true"/>
+  </settingList>
+  <commandList>
+    <command uid="0x0104" access="writeOnly" available="true"/>
+  </commandList>
+  <eventList>
+    <event uid="0x0105" access="read" available="true"/>
+  </eventList>
+</device>
