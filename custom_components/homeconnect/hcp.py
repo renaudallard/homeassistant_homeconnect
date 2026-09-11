@@ -96,14 +96,13 @@ RECONNECT_DELAY_UNEXPECTED = 30.0
 # app's own timers do: it polls every thirty seconds and gives up on one that
 # has not answered within twenty. An appliance with nothing to report says
 # nothing at all, so asking is the only way to tell a quiet one from a gone
-# one, and aiohttp both asks and listens for the answer.
+# one. aiohttp asks, listens for the answer, and hands the conversation an
+# error when none comes, and that is the whole of how a lost appliance is
+# noticed. There is no timeout on reading besides: the answers to the pings
+# never reach the reader, so a read timeout cuts off exactly the appliance
+# that is alive and has nothing to say, and a hob idle for a quarter of an
+# hour was being cut off to the second.
 PING = 30.0
-
-# A read that has not finished in this long has wedged. It is not how an
-# appliance that has gone away is noticed, which is what the ping above is
-# for: a hob can sit for an hour with nothing to say, and cutting it off for
-# being quiet only makes it say everything again.
-SILENCE = 900.0
 
 Spawn = Callable[[Coroutine[Any, Any, None]], "asyncio.Task[None]"]
 
@@ -332,8 +331,7 @@ class HcpLink:
             self._socket = socket
             self._complained = False
             while True:
-                async with asyncio.timeout(SILENCE):
-                    message = await socket.receive()
+                message = await socket.receive()
                 # Every frame, so that a conversation going quiet can be told
                 # from one whose frames are arriving and being passed over.
                 _LOGGER.debug(

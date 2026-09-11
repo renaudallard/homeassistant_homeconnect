@@ -376,19 +376,60 @@ async def test_a_frame_holding_nothing_readable_is_passed_over(
     assert seen == []
 
 
-async def test_a_quiet_appliance_is_asked_after_rather_than_cut_off(
-    appliance: tuple[Appliance, int], session: aiohttp.ClientSession
-) -> None:
-    """An appliance with nothing to report says nothing at all, for as long
-    as an hour. Noticing one that has gone away is the ping's work, so the
-    read is only there to catch a socket that has wedged."""
-    from custom_components.homeconnect.hcp import PING, SILENCE
+class Deaf(Appliance):
+    """One that opens and then never answers a ping.
 
-    assert SILENCE > PING * 4
-    pretend, port = appliance
-    link = link_to(session, port)
-    running(link)
-    async with asyncio.timeout(10):
-        await pretend.ready.wait()
-    assert link.talking
-    await link.stop()
+    An appliance that has gone away looks like this: the socket stays open
+    at our end, nothing arrives, and the only way to tell is to ask.
+    """
+
+    async def handler(self, request: web.Request) -> web.WebSocketResponse:
+        socket = web.WebSocketResponse(autoping=False)
+        await socket.prepare(request)
+        await self._say(
+            socket,
+            {
+                "sID": 1,
+                "msgID": 1,
+                "resource": "/ei/initialValues",
+                "version": 2,
+                "action": "POST",
+                "data": [{"edMsgID": 1}],
+            },
+        )
+        async for _ in socket:
+            pass
+        return socket
+
+
+async def test_an_appliance_that_stops_answering_is_noticed_by_the_ping(
+    socket_enabled: None, session: aiohttp.ClientSession
+) -> None:
+    """There is no timeout on reading. An appliance with nothing to say is
+    alive for as long as it answers when asked, and one that does not answer
+    is gone however open the socket looks, which the ping is what tells."""
+    from unittest.mock import patch
+
+    from custom_components.homeconnect import hcp
+
+    pretend = Deaf()
+    app = web.Application()
+    app.router.add_get("/homeconnect", pretend.handler)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    site = web.TCPSite(runner, "127.0.0.1", 0)
+    await site.start()
+    port = int(urlparse(site.name).port or 0)
+    opened: list[bool] = []
+    try:
+        with patch.object(hcp, "PING", 0.4):
+            link = link_to(session, port, on_connected=opened.append)
+            running(link)
+            async with asyncio.timeout(10):
+                while opened != [True, False]:
+                    await asyncio.sleep(0.05)
+            assert not link.talking
+            await link.stop()
+    finally:
+        await runner.cleanup()
+    assert not hasattr(hcp, "SILENCE")
