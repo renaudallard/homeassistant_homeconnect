@@ -243,6 +243,28 @@ def unpack(archive: bytes) -> dict[int, Entry]:
         raise HomeConnectError(f"the description is not an archive: {err}") from err
 
 
+def files(archive: bytes) -> dict[str, str]:
+    """The two XML files out of the zip, as they were written.
+
+    What was parsed is what this integration made of the description. What
+    was sent is the description itself, and only that can say whether
+    something missing was never there or was dropped on the way in.
+    """
+    try:
+        with zipfile.ZipFile(io.BytesIO(archive)) as bundle:
+            # Keyed by which of the two it is, never by the name it was
+            # filed under: that is the appliance's identifier with the kind
+            # stuck on the end, and the identifier names one household.
+            return {
+                kind.lstrip("_"): bundle.read(name).decode("utf-8", errors="replace")
+                for name in bundle.namelist()
+                for kind in (MAPPING, DESCRIPTION)
+                if name.endswith(kind)
+            }
+    except zipfile.BadZipFile as err:
+        raise HomeConnectError(f"the description is not an archive: {err}") from err
+
+
 def keys_by_uid(entries: dict[int, Entry]) -> dict[int, str]:
     return {uid: entry.key for uid, entry in entries.items()}
 

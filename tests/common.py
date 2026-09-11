@@ -34,8 +34,10 @@ makes a test that passes mean something.
 
 from __future__ import annotations
 
+import io
 import json
 import time
+import zipfile
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any
@@ -54,6 +56,8 @@ from custom_components.homeconnect.const import (
     CONF_REFRESH_TOKEN,
     DOMAIN,
 )
+
+FIXTURES = Path(__file__).parent / "fixtures"
 
 API = f"{API_HOST}/api"
 
@@ -96,6 +100,21 @@ def wrapped(named: str, members: Any) -> dict[str, Any]:
     return {"data": {named: members}}
 
 
+def described_as(haid: str) -> bytes:
+    """A description archive shaped the way the cloud sends one."""
+    made = io.BytesIO()
+    with zipfile.ZipFile(made, "w") as bundle:
+        bundle.writestr(
+            f"{haid}_FeatureMapping.xml",
+            (FIXTURES / "FeatureMapping.xml").read_bytes(),
+        )
+        bundle.writestr(
+            f"{haid}_DeviceDescription.xml",
+            (FIXTURES / "DeviceDescription.xml").read_bytes(),
+        )
+    return made.getvalue()
+
+
 def serve(mock: AiohttpClientMocker, appliances: list[dict[str, Any]]) -> None:
     """Answer everything the integration asks about these appliances."""
     # An event stream that says nothing and ends. A test that is about the
@@ -108,6 +127,13 @@ def serve(mock: AiohttpClientMocker, appliances: list[dict[str, Any]]) -> None:
     )
     for one in appliances:
         haid = one["appliance"]["haId"]
+        # The description, which only the report asks for, and which it asks
+        # for on the account service rather than the appliance API.
+        for host in ("eu", "na"):
+            mock.get(
+                f"https://{host}.services.home-connect.com/api/iddf/v1/iddf/{haid}",
+                content=described_as(haid),
+            )
         at = f"{API}/homeappliances/{haid}"
         mock.get(f"{at}/status", json=wrapped("status", one["status"]))
         mock.get(f"{at}/settings", json=wrapped("settings", one["settings"]))

@@ -49,10 +49,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 
 from . import HomeConnectConfigEntry
+from .api import HomeConnectAccount
 from .capability import Feature, platform_for
 from .const import DOMAIN
 from .coordinator import Appliance
+from .errors import HomeConnectError
 from .http import hidden_id, redact
+from .iddf import files
 
 
 def _described(features: dict[str, Feature]) -> list[dict[str, Any]]:
@@ -71,9 +74,16 @@ def _readings(readings: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _appliance(appliance: Appliance) -> dict[str, Any]:
+def _appliance(
+    appliance: Appliance, described: dict[str, Any] | None = None
+) -> dict[str, Any]:
     """Everything worth knowing about one machine."""
     return {
+        # The description as it was sent, which is the only thing that tells
+        # something the appliance never mentioned from something dropped on
+        # the way in. Asked for here rather than kept, since it is wanted
+        # once in the life of a report and never otherwise.
+        "description": described,
         "type": appliance.type,
         "brand": appliance.brand,
         "model": appliance.vib,
@@ -102,6 +112,41 @@ def _appliance(appliance: Appliance) -> dict[str, Any]:
     }
 
 
+async def _description(
+    entry: HomeConnectConfigEntry, haid: str
+) -> dict[str, Any] | None:
+    """One appliance's own description, fetched for the report.
+
+    A report is worth having even when this cannot be had, so a failure is
+    written down rather than raised.
+    """
+    account = HomeConnectAccount(entry.runtime_data.api)
+    try:
+        sent = files(await account.description(haid))
+    except HomeConnectError as err:
+        return {"error": str(err)}
+    # A description is written about one machine and can name it. Whatever
+    # of the identifier appears in it is taken out, the same as everywhere
+    # else a report says which appliance it is about.
+    return {kind: _unnamed(text, haid) for kind, text in sent.items()}
+
+
+def _unnamed(text: str, haid: str) -> str:
+    """One appliance's description with its identifier taken out of it."""
+    for named in sorted(_identifiers(haid), key=len, reverse=True):
+        text = text.replace(named, hidden_id(haid))
+    return text
+
+
+def _identifiers(haid: str) -> set[str]:
+    """The ways one appliance's identifier can be written into a file."""
+    found = {haid}
+    parts = haid.split("-")
+    if len(parts) >= 3:
+        found.add("-".join(parts[2:]))
+    return {one for one in found if one}
+
+
 async def async_get_config_entry_diagnostics(
     hass: HomeAssistant, entry: HomeConnectConfigEntry
 ) -> dict[str, Any]:
@@ -114,7 +159,8 @@ async def async_get_config_entry_diagnostics(
         # is carrying the changes or the poll is.
         "polling_seconds": interval.total_seconds() if interval else None,
         "appliances": [
-            _appliance(appliance) for appliance in coordinator.data.values()
+            _appliance(appliance, await _description(entry, haid))
+            for haid, appliance in coordinator.data.items()
         ],
     }
 
@@ -130,7 +176,7 @@ async def async_get_device_diagnostics(
     return {
         "entry": redact(dict(entry.data)),
         "appliances": [
-            _appliance(appliance)
+            _appliance(appliance, await _description(entry, haid))
             for haid, appliance in coordinator.data.items()
             if haid in wanted
         ],

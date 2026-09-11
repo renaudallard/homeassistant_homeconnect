@@ -29,6 +29,7 @@
 from __future__ import annotations
 
 import json
+from unittest.mock import AsyncMock, patch
 
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
@@ -37,6 +38,7 @@ from custom_components.homeconnect.diagnostics import (
     async_get_config_entry_diagnostics,
     async_get_device_diagnostics,
 )
+from custom_components.homeconnect.errors import HomeConnectError
 
 from .common import device_for, set_up
 
@@ -57,6 +59,34 @@ async def test_the_account_report_carries_the_whole_of_what_was_said(
         "BSH.Common.Command.PauseProgram",
         "BSH.Common.Command.ResumeProgram",
     ]
+
+
+async def test_the_report_carries_the_description_as_it_was_sent(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """What was parsed is what this made of the description. What was sent is
+    the description itself, and only that says whether something missing was
+    never there or was dropped on the way in."""
+    entry = await set_up(hass, aioclient_mock, "washer")
+    report = await async_get_config_entry_diagnostics(hass, entry)
+    described = report["appliances"][0]["description"]
+    assert set(described) == {"FeatureMapping.xml", "DeviceDescription.xml"}
+    assert "BSH.Common.Setting.PowerState" in described["FeatureMapping.xml"]
+    assert "settingList" in described["DeviceDescription.xml"]
+
+
+async def test_a_description_that_cannot_be_had_does_not_lose_the_report(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """A report is worth having even when the cloud will not answer."""
+    entry = await set_up(hass, aioclient_mock, "washer")
+    with patch(
+        "custom_components.homeconnect.api.HomeConnectAccount.description",
+        AsyncMock(side_effect=HomeConnectError("nothing doing")),
+    ):
+        report = await async_get_config_entry_diagnostics(hass, entry)
+    assert report["appliances"][0]["description"] == {"error": "nothing doing"}
+    assert report["appliances"][0]["status"]
 
 
 async def test_no_report_says_whose_machine_it_is(
