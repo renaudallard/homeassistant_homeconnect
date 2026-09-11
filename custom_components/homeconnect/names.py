@@ -75,6 +75,16 @@ SPELLINGS = {
     "programs": "programmes",
     "color": "colour",
     "colors": "colours",
+    "favorite": "favourite",
+    "favorites": "favourites",
+}
+
+# Names that come out as two words because the key runs two capitals
+# together, which is where splitting on them cannot tell one word from two.
+# Read after the words are joined, so one entry covers every key it appears
+# in rather than one entry for each of them.
+PHRASES = {
+    "wi fi": "Wi-Fi",
 }
 
 # Keys whose own spelling gives a name nobody would recognise. Everything else
@@ -83,7 +93,6 @@ SPELLINGS = {
 NAMES = {
     "BSH.Common.Root.ActiveProgram": "Active programme",
     "BSH.Common.Root.SelectedProgram": "Selected programme",
-    "BSH.Common.Status.WiFiSignalStrength": "Wi-Fi signal strength",
     "LaundryCare.Washer.Option.IDos1Active": "i-Dos 1",
     "LaundryCare.Washer.Option.IDos2Active": "i-Dos 2",
     "LaundryCare.Washer.Setting.IDos1BaseLevel": "i-Dos 1 base level",
@@ -120,7 +129,10 @@ def _sentence(words: list[str]) -> str:
     if not written:
         return ""
     first = written[0]
-    return " ".join([first[:1].upper() + first[1:], *written[1:]])
+    said = " ".join([first[:1].upper() + first[1:], *written[1:]])
+    for written_as, respelt in PHRASES.items():
+        said = re.sub(rf"\b{written_as}\b", respelt, said, flags=re.IGNORECASE)
+    return said[:1].upper() + said[1:]
 
 
 def _tail(key: str) -> str:

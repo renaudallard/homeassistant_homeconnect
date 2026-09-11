@@ -51,8 +51,13 @@ from custom_components.homeconnect import names
         # Written in American English, read in British.
         ("BSH.Common.Option.RemainingProgramTime", "Remaining programme time"),
         ("BSH.Common.Setting.AmbientLightColor", "Ambient light colour"),
-        # The handful that would otherwise read as nonsense.
+        ("BSH.Common.Setting.Favorite.001.Name", "Favourite 1 name"),
+        # Two capitals run together are one word, wherever they turn up.
         ("BSH.Common.Status.WiFiSignalStrength", "Wi-Fi signal strength"),
+        ("BSH.Common.Command.DeactivateWiFi", "Deactivate Wi-Fi"),
+        ("BSH.Common.Event.ConnectLocalWiFi", "Connect local Wi-Fi"),
+        ("BSH.Common.Setting.WiFi", "Wi-Fi"),
+        # The handful that would otherwise read as nonsense.
         ("LaundryCare.Washer.Option.IDos1Active", "i-Dos 1"),
     ],
 )
