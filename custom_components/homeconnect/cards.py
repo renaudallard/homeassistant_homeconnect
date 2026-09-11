@@ -58,6 +58,7 @@ CARDS = (
     "homeconnect-hob-card.js",
     "homeconnect-dishwasher-card.js",
     "homeconnect-appliance-card.js",
+    "homeconnect-cooling-card.js",
 )
 
 # Set once the files are being served, so several accounts do not each serve

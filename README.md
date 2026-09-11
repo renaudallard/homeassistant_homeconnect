@@ -267,6 +267,14 @@ dishwasher keep their own cards, drawn to their own shapes.
 
     type: custom:homeconnect-appliance-card
 
+The cooling card is for the machines that hold a temperature rather than run a
+programme: a fridge, a freezer, a fridge-freezer. They have no programme and no
+start, so it draws what they do have, a temperature to set for each compartment
+as a stepper and the modes they offer, super and eco and holiday and the child
+lock, as switches, with the door warning across the top while a door is open.
+
+    type: custom:homeconnect-cooling-card
+
 Add any of them from the dashboard's card picker, where a small form lets you
 choose the appliance and give the card a heading; with only one of that kind on the
 system it is chosen for you and even that is not needed. Where there is more

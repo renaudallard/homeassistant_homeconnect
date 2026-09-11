@@ -490,6 +490,7 @@ async def test_the_cards_are_served_once(hass: HomeAssistant) -> None:
         "/homeconnect/homeconnect-hob-card.js": True,
         "/homeconnect/homeconnect-dishwasher-card.js": True,
         "/homeconnect/homeconnect-appliance-card.js": True,
+        "/homeconnect/homeconnect-cooling-card.js": True,
     }
 
 
