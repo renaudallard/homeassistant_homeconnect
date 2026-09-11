@@ -389,8 +389,14 @@ class LocalControl:
         store: Any,
         on_values: Callable[[str, dict[int, Any]], None],
         on_connected: Callable[[str, bool], None],
+        identity: str = "homeassistant",
     ) -> None:
         self._hass = hass
+        # Who this says it is to every appliance. One connection is allowed
+        # per identity, so two of these on one network reaching the same
+        # appliance must not say the same thing, and this is what keeps them
+        # apart.
+        self._identity = identity
         self._session = session
         self._account = account
         self._store = store
@@ -514,6 +520,7 @@ class LocalControl:
             known.iv,
             lambda values: self._on_values(haid, values),
             lambda talking: self._on_connected(haid, talking),
+            identifier=self._identity,
             port=where.port,
         )
 

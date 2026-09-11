@@ -34,6 +34,9 @@ half produces for the same appliance, key for key and value for value.
 from __future__ import annotations
 
 from pathlib import Path
+from typing import cast
+
+from homeassistant.core import HomeAssistant
 
 from custom_components.homeconnect import iddf, local
 from custom_components.homeconnect.capability import (
@@ -274,3 +277,21 @@ def test_a_thing_holding_a_programme_number_reads_as_the_programme() -> None:
         .value
         is None
     )
+
+
+def test_the_identity_is_carried_into_every_link() -> None:
+    """One connection is allowed per identity, so the name this install says
+    has to reach the appliance. It is set once and put on every link."""
+    control = local.LocalControl(
+        cast(HomeAssistant, None),
+        object(),
+        None,
+        None,
+        lambda *_a: None,
+        lambda *_a: None,
+        identity="homeassistant-abcd",
+    )
+    link = control._make(
+        "BOSCH-X-1", local.Known(key="AAAA", iv=None, entries={}), local.Where("h", 80)
+    )
+    assert link._identifier == "homeassistant-abcd"

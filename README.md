@@ -305,11 +305,11 @@ switched on.
 it is when it connects, and a second client saying the same thing is let in
 while the first is closed, so the two take the appliance off each other every
 few seconds for as long as both keep trying. Different identities sit side by
-side without trouble: this integration says `homeassistant` and the Home
-Connect app says its own, so the app running on the same network does not
-disturb it. What does is a second thing announcing `homeassistant` at the same
-appliance, which in practice means a second Home Assistant reaching it over
-the local network.
+side without trouble. This integration says `homeassistant` followed by a few
+bytes of this install's own id, so the Home Connect app (which says its own
+thing) and even a second Home Assistant on the same network each reach the
+appliance without disturbing the others. The only way to collide is to make
+something announce the same name on purpose.
 
 If every control is unavailable and the connection sensor says the appliance is
 there, remote control has not been armed at the machine.

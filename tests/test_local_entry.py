@@ -135,6 +135,21 @@ async def talking(
     return made, link
 
 
+async def test_the_identity_is_this_install_with_a_few_of_its_own_bytes(
+    hass: HomeAssistant, talking: tuple[MockConfigEntry, Stub]
+) -> None:
+    """Two Home Assistants on one network must not say the same thing to one
+    appliance, so the name carries a few bytes of this install's own id."""
+    from homeassistant.helpers import instance_id
+
+    made, _ = talking
+    control = made.runtime_data.local
+    assert control is not None
+    expected = f"homeassistant-{(await instance_id.async_get(hass))[-4:]}"
+    assert control._identity == expected
+    assert control._identity != "homeassistant"
+
+
 async def test_the_transport_says_local_when_that_is_how_it_is_reached(
     hass: HomeAssistant, talking: tuple[MockConfigEntry, Stub]
 ) -> None:

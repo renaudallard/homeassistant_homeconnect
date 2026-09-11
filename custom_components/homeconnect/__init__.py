@@ -43,6 +43,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import instance_id
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import HomeConnectAccount, HomeConnectApi
@@ -122,6 +123,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: HomeConnectConfigEntry) 
 
     local: LocalControl | None = None
     if entry.data.get(CONF_TRANSPORT) == LOCAL:
+        # An appliance allows one direct connection per identity, so this
+        # install says who it is: the name every Home Connect client uses,
+        # with a few bytes of this install's own id after it. Two Home
+        # Assistants on one network then reach the same appliance without
+        # taking it off each other. The id is stable across restarts, so the
+        # appliance sees the same client return rather than a new one.
+        identity = f"homeassistant-{(await instance_id.async_get(hass))[-4:]}"
         local = LocalControl(
             hass,
             session,
@@ -129,6 +137,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: HomeConnectConfigEntry) 
             local_store(hass, entry),
             coordinator.apply_locally,
             coordinator.set_talking,
+            identity,
         )
         await local.load()
         await _learn(api, local)
