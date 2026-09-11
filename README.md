@@ -422,6 +422,13 @@ Home Assistant, says which step fails, and logs every request and answer
 redacted. `--dump DIR` writes what every appliance said into that directory
 with the serial numbers taken out, which is what a fixture is made from.
 
+`tools/talk_to.py` holds a conversation with one appliance over the local
+network, using the integration's own link, and prints every frame, every
+value and every change of connection as they happen. It only listens: nothing
+in it writes to the appliance. The shared key is read from a file so that it
+lands in neither the shell history nor the process list, and that file belongs
+under `tmp/`, which is not tracked.
+
 The tests load a washing machine and an oven and check what comes out of them.
 The config flow tests drive the real Home Assistant flow machinery, so they
 cover which step follows which, what lands in the config entry, and which
