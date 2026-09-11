@@ -146,7 +146,7 @@ class HomeConnectDishwasherCard extends HTMLElement {
     const found = this._entities(device);
     const present = OPTIONS.filter((o) => found.options[o.slug]);
     const has = ["programme", "power", "childlock", "start", "stop"]
-      .map((k) => (found[k] ? k[0] : ""))
+      .map((k) => (found[k] ? "1" : "0"))
       .join("");
     const signature = `${device || ""}|${present.map((o) => o.slug).join(",")}|${has}`;
 
@@ -279,7 +279,8 @@ class HomeConnectDishwasherCard extends HTMLElement {
     const text = this._pick("progtext");
     if (text) {
       const name = leaf(this._value(found.programme));
-      text.textContent = OFF.has(String(name).toLowerCase()) ? "—" : String(name);
+      const shown = name == null ? "" : String(name);
+      text.textContent = OFF.has(shown.toLowerCase()) ? "—" : shown;
     }
 
     const lock = root.querySelector('[data-role="childlock"]');
@@ -324,7 +325,9 @@ class HomeConnectDishwasherCard extends HTMLElement {
         .map((o) => `<option value="${escape(o)}">${escape(leaf(o))}</option>`)
         .join("");
     }
-    el.value = state.state;
+    // Not while the menu is open under the finger: an unrelated state change
+    // repaints, and resetting the value then would drop the user's choice.
+    if (!el.matches(":focus")) el.value = state.state;
   }
 
   // One forecast: its percentage as a number, and a bar lit in bits to it, the
@@ -354,6 +357,7 @@ function clock(seconds) {
 const STYLE = `
   <style>
     ha-card { padding: 16px; }
+    [hidden] { display: none !important; }
     .title { font-size: 1.4em; font-weight: 700; letter-spacing: -.01em;
              margin: 0 0 14px; color: var(--primary-text-color); }
     .cap { font-size: .72em; letter-spacing: .05em; text-transform: uppercase;

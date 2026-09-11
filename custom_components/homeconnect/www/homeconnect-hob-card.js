@@ -35,6 +35,12 @@ const SUFFIXES = [
 const ZONE = new RegExp(`_zone_(\\d+)_(${SUFFIXES.join("|")})$`);
 
 // What the last part of a value reads as: PowerLevel.Boost -> Boost, .9 -> 9.
+const escape = (text) =>
+  String(text).replace(
+    /[&<>"']/g,
+    (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]
+  );
+
 const leaf = (value) =>
   typeof value === "string" && value.includes(".")
     ? value.split(".").pop()
@@ -55,7 +61,7 @@ const degrees = (value) => {
   return number > 0 ? number : null;
 };
 
-const OFF = new Set(["off", "inactive", "0", "", undefined, null, "unavailable"]);
+const OFF = new Set(["off", "inactive", "0", "", undefined, null, "unavailable", "unknown"]);
 
 // Every device that has zone readings on it, which is every hob.
 function hobDevices(hass) {
@@ -210,7 +216,7 @@ class HomeConnectHobCard extends HTMLElement {
         : "No zones found for this device.";
       this.shadowRoot.innerHTML = `${this._style(1, 1)}
         <ha-card>
-          <div class="title">${title}</div>
+          <div class="title">${escape(title)}</div>
           <div class="glass empty"><div>${note}</div></div>
         </ha-card>`;
       return;
@@ -257,7 +263,7 @@ class HomeConnectHobCard extends HTMLElement {
 
     this.shadowRoot.innerHTML = `${this._style(wide, tall)}
       <ha-card>
-        <div class="title">${title}</div>
+        <div class="title">${escape(title)}</div>
         <div class="glass">${tiles}</div>
       </ha-card>`;
 

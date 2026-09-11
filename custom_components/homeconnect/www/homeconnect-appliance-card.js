@@ -81,7 +81,8 @@ function isAppliance(entities, device) {
   let programme = false;
   let special = false;
   for (const id of Object.keys(entities)) {
-    if (entities[id].device_id !== device) continue;
+    const entity = entities[id];
+    if (entity.device_id !== device || entity.platform !== "homeconnect") continue;
     if (NAMED.programme.test(id)) programme = true;
     if (/_zone_\d+_/.test(id) || /_(half_load|intensiv_zone)$/.test(id)) special = true;
   }
@@ -92,8 +93,11 @@ function applianceDevices(hass) {
   const entities = (hass && hass.entities) || {};
   const devices = new Set();
   for (const id of Object.keys(entities)) {
-    const device = entities[id].device_id;
-    if (device && !devices.has(device) && NAMED.programme.test(id)) devices.add(device);
+    const entity = entities[id];
+    if (entity.platform !== "homeconnect" || !entity.device_id) continue;
+    if (!devices.has(entity.device_id) && NAMED.programme.test(id)) {
+      devices.add(entity.device_id);
+    }
   }
   return [...devices].filter((d) => isAppliance(entities, d));
 }
@@ -139,7 +143,7 @@ class HomeConnectApplianceCard extends HTMLElement {
     if (!device) return found;
     for (const id of Object.keys(entities)) {
       const entity = entities[id];
-      if (entity.device_id !== device) continue;
+      if (entity.device_id !== device || entity.platform !== "homeconnect") continue;
       let claimed = false;
       for (const [name, pattern] of Object.entries(NAMED)) {
         if (pattern.test(id)) {
@@ -188,7 +192,7 @@ class HomeConnectApplianceCard extends HTMLElement {
     const found = this._controls(device);
     this._found = found;
     const named = Object.keys(NAMED)
-      .map((k) => (found[k] ? k[0] : ""))
+      .map((k) => (found[k] ? "1" : "0"))
       .join("");
     const options = [...found.switches, ...found.selects, ...found.numbers].join(",");
     const signature = `${device || ""}|${named}|${options}`;
@@ -426,6 +430,7 @@ function clock(seconds) {
 const STYLE = `
   <style>
     ha-card { padding: 16px; }
+    [hidden] { display: none !important; }
     .title { font-size: 1.4em; font-weight: 700; letter-spacing: -.01em;
              margin: 0 0 14px; color: var(--primary-text-color); }
     .cap { font-size: .72em; letter-spacing: .05em; text-transform: uppercase;

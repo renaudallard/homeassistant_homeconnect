@@ -211,10 +211,12 @@ class HomeConnectCoolingCard extends HTMLElement {
   _nudge(id, direction) {
     const state = this._hass.states[id];
     if (!state) return;
+    const current = Number(state.state);
+    if (Number.isNaN(current)) return; // nothing to step from while unavailable
     const step = Number(state.attributes.step) || 1;
     const min = Number(state.attributes.min);
     const max = Number(state.attributes.max);
-    let next = Number(state.state) + direction * step;
+    let next = current + direction * step;
     if (!Number.isNaN(min)) next = Math.max(min, next);
     if (!Number.isNaN(max)) next = Math.min(max, next);
     this._call(id, "number", "set_value", { value: next });
@@ -233,7 +235,10 @@ class HomeConnectCoolingCard extends HTMLElement {
       const state = this._hass.states[id];
       if (out && state) {
         const unit = state.attributes.unit_of_measurement || "";
-        out.textContent = `${Math.round(Number(state.state))}${unit ? ` ${unit}` : ""}`;
+        const value = Number(state.state);
+        out.textContent = Number.isNaN(value)
+          ? "—"
+          : `${Math.round(value)}${unit ? ` ${unit}` : ""}`;
       }
     }
     for (const id of found.modes) {
@@ -279,6 +284,7 @@ const cssEscape = (id) =>
 const STYLE = `
   <style>
     ha-card { padding: 16px; }
+    [hidden] { display: none !important; }
     .title { font-size: 1.4em; font-weight: 700; letter-spacing: -.01em;
              margin: 0 0 14px; color: var(--primary-text-color); }
     .cap { font-size: .72em; letter-spacing: .05em; text-transform: uppercase;
