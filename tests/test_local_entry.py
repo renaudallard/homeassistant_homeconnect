@@ -46,8 +46,9 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
 from custom_components.homeconnect import iddf, local
-from custom_components.homeconnect.const import CONF_TRANSPORT, LOCAL
+from custom_components.homeconnect.const import CONF_TRANSPORT, DOMAIN, LOCAL
 from custom_components.homeconnect.errors import HomeConnectAuthError, HomeConnectError
+from custom_components.homeconnect.iddf import uids_by_key
 
 from .common import entry, fixture, serve, state_of
 
@@ -356,6 +357,61 @@ async def test_the_account_service_refusing_is_not_a_reason_to_sign_in_again(
         for flow in hass.config_entries.flow.async_progress()
         if flow["context"].get("source") == "reauth"
     ]
+
+
+async def test_a_description_from_an_older_parser_is_thrown_away(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    hass_storage: dict[str, Any],
+) -> None:
+    """A description saved before the parser understood the programme slots
+    kept the programmes but not the slots, so selecting one failed with the
+    appliance never having heard of the slot. A store written under an older
+    version is dropped and asked for again rather than used half-read."""
+    serve(aioclient_mock, [fixture("washer")])
+    made = entry(hass)
+    hass.config_entries.async_update_entry(
+        made, data={**made.data, CONF_TRANSPORT: LOCAL}
+    )
+    # What an older release left behind: the programmes are there, the two
+    # slots that say which is running or set are not.
+    full = iddf.parse(MAPPING, DESCRIPTION)
+    without_slots = {
+        uid: one
+        for uid, one in full.items()
+        if one.kind not in ("activeProgram", "selectedProgram")
+    }
+    stale = local.Known(key="a-key", iv=None, entries=without_slots)
+    key = f"{DOMAIN}.{made.entry_id}.local"
+    hass_storage[key] = {
+        "version": 1,
+        "minor_version": 1,
+        "key": key,
+        "data": {HAID: stale.as_stored()},
+    }
+    with (
+        patch(
+            "custom_components.homeconnect.api.HomeConnectAccount.keys",
+            AsyncMock(return_value={HAID: {"key": "a-key"}}),
+        ),
+        patch(
+            "custom_components.homeconnect.api.HomeConnectAccount.description",
+            AsyncMock(return_value=b"a zip"),
+        ),
+        patch.object(iddf, "unpack", lambda _archive: iddf.parse(MAPPING, DESCRIPTION)),
+        patch.object(
+            local, "unpack", lambda _archive: iddf.parse(MAPPING, DESCRIPTION)
+        ),
+        patch.object(local.Finder, "start", AsyncMock()),
+        patch.object(local.Finder, "stop", AsyncMock()),
+    ):
+        await hass.config_entries.async_setup(made.entry_id)
+        await hass.async_block_till_done()
+
+    control = made.runtime_data.local
+    assert control is not None
+    # The slot the stale store lacked is back, so a programme can be selected.
+    assert "BSH.Common.Root.SelectedProgram" in uids_by_key(control.entries(HAID))
 
 
 async def test_one_unreadable_description_does_not_stop_the_rest(

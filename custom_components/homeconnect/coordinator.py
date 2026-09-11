@@ -70,7 +70,11 @@ _LOGGER = logging.getLogger(__name__)
 # Bump when what is kept between restarts would no longer be understood.
 # Anything written under another version is thrown away rather than migrated,
 # so the next start reads it again instead of trusting it.
-STORE_VERSION = 1
+# Bumped whenever the description parser starts keeping something it did not
+# before, so a description written by an older one is thrown away and asked
+# for again rather than used half-read. 2: the two programme slots (0.0.18)
+# and what each thing is (0.0.19), neither of which an older store holds.
+STORE_VERSION = 2
 
 # Where an appliance says what it is doing and whether it is on. A change to
 # either moves what it will accept, which is not something the stream
