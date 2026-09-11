@@ -67,6 +67,10 @@
     {
       "key": "BSH.Common.Setting.Sound.Volume",
       "value": 3
+    },
+    {
+      "key": "BSH.Common.Setting.Favorite.001.Name",
+      "value": "Quick wash"
     }
   ],
   "setting_details": {
@@ -114,6 +118,16 @@
       "constraints": {
         "min": 0,
         "max": 6,
+        "access": "readWrite"
+      }
+    },
+    "BSH.Common.Setting.Favorite.001.Name": {
+      "key": "BSH.Common.Setting.Favorite.001.Name",
+      "value": "Quick wash",
+      "type": "String",
+      "constraints": {
+        "min": 0,
+        "max": 30,
         "access": "readWrite"
       }
     }

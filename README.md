@@ -137,6 +137,7 @@ away on the next look.
 | a choice between on and off | a switch, whichever two words it uses |
 | a choice, and the values it takes | a select |
 | a number with a range | a number |
+| words, and how long they may be | a text box |
 | a flag it only reports | a binary sensor |
 | the door | a door binary sensor, with locked told from merely shut |
 | whatever it is complaining about | a binary sensor each |

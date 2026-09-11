@@ -53,6 +53,7 @@ BINARY_SENSOR = "binary_sensor"
 SWITCH = "switch"
 SELECT = "select"
 NUMBER = "number"
+TEXT = "text"
 
 # Which of the three lists a key came out of, which is what says how to write
 # it back: a setting goes to the appliance, an option goes to the programme.
@@ -156,6 +157,16 @@ class Feature:
         whatever it calls itself.
         """
         return self.type == BOOLEAN or isinstance(self.value, bool)
+
+    @property
+    def textual(self) -> bool:
+        """Whether it holds words.
+
+        An appliance carries a name, a clock reading and a colour all as
+        words, so this says how the thing travels rather than what it means.
+        Anything it will take is something that can be typed.
+        """
+        return self.type == STRING
 
     @property
     def numeric(self) -> bool:
@@ -269,6 +280,8 @@ def platform_for(found: Feature) -> str | None:
             return SELECT
         if found.numeric:
             return NUMBER
+        if found.textual:
+            return TEXT
     if found.boolean:
         return BINARY_SENSOR
     return SENSOR

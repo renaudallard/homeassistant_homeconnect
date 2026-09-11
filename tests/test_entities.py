@@ -197,6 +197,20 @@ async def test_a_reading_that_is_a_list_says_how_many_rather_than_what(
     assert state.attributes["value"] == {"length": 2, "list": ["E:01", "E:02"]}
 
 
+async def test_something_holding_words_becomes_a_text_box(
+    hass: HomeAssistant, washer: MockConfigEntry
+) -> None:
+    """A favourite is given a name, and a name is not a figure between two
+    ends. What the appliance says about one is how long it may be."""
+    state = hass.states.get("text.washer_favourite_1_name")
+    assert state is not None
+    assert state.state == "Quick wash"
+    assert state.attributes["min"] == 0
+    assert state.attributes["max"] == 30
+    # And it is not also offered as a figure.
+    assert hass.states.get("number.washer_favourite_1_name") is None
+
+
 async def test_which_way_the_appliance_is_reached_is_a_reading(
     hass: HomeAssistant, washer: MockConfigEntry
 ) -> None:

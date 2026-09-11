@@ -56,6 +56,26 @@ def sent(mock: AiohttpClientMocker) -> tuple[str, str, dict[str, Any]]:
     return method, str(url), data
 
 
+async def test_a_name_goes_back_as_the_words_it_is(
+    hass: HomeAssistant, washer: AiohttpClientMocker
+) -> None:
+    """A favourite is given a name, not a figure between two ends."""
+    washer.put(f"{AT}/settings/BSH.Common.Setting.Favorite.001.Name", status=204)
+    await hass.services.async_call(
+        "text",
+        "set_value",
+        {"entity_id": "text.washer_favourite_1_name", "value": "Sunday wash"},
+        blocking=True,
+    )
+    method, url, body = sent(washer)
+    assert method == "PUT"
+    assert url.endswith("/settings/BSH.Common.Setting.Favorite.001.Name")
+    assert body == {
+        "data": {"key": "BSH.Common.Setting.Favorite.001.Name", "value": "Sunday wash"}
+    }
+    assert state_of(hass, "text.washer_favourite_1_name") == "Sunday wash"
+
+
 async def test_a_switch_sends_true_and_false(
     hass: HomeAssistant, washer: AiohttpClientMocker
 ) -> None:
