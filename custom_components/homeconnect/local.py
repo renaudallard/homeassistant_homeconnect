@@ -351,6 +351,7 @@ class Known:
                     "step": entry.step,
                     "execution": entry.execution,
                     "content": entry.content,
+                    "static": entry.static,
                 }
                 for uid, entry in self.entries.items()
             },
@@ -383,6 +384,8 @@ class Known:
                         # has none, and reads as an appliance that never
                         # said what its numbers are.
                         content=one.get("content"),
+                        # The fixed value, where the description gave one.
+                        static=one.get("static"),
                     )
                     for uid, one in stored["entries"].items()
                 },

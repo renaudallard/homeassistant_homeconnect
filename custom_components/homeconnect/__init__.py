@@ -47,7 +47,7 @@ from homeassistant.helpers import instance_id
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.loader import async_get_integration
 
-from . import cards
+from . import cards, hob
 from .api import HomeConnectAccount, HomeConnectApi
 from .auth import Tokens
 from .capability import GATHERED, platform_for
@@ -138,6 +138,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: HomeConnectConfigEntry) 
     """Set up a Home Connect account."""
     version = (await async_get_integration(hass, DOMAIN)).version or "0"
     await cards.register(hass, version)
+    hob.register(hass)
     session = async_get_clientsession(hass)
 
     async def store(renewed: Tokens) -> None:

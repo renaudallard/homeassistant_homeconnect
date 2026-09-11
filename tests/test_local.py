@@ -245,6 +245,35 @@ def test_a_description_stored_before_this_still_reads() -> None:
     assert all(one.content is None for one in back.entries.values())
 
 
+def test_a_fixed_value_survives_being_written_down() -> None:
+    """A hob's zone geometry is a fixed value in the description, and it has to
+    come back word for word or the card cannot place the zone."""
+    entries = {
+        1: iddf.Entry(
+            uid=1,
+            kind="status",
+            key="Cooking.Hob.Status.Zone.100.Position",
+            static='{"x":147,"y":194,"angleX":0}',
+        )
+    }
+    known = local.Known(key="k", iv=None, entries=entries)
+    back = local.Known.from_stored(known.as_stored())
+    assert back is not None
+    assert back.entries[1].static == '{"x":147,"y":194,"angleX":0}'
+
+
+def test_a_description_with_no_fixed_values_still_reads() -> None:
+    """One written down before geometry was kept has no such field, and reads
+    as an appliance that gave none."""
+    known = local.Known(key="k", iv=None, entries=ENTRIES)
+    stored = known.as_stored()
+    for one in stored["entries"].values():
+        one.pop("static", None)
+    back = local.Known.from_stored(stored)
+    assert back is not None
+    assert all(one.static is None for one in back.entries.values())
+
+
 def test_where_an_appliance_was_last_found_is_written_down() -> None:
     """An appliance shouts its address when it feels like it rather than when
     asked, so one that is quiet when Home Assistant starts would never be

@@ -254,13 +254,15 @@ than one, set which:
 A dashboard whose resources are kept in YAML rather than in storage has no such
 list to add to, so there the one resource line is added by hand.
 
-Two honest limits on the hob card. The picture is drawn, not photographed:
+One honest limit on the hob card. The picture is drawn, not photographed:
 there is no cooktop image to be had, from the app or anywhere, so this is a
-rendering rather than a likeness of your exact model. And no appliance says
-where its zones physically sit, so they are laid out in a tidy grid rather than
-in the arrangement of one particular table. Each card reads the same entities
-any appliance of its kind exposes, so it works without knowing which model it
-is looking at.
+rendering rather than a likeness of your exact model. Where the zones sit is
+not made up, though. A hob describes the position, size and shape of each of
+its zones, and reached directly it is drawn in that arrangement, a flex strip
+down one side and round zones on the other laid out as they really are.
+Reached over the cloud, where that geometry is not to hand, the zones fall back
+to a tidy grid. Each card reads the same entities any appliance of its kind
+exposes, so it works without knowing which model it is looking at.
 
 A hob that can join two of its zones into one is drawn as it stands: the joined
 zone shows only while the two are joined, and the two on their own the rest of

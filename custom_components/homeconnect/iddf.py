@@ -130,6 +130,10 @@ class Entry:
     # The programme this sits inside, where it sits inside one. An option
     # written under a programme belongs to that programme and to no other.
     under: int | None = None
+    # The fixed value the description writes for a thing that never changes,
+    # kept as it was written. It is where a hob's zone geometry sits, the
+    # position, size and shape the live stream never sends.
+    static: str | None = None
 
     @property
     def readable(self) -> bool:
@@ -202,6 +206,7 @@ def _entry(
         maximum=_figure(element.get("max")),
         step=_figure(element.get("stepSize")),
         execution=element.get("execution"),
+        static=element.get("initValue"),
     )
 
 
