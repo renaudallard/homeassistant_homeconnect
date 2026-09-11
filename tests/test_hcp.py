@@ -374,3 +374,21 @@ async def test_a_frame_holding_nothing_readable_is_passed_over(
     ):
         await link._heard(message)
     assert seen == []
+
+
+async def test_a_quiet_appliance_is_asked_after_rather_than_cut_off(
+    appliance: tuple[Appliance, int], session: aiohttp.ClientSession
+) -> None:
+    """An appliance with nothing to report says nothing at all, for as long
+    as an hour. Noticing one that has gone away is the ping's work, so the
+    read is only there to catch a socket that has wedged."""
+    from custom_components.homeconnect.hcp import PING, SILENCE
+
+    assert SILENCE > PING * 4
+    pretend, port = appliance
+    link = link_to(session, port)
+    running(link)
+    async with asyncio.timeout(10):
+        await pretend.ready.wait()
+    assert link.talking
+    await link.stop()

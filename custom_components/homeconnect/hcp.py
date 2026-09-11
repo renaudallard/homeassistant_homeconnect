@@ -91,9 +91,19 @@ RESPONSE = "RESPONSE"
 
 RECONNECT_DELAY = 5.0
 RECONNECT_DELAY_UNEXPECTED = 30.0
-# An appliance that says nothing for this long is one that has gone away
-# without saying so.
-SILENCE = 120.0
+
+# How often to ask an appliance whether it is still there, which is what the
+# app's own timers do: it polls every thirty seconds and gives up on one that
+# has not answered within twenty. An appliance with nothing to report says
+# nothing at all, so asking is the only way to tell a quiet one from a gone
+# one, and aiohttp both asks and listens for the answer.
+PING = 30.0
+
+# A read that has not finished in this long has wedged. It is not how an
+# appliance that has gone away is noticed, which is what the ping above is
+# for: a hob can sit for an hour with nothing to say, and cutting it off for
+# being quiet only makes it say everything again.
+SILENCE = 900.0
 
 Spawn = Callable[[Coroutine[Any, Any, None]], "asyncio.Task[None]"]
 
@@ -317,7 +327,7 @@ class HcpLink:
             settings["ssl"] = context(self._psk)
         _LOGGER.debug("opening %s", self.url)
         async with self._session.ws_connect(
-            self.url, heartbeat=None, **settings
+            self.url, heartbeat=PING, **settings
         ) as socket:
             self._socket = socket
             self._complained = False
