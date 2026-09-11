@@ -799,7 +799,11 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         appliance.selected = program
         await self._read_options(appliance, program)
         self.async_set_updated_data(self.data)
-        self._look_again(haid)
+        # Only the cloud is looked at again: an appliance reached directly
+        # pushes the change back itself, and a look would spend cloud quota and
+        # overwrite the local view with the cloud's laggier one.
+        if self.local is None:
+            self._look_again(haid)
 
     async def start_program(self, haid: str) -> None:
         """Start whatever the appliance is set to do, with what was held back."""
