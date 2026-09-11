@@ -54,7 +54,10 @@ _LOGGER = logging.getLogger(__name__)
 
 # Each card is one file under www/, served at /homeconnect/<file> and offered
 # in the picker by the name it gives itself.
-CARDS = ("homeconnect-hob-card.js",)
+CARDS = (
+    "homeconnect-hob-card.js",
+    "homeconnect-dishwasher-card.js",
+)
 
 # Set once the files are being served, so several accounts do not each serve
 # them again.

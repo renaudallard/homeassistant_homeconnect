@@ -486,7 +486,10 @@ async def test_the_cards_are_served_once(hass: HomeAssistant) -> None:
     # Both cards, each with the caching resource so the module goes out as
     # text/javascript rather than a type the browser will not load.
     served = {path.url_path: path.cache_headers for path in paths}
-    assert served == {"/homeconnect/homeconnect-hob-card.js": True}
+    assert served == {
+        "/homeconnect/homeconnect-hob-card.js": True,
+        "/homeconnect/homeconnect-dishwasher-card.js": True,
+    }
 
 
 class _Resources:

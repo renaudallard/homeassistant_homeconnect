@@ -218,31 +218,49 @@ an enumerated value also carries the appliance's own word for it as a `value`
 attribute, which is what an automation should read: that one does not change
 with the language Home Assistant is set to.
 
-## The hob card
+## The dashboard cards
 
-A cooking table is worth seeing rather than reading down a list, so the
-integration ships a dashboard card that draws one the way the app does: the
-dark glass surface with each zone painted on it, showing its power level,
-whether it is heating, its temperature and any countdown. The card comes with
-the integration and is loaded onto the frontend for you, so there is no
-resource to add by hand.
+An appliance is worth seeing rather than reading down a list, so the
+integration ships two dashboard cards, each drawn the way the app draws that
+appliance. They come with the integration and are added to the dashboard's own
+list of resources for you, so there is nothing to host or register by hand. A
+card added while a dashboard is open turns up in the card picker once the page
+is reloaded, so reload the browser once after installing or upgrading.
 
-    type: custom:homeconnect-hob-card
-
-Add it from the dashboard's card picker and a small form lets you choose the
-hob and give it a heading; with only one hob on the system it is chosen for
-you and even that is not needed. Where there is more than one, set which:
+The hob card draws a cooking table: the dark glass surface with each zone
+painted on it, showing its power level, whether it is heating, its temperature
+and any countdown.
 
     type: custom:homeconnect-hob-card
-    device: <the hob's device id>
-    name: Kitchen hob
 
-Two honest limits. The picture is drawn, not photographed: there is no cooktop
-image to be had, from the app or anywhere, so this is a rendering rather than a
-likeness of your exact model. And no appliance says where its zones physically
-sit, so they are laid out in a tidy grid rather than in the arrangement of one
-particular table. It reads the same zone sensors any hob exposes, so it works
-without knowing which model it is looking at.
+The dishwasher card lays a dishwasher out the way the app does when a programme
+is picked: the programme, what it forecasts for energy and water, the time it
+will take, the options along the bottom, and a start and a stop, with a warning
+across the top while the door is open. The options are switches you can turn on
+and off from the card, and the two buttons are the appliance's own start and
+stop.
+
+    type: custom:homeconnect-dishwasher-card
+
+Add either from the dashboard's card picker, where a small form lets you choose
+the appliance and give the card a heading; with only one of that kind on the
+system it is chosen for you and even that is not needed. Where there is more
+than one, set which:
+
+    type: custom:homeconnect-dishwasher-card
+    device: <the dishwasher's device id>
+    name: Kitchen dishwasher
+
+A dashboard whose resources are kept in YAML rather than in storage has no such
+list to add to, so there the one resource line is added by hand.
+
+Two honest limits on the hob card. The picture is drawn, not photographed:
+there is no cooktop image to be had, from the app or anywhere, so this is a
+rendering rather than a likeness of your exact model. And no appliance says
+where its zones physically sit, so they are laid out in a tidy grid rather than
+in the arrangement of one particular table. Each card reads the same entities
+any appliance of its kind exposes, so it works without knowing which model it
+is looking at.
 
 ## Cloud or local
 
