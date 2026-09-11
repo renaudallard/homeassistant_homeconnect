@@ -295,3 +295,17 @@ def test_the_identity_is_carried_into_every_link() -> None:
         "BOSCH-X-1", local.Known(key="AAAA", iv=None, entries={}), local.Where("h", 80)
     )
     assert link._identifier == "homeassistant-abcd"
+
+
+def test_ipv4_is_preferred_over_an_ipv6_a_home_network_may_not_route() -> None:
+    """An appliance shouts every address it has, and its own IPv6 is often
+    one a home network will not route to, while its IPv4 is reached. So the
+    IPv4 is taken, and a link-local IPv6 last of all."""
+    assert (
+        local._preferred(["fd74:8e83:4254:c6b0:9627:70ff:fe84:7dcd", "172.20.0.209"])
+        == "172.20.0.209"
+    )
+    # Only IPv6 on offer is still used, and a routable one beats a link-local.
+    assert local._preferred(["fe80::1%eth0", "fd00::5"]) == "fd00::5"
+    assert local._preferred(["fd00::5"]) == "fd00::5"
+    assert local._preferred([]) is None

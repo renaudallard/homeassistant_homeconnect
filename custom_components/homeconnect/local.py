@@ -215,6 +215,26 @@ def sort(entries: dict[int, Entry], values: dict[int, Any]) -> Sorted:
     return found
 
 
+def _preferred(addresses: list[str]) -> str | None:
+    """The address most likely to answer, out of what an appliance shouts.
+
+    An IPv4 address before any IPv6 one, because a home network routes it
+    where it may not route to an appliance's own IPv6, and a link-local IPv6
+    last of all, since reaching one needs a scope the connection does not
+    carry. An appliance that offers only IPv6 is still reached by it.
+    """
+    if not addresses:
+        return None
+
+    def rank(address: str) -> int:
+        host = address.split("%", 1)[0].lower()
+        if ":" not in host:
+            return 0
+        return 2 if host.startswith(("fe8", "fe9", "fea", "feb")) else 1
+
+    return min(addresses, key=rank)
+
+
 def _plainly(text: str) -> str:
     """A name with the punctuation taken out, for comparing one to another."""
     return "".join(letter for letter in text.lower() if letter.isalnum())
@@ -286,8 +306,8 @@ class Finder:
                     return
         except TimeoutError:
             return
-        addresses = info.parsed_scoped_addresses()
-        if not addresses or info.port is None:
+        where = _preferred(info.parsed_scoped_addresses())
+        if where is None or info.port is None:
             return
         said = [name, info.server or ""]
         said += [
@@ -295,8 +315,8 @@ class Finder:
             for value in (info.properties or {}).values()
             if value is not None
         ]
-        self._found[_plainly(" ".join(said))] = Where(addresses[0], info.port)
-        _LOGGER.debug("%s is at %s port %s", name, addresses[0], info.port)
+        self._found[_plainly(" ".join(said))] = Where(where, info.port)
+        _LOGGER.debug("%s is at %s port %s", name, where, info.port)
         self._on_found()
 
 
