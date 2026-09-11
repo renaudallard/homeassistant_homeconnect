@@ -141,9 +141,14 @@ async def _register_card(hass: HomeAssistant) -> None:
     from homeassistant.loader import async_get_integration
 
     try:
+        # Served with the caching resource rather than the plain one, so the
+        # file goes out as text/javascript however sparse the host's own list
+        # of media types is: a module handed over as anything else is refused
+        # by the browser, and the card never loads. The version on the url is
+        # what a new release is fetched by, so caching it is right.
         card = Path(__file__).parent / "www" / _CARD
         await hass.http.async_register_static_paths(
-            [StaticPathConfig(_CARD_URL, str(card), cache_headers=False)]
+            [StaticPathConfig(_CARD_URL, str(card), cache_headers=True)]
         )
         # The version rides on the url so a new release is not served from an
         # old cache.
