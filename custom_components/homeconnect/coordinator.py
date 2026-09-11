@@ -358,6 +358,13 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
                 return self.data
             raise UpdateFailed(str(err)) from err
         except HomeConnectError as err:
+            # A cloud error says nothing about an appliance reached directly:
+            # its state comes over its own connection, and the poll is only
+            # there to catch a pairing or a rename. Taking every entity away
+            # over one refused call would be worse than missing that.
+            if self.local is not None and self.data:
+                _LOGGER.debug("the account could not be read: %s", err)
+                return self.data
             raise UpdateFailed(str(err)) from err
 
         # What the account holds and which of it is answering, which is the
@@ -499,6 +506,10 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
             appliance.program_names = held.program_names
             appliance.active = held.active
             appliance.selected = held.selected
+            # By the same reference the rest is carried by, so a start-only
+            # option set just before a poll is not lost when the poll rebuilds
+            # the appliance before the programme is started.
+            appliance.pending = held.pending
         return appliance
 
     @callback
@@ -813,8 +824,10 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
             raise HomeConnectError("nothing is selected to start")
         if self.local is not None:
             # Whatever was held back goes in first, one at a time, there being
-            # no way to start a programme and adjust it in the same breath.
-            for key, value in appliance.pending.items():
+            # no way to start a programme and adjust it in the same breath. A
+            # snapshot is taken so a setting arriving mid-write does not change
+            # the size of what is being walked.
+            for key, value in list(appliance.pending.items()):
                 await self.local.write(haid, key, value)
             appliance.pending.clear()
             await self.local.write(haid, ACTIVE_PROGRAM, program)

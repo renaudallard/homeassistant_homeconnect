@@ -164,6 +164,22 @@ async def test_local_mode_asks_the_account_rarely(
     assert made.runtime_data.coordinator.update_interval == SCAN_INTERVAL_STREAMING
 
 
+async def test_a_cloud_blip_does_not_take_a_local_appliance_away(
+    hass: HomeAssistant, talking: tuple[MockConfigEntry, Stub]
+) -> None:
+    """The account poll is only there to catch a pairing or a rename, so its
+    failing says nothing about an appliance reached directly. What is held is
+    kept rather than every entity being taken away over one refused call."""
+    made, _ = talking
+    coordinator = made.runtime_data.coordinator
+    assert coordinator.data
+    with patch.object(
+        coordinator.api, "appliances", AsyncMock(side_effect=HomeConnectError("blip"))
+    ):
+        kept = await coordinator._async_update_data()
+    assert kept is coordinator.data
+
+
 async def test_the_wifi_reading_is_off_by_default_when_reached_directly(
     hass: HomeAssistant, talking: tuple[MockConfigEntry, Stub]
 ) -> None:
