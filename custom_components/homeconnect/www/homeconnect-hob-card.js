@@ -307,7 +307,7 @@ class HomeConnectHobCard extends HTMLElement {
     tile.classList.toggle("boost", boost);
 
     const label = tile.querySelector(".level");
-    if (off) label.textContent = "";
+    if (off) label.textContent = "Off";
     else if (boost) label.textContent = "P";
     else if (power === undefined) label.textContent = "·";
     else label.textContent = String(power);
@@ -319,6 +319,12 @@ class HomeConnectHobCard extends HTMLElement {
     const left = this._value(fields.remaining_program_time);
     tile.querySelector(".left").textContent =
       !off && left && Number(left) > 0 ? clock(Number(left)) : "";
+
+    // With nothing to say beneath it the line is taken away entirely, so the
+    // label sits in the true centre of the hole rather than a touch above it,
+    // which is where an off zone with only its "Off" wants to be.
+    const under = tile.querySelector(".under");
+    under.style.display = under.textContent ? "flex" : "none";
   }
 }
 
