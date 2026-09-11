@@ -42,10 +42,12 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import HomeConnectAccount, HomeConnectApi
 from .auth import Tokens
+from .capability import GATHERED, platform_for
 from .const import (
     CONF_ACCESS_TOKEN,
     CONF_EXPIRES_AT,
@@ -169,6 +171,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: HomeConnectConfigEntry) 
         api=api, coordinator=coordinator, stream=stream, local=local
     )
     _forget_what_is_gone(hass, entry, coordinator)
+    _forget_what_moved(hass, entry, coordinator)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
 
@@ -224,6 +227,48 @@ def _forget_what_is_gone(
             registry.async_update_device(
                 device.id, remove_config_entry_id=entry.entry_id
             )
+
+
+def _forget_what_moved(
+    hass: HomeAssistant, entry: ConfigEntry, coordinator: HomeConnectCoordinator
+) -> None:
+    """Take away entities of a key that now belongs to a different platform.
+
+    What an appliance says about a key decides whether it becomes a switch, a
+    choice, a figure or a reading. Reading the description better moves some
+    of them, and the entity made under the old reading stays in the registry
+    for good, unavailable and beyond reach, beside the one that replaced it.
+
+    Only a key the appliance still describes is considered, and only where the
+    description gives one answer for it. Anything else is left alone: an
+    entity taken away is a history thrown away, and that cannot be undone.
+    """
+    belongs: dict[str, set[str | None]] = {}
+    for haid, appliance in coordinator.data.items():
+        described = dict(appliance.model.settings)
+        for options in appliance.model.options.values():
+            described.update(options)
+        for key, found in described.items():
+            # A lamp is several keys gathered into one light, so what any of
+            # them would have become on its own says nothing about it.
+            if key in GATHERED:
+                continue
+            belongs.setdefault(f"{haid}-{key}", set()).add(platform_for(found))
+
+    registry = er.async_get(hass)
+    for registered in er.async_entries_for_config_entry(registry, entry.entry_id):
+        wanted = belongs.get(registered.unique_id)
+        if wanted is None or len(wanted) != 1:
+            continue
+        settled = next(iter(wanted))
+        if settled is not None and registered.domain != settled:
+            _LOGGER.debug(
+                "%s is a %s now, so the %s it was is taken away",
+                registered.unique_id.split("-", 1)[-1],
+                settled,
+                registered.domain,
+            )
+            registry.async_remove(registered.entity_id)
 
 
 async def async_unload_entry(

@@ -34,11 +34,13 @@ from unittest.mock import patch
 
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import async_fire_time_changed
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
+from custom_components.homeconnect import _forget_what_moved
 from custom_components.homeconnect.const import DOMAIN
 from custom_components.homeconnect.coordinator import (
     SCAN_INTERVAL,
@@ -166,6 +168,89 @@ async def test_an_appliance_taken_off_the_account_loses_its_device(
     await hass.async_block_till_done()
 
     assert device_for(hass, made, HAID) is None
+
+
+async def test_a_key_that_moved_platform_loses_the_entity_it_was(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """Reading a description better moves some keys to another platform. The
+    entity made under the old reading would otherwise sit in the registry for
+    good, unavailable and beyond reach, beside the one that replaced it."""
+    made = await set_up(hass, aioclient_mock, "washer")
+    registry = er.async_get(hass)
+    live = registry.async_get("switch.washer_child_lock")
+    assert live is not None
+
+    # One left behind by an older release, under the same key.
+    left = registry.async_get_or_create(
+        "number",
+        DOMAIN,
+        live.unique_id,
+        config_entry=made,
+        suggested_object_id="washer_child_lock_old",
+    )
+    assert registry.async_get(left.entity_id) is not None
+
+    await hass.config_entries.async_unload(made.entry_id)
+    await hass.async_block_till_done()
+    await hass.config_entries.async_setup(made.entry_id)
+    await hass.async_block_till_done()
+
+    assert registry.async_get(left.entity_id) is None
+    # And the one that belongs there is untouched.
+    assert registry.async_get("switch.washer_child_lock") is not None
+
+
+async def test_a_lamp_keeps_its_light(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """A lamp is several keys gathered into one light, and the light is filed
+    under the key that switches it on. What that key would have become on its
+    own says nothing about it, so taking the difference as a move would throw
+    the light away on every restart."""
+    made = await set_up(hass, aioclient_mock, "oven")
+    registry = er.async_get(hass)
+    lamp = registry.async_get("light.oven_light")
+    assert lamp is not None
+    assert lamp.unique_id.endswith("Cooking.Common.Setting.Lighting")
+
+    # Run the tidying itself rather than a reload. A reload would make the
+    # light again the moment after taking it away, which is not the same as
+    # never having taken it away: the name, the area and the history hang off
+    # that registration.
+    _forget_what_moved(hass, made, made.runtime_data.coordinator)
+    await hass.async_block_till_done()
+
+    again = registry.async_get("light.oven_light")
+    assert again is not None
+    assert again.id == lamp.id
+
+
+async def test_an_entity_of_a_key_nobody_describes_is_left_alone(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """Taking an entity away throws its history away with it, so only a key
+    the appliance still describes, and describes one way, is considered."""
+    made = await set_up(hass, aioclient_mock, "washer")
+    registry = er.async_get(hass)
+    kept = registry.async_get_or_create(
+        "number",
+        DOMAIN,
+        f"{HAID}-Some.Key.Nobody.Describes",
+        config_entry=made,
+        suggested_object_id="washer_a_stranger",
+    )
+    # The readings and the one-off entities are not keys at all.
+    connection = registry.async_get("binary_sensor.washer_connection")
+    assert connection is not None
+
+    await hass.config_entries.async_unload(made.entry_id)
+    await hass.async_block_till_done()
+    await hass.config_entries.async_setup(made.entry_id)
+    await hass.async_block_till_done()
+
+    assert registry.async_get(kept.entity_id) is not None
+    assert registry.async_get("binary_sensor.washer_connection") is not None
 
 
 async def test_an_appliance_that_refuses_a_question_is_not_a_failure(
