@@ -300,7 +300,10 @@ class Finder:
         state_change: ServiceStateChange,
     ) -> None:
         if state_change is ServiceStateChange.Removed:
-            self._found.pop(name, None)
+            # An appliance that stops announcing keeps its last address rather
+            # than being dropped: it shouts when it feels like it, and a kept
+            # address is what reaches one gone quiet. A move announces itself
+            # as a change, which resolves afresh and overwrites the address.
             return
         self._hass.async_create_task(self._ask(zeroconf, service_type, name))
 
@@ -518,6 +521,10 @@ class LocalControl:
         self._look_again()
 
     async def stop(self) -> None:
+        # Forgotten first, so a resolution still in flight when the browser is
+        # cancelled cannot come back through _look_again and open a link on an
+        # appliance this control has already let go of.
+        self._spawn = None
         await self._finder.stop()
         links, self._links = self._links, {}
         for link in links.values():
