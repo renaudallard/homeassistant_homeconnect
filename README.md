@@ -1,4 +1,8 @@
 <p align="center">
+  <img src="custom_components/homeconnect/brand/icon.png" alt="Home Connect" width="128" height="128"/>
+</p>
+
+<p align="center">
   <a href="https://github.com/renaudallard/homeassistant_homeconnect/releases/latest">
     <img src="https://img.shields.io/github/v/release/renaudallard/homeassistant_homeconnect?label=version&style=flat-square&sort=semver" alt="Latest release"/>
   </a>
@@ -25,8 +29,9 @@
 ---
 
 Home Assistant integration for **Bosch, Siemens, Neff, Gaggenau, Thermador
-and Balay appliances**, talking to the Home Connect cloud the way
-the Home Connect app does. Pair the appliance with the app once, then drive it
+and Balay appliances**, speaking both of the languages the Home Connect app
+speaks: the Home Connect cloud, or the appliance itself over your own network
+with no cloud in the loop. Pair the appliance with the app once, then drive it
 from here.
 
 **No developer account.** It signs in as the app itself, with the app's own
@@ -57,18 +62,27 @@ model nobody has tried works the same way as the one this was written against.
   or straight over your own network with no cloud in the loop at all. Chosen
   when the account is set up and changed afterwards by reconfiguring it, with
   the same entities either way.
-- **Live, not polled** — the cloud pushes changes over one Server-Sent Events
-  connection carrying the whole account, so a cycle finishing shows up when it
-  happens. Polling carries on behind it at half-hourly intervals to catch
-  whatever a dropped connection missed, and drops back to every minute the
-  moment the stream goes down.
+- **Live, not polled** — through the cloud, one Server-Sent Events connection
+  carries the whole account, so a cycle finishing shows up when it happens.
+  Polling carries on behind it at half-hourly intervals to catch whatever a
+  dropped connection missed, and drops back to every minute the moment the
+  stream goes down. Straight to the appliance there is no stream to drop: each
+  one holds its own connection and says what changed as it changes.
 - **Careful with the quota** — the API counts every call. What a model can do
   is read once and kept between restarts, the stream carries the changes, and
   a fresh look is only arranged when something happened that the stream cannot
-  describe.
+  describe. Reached directly, an appliance costs nothing at all after the
+  first look.
 - **The words the appliance uses** — the cloud names each programme and each
   value it offers, in whatever language Home Assistant is set to, and that is
   what gets shown. Where it has not, the key says plainly enough what it is.
+  An appliance talked to directly has no translations to give, so its values
+  read as their keys.
+- **Units from the description** — an appliance gives each thing it describes
+  a number saying what it is, against a table published at the address every
+  description names. That is what tells a length of time from a plain figure,
+  and a name whose bounds are its length from a number whose bounds are its
+  range.
 - **Delayed start** — the option that sets one can only be given as a
   programme starts, so it is held here until it does and sent along with the
   start. Set it, press start, and the machine waits.
@@ -160,6 +174,11 @@ The device is named for what the account calls it, with the type code from its
 rating plate as the model and the full number with the customer index beside
 it.
 
+Reading a description better sometimes moves a key from one kind of entity to
+another, and the entity it used to be is taken away when that happens. It
+would otherwise sit in the registry for good, unavailable and beyond reach,
+beside the one that replaced it.
+
 Four details worth knowing, because they look like faults and are not:
 
 - **The controls are unavailable until remote control is armed** at the
@@ -236,12 +255,11 @@ its history.
 Two differences worth knowing. Talked to directly, an appliance says
 everything in numbers, and the words come from its description file rather
 than from the cloud, so a value reads as its key rather than in the language
-Home Assistant is set to. The units are the same either way: a description
-gives each thing a number saying what it is, against a table published at the
-address every description names, and `custom_components/homeconnect/content.py`
-carries that table. And stopping a programme is the appliance's own stop
-command rather than emptying the programme slot, which comes to the same thing
-but is only offered by an appliance that describes that command.
+Home Assistant is set to. The units are the same either way, because a
+description says what each thing is as well as how large it may be. And
+stopping a programme is the appliance's own stop command rather than emptying
+the programme slot, which comes to the same thing but is only offered by an
+appliance that describes that command.
 
 ## Reporting a problem
 
@@ -265,15 +283,22 @@ do without.
 
 ## When the controls go unavailable
 
-An appliance that the cloud has stopped hearing from cannot be set to anything,
-so every control on it goes unavailable. Readings stay, holding whatever it
-last said. The **Connection** binary sensor says which it is.
+An appliance that is not being heard from cannot be set to anything, so every
+control on it goes unavailable. Readings stay, holding whatever it last said.
+The **Connection** binary sensor says which it is, and the **Transport** sensor
+beside it says which way it was being reached.
 
-An appliance talks to the Home Connect cloud itself, not through Home
-Assistant, so an appliance that has dropped off its own network looks exactly
-like this while the integration carries on talking to the cloud quite happily.
-Check the connection sensor first, and the appliance's own network settings
-after that.
+Through the cloud, an appliance talks to Home Connect itself rather than
+through Home Assistant, so one that has dropped off its own network looks
+exactly like this while the integration carries on talking to the cloud quite
+happily. Check the connection sensor first, and the appliance's own network
+settings after that.
+
+Reached directly, the appliance has to be on the same network, announcing
+itself on it, and awake. Several kinds, hobs above all, answer the discovery
+announcement and even accept a connection while switched off, and then say
+nothing at all until they are switched on. That looks like a fault and is not
+one.
 
 If every control is unavailable and the connection sensor says the appliance is
 there, remote control has not been armed at the machine.
@@ -315,9 +340,11 @@ every account already trusts. That is what makes an ordinary login enough.
 
 ## What it talks to
 
-`https://api.home-connect.com` and nothing else. Both the OAuth endpoints and
-the appliance API live there, and both regions the app knows about share the
-one host, so there is nothing to ask the user about.
+Signing in and reading the account happen on `https://api.home-connect.com`.
+Both the OAuth endpoints and the appliance API live there, and both regions
+the app knows about share the one host, so there is nothing to ask about.
+
+Set to reach the appliances through the cloud, that host is the whole of it:
 
 | | |
 | --- | --- |
@@ -344,6 +371,11 @@ things about each appliance once and then leaves the cloud alone:
 Those live on `eu.services.home-connect.com` or `na.services.home-connect.com`
 depending on the account, which nothing says in advance, so each is tried
 until one answers and the one that did is remembered.
+
+A description also names a third address, the table saying what the number on
+each described thing means. That one is not fetched: it has sat unchanged
+since 2014 and is generated into `content.py` by `tools/make_content_types.py`,
+because naming a unit should not need a schema host to be reachable.
 
 The appliance itself answers on a websocket at `/homeconnect`. Newer ones
 secure the connection with that shared key instead of a certificate, on port
