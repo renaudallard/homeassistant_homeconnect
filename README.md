@@ -284,14 +284,17 @@ ids, because both sides are turned into the same shapes before anything above
 them sees them. Moving an entry between the two keeps every entity and all of
 its history.
 
-Two differences worth knowing. Talked to directly, an appliance says
+A few differences worth knowing. Talked to directly, an appliance says
 everything in numbers, and the words come from its description file rather
 than from the cloud, so a value reads as its key rather than in the language
 Home Assistant is set to. The units are the same either way, because a
 description says what each thing is as well as how large it may be. And
 stopping a programme is the appliance's own stop command rather than emptying
 the programme slot, which comes to the same thing but is only offered by an
-appliance that describes that command.
+appliance that describes that command. The Wi-Fi signal strength reading is
+left switched off this way too: reached directly an appliance reports only
+zero for it rather than a real figure, so switch it on from the appliance's
+page if its own reading is wanted.
 
 ## Reporting a problem
 

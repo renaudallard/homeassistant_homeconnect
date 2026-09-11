@@ -97,14 +97,19 @@ async def async_migrate_entry(
 
     2: the commands that reset an appliance, move its software or open a line
     to the maker's support are left switched off unless asked for. An entry
-    set up before this has them switched off here, once. One set up after
-    never had them on, so there is nothing to do.
+    set up before this has them switched off here, once.
+
+    3: an appliance reached directly reports no signal strength, only zero, so
+    that reading is switched off while it is reached that way. One set up
+    before this, on the local network, has it switched off here.
     """
+    registry = er.async_get(hass)
+    entities = er.async_entries_for_config_entry(registry, entry.entry_id)
+
     if entry.minor_version < 2:
         from .button import sensitive_command
 
-        registry = er.async_get(hass)
-        for registered in er.async_entries_for_config_entry(registry, entry.entry_id):
+        for registered in entities:
             if registered.disabled_by is None and sensitive_command(
                 registered.unique_id
             ):
@@ -112,7 +117,19 @@ async def async_migrate_entry(
                     registered.entity_id,
                     disabled_by=er.RegistryEntryDisabler.INTEGRATION,
                 )
-        hass.config_entries.async_update_entry(entry, minor_version=2)
+
+    if entry.minor_version < 3 and entry.data.get(CONF_TRANSPORT) == LOCAL:
+        from .sensor import WIFI
+
+        for registered in entities:
+            if registered.disabled_by is None and registered.unique_id.endswith(WIFI):
+                registry.async_update_entity(
+                    registered.entity_id,
+                    disabled_by=er.RegistryEntryDisabler.INTEGRATION,
+                )
+
+    if entry.minor_version < 3:
+        hass.config_entries.async_update_entry(entry, minor_version=3)
     return True
 
 

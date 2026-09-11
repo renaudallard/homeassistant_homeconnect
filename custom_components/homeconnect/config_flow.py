@@ -123,7 +123,7 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
     """Walk the user through signing in to a Home Connect account."""
 
     VERSION = 1
-    MINOR_VERSION = 2
+    MINOR_VERSION = 3
 
     def __init__(self) -> None:
         # Made once per attempt and kept for as long as the flow is open. The

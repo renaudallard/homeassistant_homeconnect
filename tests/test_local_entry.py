@@ -164,6 +164,25 @@ async def test_local_mode_asks_the_account_rarely(
     assert made.runtime_data.coordinator.update_interval == SCAN_INTERVAL_STREAMING
 
 
+async def test_the_wifi_reading_is_off_by_default_when_reached_directly(
+    hass: HomeAssistant, talking: tuple[MockConfigEntry, Stub]
+) -> None:
+    """Reached directly, an appliance reports no signal strength, only zero,
+    so the reading is not switched on out of the box."""
+    from homeassistant.helpers import entity_registry as er
+
+    made, _ = talking
+    # 0x010A is the WiFi signal strength, and zero is all a local one says.
+    made.runtime_data.coordinator.apply_locally(HAID, {0x010A: 0})
+    await hass.async_block_till_done()
+
+    registry = er.async_get(hass)
+    wifi = registry.async_get("sensor.washer_wi_fi_signal_strength")
+    assert wifi is not None
+    assert wifi.disabled_by is er.RegistryEntryDisabler.INTEGRATION
+    assert hass.states.get("sensor.washer_wi_fi_signal_strength") is None
+
+
 async def test_the_transport_says_local_when_that_is_how_it_is_reached(
     hass: HomeAssistant, talking: tuple[MockConfigEntry, Stub]
 ) -> None:

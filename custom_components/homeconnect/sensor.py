@@ -135,6 +135,14 @@ def _endings(coordinator: HomeConnectCoordinator) -> Iterator[tuple[str, str]]:
             yield haid, "finish"
 
 
+# What the signal strength reading is called. An appliance talked to directly
+# never fills it in: the local protocol carries no such figure, so it comes
+# across as nothing but zero, cooking or idle. The cloud is where the real one
+# is, so the reading is left switched off while an appliance is reached the
+# other way.
+WIFI = "BSH.Common.Status.WiFiSignalStrength"
+
+
 class HomeConnectSensor(KeyEntity, SensorEntity):
     """One reading of one appliance."""
 
@@ -142,6 +150,8 @@ class HomeConnectSensor(KeyEntity, SensorEntity):
         self, coordinator: HomeConnectCoordinator, haid: str, key: str, kind: str
     ) -> None:
         super().__init__(coordinator, haid, key, kind)
+        if key == WIFI and coordinator.local is not None:
+            self._attr_entity_registry_enabled_default = False
         self._measure = measure_for(key, self._unit_of())
         if self._measure is not None:
             self._attr_native_unit_of_measurement = self._measure.unit

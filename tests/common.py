@@ -159,7 +159,7 @@ def serve(mock: AiohttpClientMocker, appliances: list[dict[str, Any]]) -> None:
 
 
 def entry(
-    hass: HomeAssistant, email: str | None = None, minor_version: int = 2
+    hass: HomeAssistant, email: str | None = None, minor_version: int = 3
 ) -> MockConfigEntry:
     """An account already signed in, with a token that has not expired."""
     data: dict[str, Any] = {

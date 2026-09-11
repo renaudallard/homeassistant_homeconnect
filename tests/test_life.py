@@ -30,7 +30,7 @@ from __future__ import annotations
 
 import copy
 from datetime import timedelta
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
@@ -40,7 +40,7 @@ from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import async_fire_time_changed
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
-from custom_components.homeconnect import _forget_what_moved
+from custom_components.homeconnect import _forget_what_moved, local
 from custom_components.homeconnect.const import DOMAIN
 from custom_components.homeconnect.coordinator import (
     SCAN_INTERVAL,
@@ -200,7 +200,7 @@ async def test_dangerous_commands_are_switched_off_once_on_an_older_entry(
         await hass.config_entries.async_setup(made.entry_id)
         await hass.async_block_till_done()
 
-    assert made.minor_version == 2
+    assert made.minor_version == 3
     # The dangerous one is switched off, the ordinary one left as it was.
     reset_now = registry.async_get(reset.entity_id)
     pause_now = registry.async_get(pause.entity_id)
@@ -425,6 +425,49 @@ async def test_a_machine_that_used_to_work_is_not_a_repair(
     assert complaint(hass, HAID) is None
 
 
+async def test_the_wifi_reading_is_switched_off_once_on_an_older_local_entry(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """A local entry set up before the reading was known to be useless has
+    it switched off here, once, and a cloud entry is left with its real one."""
+    from custom_components.homeconnect.const import CONF_TRANSPORT, LOCAL
+
+    made = entry(hass, minor_version=2)
+    hass.config_entries.async_update_entry(
+        made, data={**made.data, CONF_TRANSPORT: LOCAL}
+    )
+    registry = er.async_get(hass)
+    wifi = registry.async_get_or_create(
+        "sensor",
+        DOMAIN,
+        f"{HAID}-BSH.Common.Status.WiFiSignalStrength",
+        config_entry=made,
+        suggested_object_id="washer_wi_fi_signal_strength_old",
+    )
+    assert wifi.disabled_by is None
+
+    serve(aioclient_mock, [fixture("washer")])
+    with (
+        patch(
+            "custom_components.homeconnect.api.HomeConnectAccount.keys",
+            AsyncMock(return_value={HAID: {"key": "a-key"}}),
+        ),
+        patch(
+            "custom_components.homeconnect.api.HomeConnectAccount.description",
+            AsyncMock(return_value=b"a zip"),
+        ),
+        patch.object(local.Finder, "start", AsyncMock()),
+        patch.object(local.Finder, "stop", AsyncMock()),
+    ):
+        await hass.config_entries.async_setup(made.entry_id)
+        await hass.async_block_till_done()
+
+    assert made.minor_version == 3
+    after = registry.async_get(wifi.entity_id)
+    assert after is not None
+    assert after.disabled_by is er.RegistryEntryDisabler.INTEGRATION
+
+
 async def test_the_hob_card_is_served_and_loaded_once(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
 ) -> None:
@@ -441,6 +484,11 @@ async def test_the_hob_card_is_served_and_loaded_once(
         await _register_card(hass)
 
     hass.http.async_register_static_paths.assert_awaited_once()
+    # Served with the caching resource, so the module goes out as
+    # text/javascript rather than a type the browser will not load.
+    (paths,) = hass.http.async_register_static_paths.await_args.args
+    assert paths[0].cache_headers is True
+    assert paths[0].url_path == "/homeconnect/homeconnect-hob-card.js"
     added.assert_called_once()
     url = added.call_args.args[1]
     assert "homeconnect-hob-card.js" in url
