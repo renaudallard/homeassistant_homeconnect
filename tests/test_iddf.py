@@ -160,3 +160,18 @@ def test_an_archive_missing_a_half_says_which() -> None:
 def test_something_that_is_not_an_archive_says_so() -> None:
     with pytest.raises(HomeConnectError, match="not an archive"):
         iddf.unpack(b"not a zip at all")
+
+
+def test_what_a_thing_is_comes_from_the_number_the_schema_publishes() -> None:
+    """A description says how large a thing may be and never what it is. The
+    number beside it is what says, against a table every description names by
+    its address."""
+    from custom_components.homeconnect.content import content
+
+    assert ENTRIES[0x010A].content == 0x12
+    assert content(ENTRIES[0x010A].content) == ("dbm", "Integer")
+    assert content(ENTRIES[0x010B].content) == ("string", "String")
+    assert content(ENTRIES[0x010C].content) == ("timeSpan", "Integer")
+    # One written without a number is not one to guess at.
+    assert ENTRIES[0x0100].content is None
+    assert content(None) is None

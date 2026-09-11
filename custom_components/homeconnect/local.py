@@ -49,9 +49,11 @@ from zeroconf import ServiceStateChange
 from zeroconf.asyncio import AsyncServiceBrowser, AsyncServiceInfo
 
 from .capability import OPTION, SETTING, STATUS, Feature, Reading
+from .content import content
 from .errors import HomeConnectError
 from .http import hidden_id
 from .iddf import Entry, named_value, uids_by_key, unpack
+from .measures import unit_of
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -79,10 +81,15 @@ def _feature(entry: Entry, kind: str) -> Feature:
     what the cloud sends. There are no translated names to go with them, the
     description file having none, so they read as the keys say.
     """
+    named, carried = content(entry.content) or ("", "")
     return Feature(
         key=entry.key,
         kind=kind,
-        type="Boolean" if not entry.values and entry.minimum is None else "",
+        # What the description says it is. Where it says nothing, a thing
+        # with neither members nor a range still holds true or false.
+        type=carried
+        or ("Boolean" if not entry.values and entry.minimum is None else ""),
+        unit=unit_of(named),
         access=entry.access,
         values=tuple(entry.values.values()),
         minimum=entry.minimum,
@@ -179,7 +186,8 @@ def sort(entries: dict[int, Entry], values: dict[int, Any]) -> Sorted:
             else:
                 found.selected = named
             continue
-        reading = Reading(value=named_value(entry, value))
+        named, _ = content(entry.content) or ("", "")
+        reading = Reading(value=named_value(entry, value), unit=unit_of(named))
         kind = KINDS.get(entry.kind)
         if kind == STATUS:
             found.status[entry.key] = reading

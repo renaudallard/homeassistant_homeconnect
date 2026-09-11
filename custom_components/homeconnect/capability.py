@@ -44,6 +44,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from .content import OBJECT, STRING
+
 # What a key becomes. These are Home Assistant platform names, kept as plain
 # strings so this module does not need Home Assistant to be tested.
 SENSOR = "sensor"
@@ -61,6 +63,10 @@ OPTION = "option"
 # What the cloud calls a value that is true or false. Everything else is
 # either a number or one of a named set.
 BOOLEAN = "Boolean"
+
+# What a thing is carried as when it is not a figure at all. Bounds on one of
+# these are how long it may be, or how many things are in it.
+NOT_A_FIGURE = frozenset({STRING, OBJECT})
 
 # When an option can be given. One that can only be given as a programme
 # starts is not refused the rest of the time, it is silently ignored, so it is
@@ -153,7 +159,14 @@ class Feature:
 
     @property
     def numeric(self) -> bool:
-        """Whether it holds a figure within a range it named."""
+        """Whether it holds a figure within a range it named.
+
+        Something holding words has bounds too, and they say how long it may
+        be rather than how large. A favourite's name is written that way, and
+        read as a range it becomes a slider that sets a name to a number.
+        """
+        if self.type in NOT_A_FIGURE:
+            return False
         return self.minimum is not None and self.maximum is not None
 
     @property

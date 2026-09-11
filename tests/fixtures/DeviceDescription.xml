@@ -7,10 +7,13 @@
   <statusList>
     <status uid="0x0101" access="read" available="true" enumerationType="0x0201"/>
     <status uid="0x0103" access="read" available="true" min="0" max="9" stepSize="1"/>
+    <status uid="0x010A" access="read" available="true" refCID="12" refDID="82"/>
   </statusList>
   <settingList>
     <setting uid="0x0100" access="readWrite" available="true" enumerationType="0x0200"/>
     <setting uid="0x0102" access="readWrite" available="true"/>
+    <setting uid="0x010C" access="readWrite" available="true" refCID="10" refDID="82" min="0" max="35940"/>
+    <setting uid="0x010B" access="readWrite" available="true" refCID="05" refDID="8B" min="1" max="30"/>
     <setting uid="0x0106" access="read" available="true" enumerationType="0x0202"/>
   </settingList>
   <commandList>

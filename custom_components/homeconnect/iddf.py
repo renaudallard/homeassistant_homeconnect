@@ -82,6 +82,7 @@ KINDS = frozenset(
 # What an element that describes a feature calls its number, and what the
 # elements that name one call theirs.
 UID = "uid"
+CONTENT = "refCID"
 FEATURE = "refUID"
 ENUM = "refENID"
 ENUM_KEY = "enumKey"
@@ -122,6 +123,10 @@ class Entry:
     maximum: float | None = None
     step: float | None = None
     execution: str | None = None
+    # What the thing is, as the number the description gives it. The
+    # description says how large a thing may be and never what it is, so
+    # this is what tells a length of time from a plain figure.
+    content: int | None = None
     # The programme this sits inside, where it sits inside one. An option
     # written under a programme belongs to that programme and to no other.
     under: int | None = None
@@ -189,6 +194,7 @@ def _entry(
         uid=uid,
         kind=element.tag.rpartition("}")[2],
         key=key,
+        content=_number(element.get(CONTENT)),
         access=str(element.get("access") or "read"),
         available=str(element.get("available", "true")).lower() != "false",
         values=dict(enums.get(enum) or {}) if enum is not None else {},

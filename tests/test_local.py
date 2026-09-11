@@ -189,3 +189,30 @@ def test_what_is_needed_to_talk_to_one_survives_being_written_down() -> None:
 def test_something_written_down_that_no_longer_reads_is_dropped() -> None:
     assert local.Known.from_stored({"key": "a", "entries": "not a mapping"}) is None
     assert local.Known.from_stored("nonsense") is None
+
+
+def test_a_length_of_time_is_counted_in_seconds() -> None:
+    """An alarm clock running to 35940 is not 35940 of nothing."""
+    described = local.describe(ENTRIES)
+    clock = described.settings["BSH.Common.Setting.AlarmClock"]
+    assert clock.unit == "s"
+    assert clock.numeric
+    assert platform_for(clock) is NUMBER
+
+
+def test_something_holding_words_is_not_a_figure_between_two_ends() -> None:
+    """A name has a shortest and a longest it may be, which is a range like
+    any other until it is read as what it is. Read as one it becomes a slider
+    that sets a name to a number."""
+    described = local.describe(ENTRIES)
+    named = described.settings["BSH.Common.Setting.Favorite.001.Name"]
+    assert named.type == "String"
+    assert named.minimum == 1
+    assert named.maximum == 30
+    assert not named.numeric
+    assert platform_for(named) is not NUMBER
+
+
+def test_a_reading_is_measured_in_what_its_number_says() -> None:
+    found = local.sort(ENTRIES, {0x010A: -55})
+    assert found.status["BSH.Common.Status.WiFiSignalStrength"].unit == "dBm"

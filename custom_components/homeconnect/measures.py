@@ -100,6 +100,25 @@ BATTERIES = frozenset(
 )
 
 
+# What a described thing is measured in, by what the schema calls it. Only
+# the names that say the scale as well as the quantity are here: energy and
+# weight and volume name the quantity and leave the scale unsaid, and a guess
+# at that is a reading wrong by a thousand rather than a reading with no unit.
+UNITS: dict[str, str] = {
+    "temperatureCelsius": UnitOfTemperature.CELSIUS,
+    "temperatureFahrenheit": UnitOfTemperature.FAHRENHEIT,
+    "timeSpan": UnitOfTime.SECONDS,
+    "percent": PERCENTAGE,
+    "dbm": SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
+    "rpm": REVOLUTIONS_PER_MINUTE,
+}
+
+
+def unit_of(named: str | None) -> str | None:
+    """What something of this content type is measured in, where it says."""
+    return UNITS.get(named) if named else None
+
+
 def measure_for(key: str, unit: str | None) -> Measure | None:
     """How to write down one reading, or nothing if it is not a quantity."""
     if unit is None:

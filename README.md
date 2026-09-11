@@ -236,7 +236,10 @@ its history.
 Two differences worth knowing. Talked to directly, an appliance says
 everything in numbers, and the words come from its description file rather
 than from the cloud, so a value reads as its key rather than in the language
-Home Assistant is set to. And stopping a programme is the appliance's own stop
+Home Assistant is set to. The units are the same either way: a description
+gives each thing a number saying what it is, against a table published at the
+address every description names, and `custom_components/homeconnect/content.py`
+carries that table. And stopping a programme is the appliance's own stop
 command rather than emptying the programme slot, which comes to the same thing
 but is only offered by an appliance that describes that command.
 
