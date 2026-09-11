@@ -29,8 +29,34 @@ def test_a_zone_is_placed_where_the_description_says() -> None:
         (4, 100, "Shape", "2"),
     )
     assert layout(entries) == [
-        {"zone": 100, "x": 147.0, "y": 194.0, "w": 230.0, "h": 190.0, "round": False},
+        {
+            "zone": 100,
+            "x": 147.0,
+            "y": 194.0,
+            "w": 230.0,
+            "h": 190.0,
+            "round": False,
+            "select": None,
+        },
     ]
+
+
+def test_a_zone_carries_what_the_selector_calls_it() -> None:
+    """The card points a power level at a zone by the name the zone selector
+    gives it, so that name rides along with the geometry."""
+    entries = _hob(
+        (1, 100, "Position", '{"x":147,"y":194}'),
+        (2, 100, "LengthX", "230"),
+        (3, 100, "LengthY", "190"),
+    )
+    entries[9] = Entry(
+        uid=9,
+        kind="option",
+        key="Cooking.Hob.Option.ZoneSelector",
+        values={100: "Cooking.Hob.EnumType.ZoneSelector.FrontLeft"},
+    )
+    (drawn,) = layout(entries)
+    assert drawn["select"] == "Front left"
 
 
 def test_shape_zero_is_a_round_zone() -> None:

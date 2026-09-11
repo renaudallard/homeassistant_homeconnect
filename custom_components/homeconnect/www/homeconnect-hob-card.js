@@ -168,10 +168,16 @@ class HomeConnectHobCard extends HTMLElement {
       .filter((n) => this._selectable(zones[n]))
       .sort((a, b) => Number(a) - Number(b));
     const placed = this._placed(numbers);
+    this._placedNow = placed;
+    this._ctl = this._controls(device);
+    // The controls are there to be used only while the hob is in its manual
+    // power mode with remote control switched on, which is when the level
+    // select turns up and answers. Its absence is the sign to say so instead.
+    const ready = this._available(this._ctl.power);
     const shape = placed
       .map((p) => `${p.n}:${p.x},${p.y},${p.w},${p.h},${p.round ? 1 : 0}`)
       .join(";");
-    const signature = `${device || ""}|${shape}`;
+    const signature = `${device || ""}|${shape}|${this._ctl.join ? "j" : ""}`;
 
     // Rebuild the frame only when the hob or where its live zones sit changes,
     // so a value moving does not throw the whole card away and build it again.
@@ -180,6 +186,33 @@ class HomeConnectHobCard extends HTMLElement {
       this._build(placed, device);
     }
     for (const p of placed) this._paint(p.n, zones[p.n]);
+    this._paintControls(ready);
+  }
+
+  // The controls a hob offers while it is in its manual power mode: the select
+  // that picks which zone a level is for, the select that sets the level, and
+  // the switch that joins the flex zones. They come and go with that mode.
+  _controls(device) {
+    const entities = (this._hass && this._hass.entities) || {};
+    const found = {};
+    if (!device) return found;
+    for (const id of Object.keys(entities)) {
+      if (entities[id].device_id !== device) continue;
+      if (id.startsWith("select.") && id.endsWith("_zone_selector")) found.zone = id;
+      else if (id.startsWith("select.") && id.endsWith("_power_level")) found.power = id;
+      else if (id.startsWith("switch.") && id.endsWith("_join_zone")) found.join = id;
+    }
+    return found;
+  }
+
+  _available(id) {
+    const state = id && this._hass.states[id];
+    return !!(state && state.state !== "unavailable" && state.state !== "unknown");
+  }
+
+  _call(id, domain, service, extra) {
+    if (!id || !this._hass) return;
+    this._hass.callService(domain, service, { entity_id: id, ...(extra || {}) });
   }
 
   _build(placed, device) {
@@ -238,11 +271,46 @@ class HomeConnectHobCard extends HTMLElement {
       })
       .join("");
 
+    const join = this._ctl.join
+      ? `<button class="join" type="button">Join zones</button>`
+      : "";
     this.shadowRoot.innerHTML = `${this._style(wide, tall)}
       <ha-card>
         <div class="title">${title}</div>
         <div class="glass">${tiles}</div>
+        <div class="controls" hidden>
+          <label class="pick"><span>Power</span><select class="power"></select></label>
+          ${join}
+        </div>
+        <div class="hint" hidden>
+          Set the hob to its power-level programme and switch remote control on
+          at the appliance to set a zone from here.
+        </div>
       </ha-card>`;
+
+    // Tapping a zone points the level control at it, the way the app does: you
+    // pick the plate, then set its power. The hob confirms the change at its
+    // own panel, so nothing here takes effect until you press it there.
+    for (const p of placed) {
+      const tile = this.shadowRoot.getElementById(`zone-${p.n}`);
+      if (tile && p.select) {
+        tile.addEventListener("click", () =>
+          this._call(this._ctl.zone, "select", "select_option", { option: p.select })
+        );
+      }
+    }
+    const power = this.shadowRoot.querySelector(".power");
+    if (power) {
+      power.addEventListener("change", () =>
+        this._call(this._ctl.power, "select", "select_option", { option: power.value })
+      );
+    }
+    const joinButton = this.shadowRoot.querySelector(".join");
+    if (joinButton) {
+      joinButton.addEventListener("click", () =>
+        this._call(this._ctl.join, "switch", "toggle")
+      );
+    }
   }
 
   _style(wide, tall) {
@@ -286,6 +354,20 @@ class HomeConnectHobCard extends HTMLElement {
         .under { display: flex; gap: 8px; font-size: .72em; min-height: 1em;
                  color: rgba(230,235,245,.75); }
         .under:empty { display: none; }
+        .glass.live .zone { cursor: pointer; }
+        .zone.picked { outline: 2px solid rgba(120,180,255,.9); outline-offset: 2px; }
+        .controls { display: flex; gap: 10px; align-items: flex-end; margin-top: 12px; }
+        .pick { display: flex; flex-direction: column; gap: 4px; flex: 1 1 auto; }
+        .pick > span { font-size: .72em; text-transform: uppercase; letter-spacing: .04em;
+                       color: var(--secondary-text-color); }
+        .power { font: inherit; padding: 10px 12px; border-radius: 12px; width: 100%;
+                 color: var(--primary-text-color); background: var(--secondary-background-color);
+                 border: 1px solid var(--divider-color); }
+        .join { font: inherit; font-weight: 600; cursor: pointer; padding: 11px 16px;
+                border-radius: 12px; border: 1px solid var(--divider-color);
+                background: var(--secondary-background-color); color: var(--primary-text-color); }
+        .hint { margin-top: 12px; padding: 10px 12px; border-radius: 12px; font-size: .9em;
+                color: var(--secondary-text-color); background: var(--secondary-background-color); }
       </style>`;
   }
 
@@ -325,6 +407,47 @@ class HomeConnectHobCard extends HTMLElement {
     // which is where an off zone with only its "Off" wants to be.
     const under = tile.querySelector(".under");
     under.style.display = under.textContent ? "flex" : "none";
+  }
+
+  // Show the controls only while the hob will take them, and keep the level
+  // select and the picked-zone outline in step with what the hob reports.
+  _paintControls(ready) {
+    const root = this.shadowRoot;
+    const controls = root.querySelector(".controls");
+    if (!controls) return;
+    const hint = root.querySelector(".hint");
+    controls.hidden = !ready;
+    if (hint) hint.hidden = ready;
+
+    const glass = root.querySelector(".glass");
+    if (glass) glass.classList.toggle("live", ready && !!this._ctl.zone);
+    if (!ready) return;
+
+    const select = root.querySelector(".power");
+    const state = this._hass.states[this._ctl.power];
+    const options = (state && state.attributes && state.attributes.options) || [];
+    if (select && select._options !== options.join("")) {
+      select._options = options.join("");
+      select.replaceChildren(
+        ...options.map((o) => {
+          const option = document.createElement("option");
+          option.value = o;
+          option.textContent = o;
+          return option;
+        })
+      );
+    }
+    if (select && state) select.value = state.state;
+
+    // Outline the zone the selector is pointing at, so it is plain which plate
+    // the level will land on.
+    const picked = this._available(this._ctl.zone)
+      ? this._hass.states[this._ctl.zone].state
+      : null;
+    for (const p of this._placedNow || []) {
+      const tile = root.getElementById(`zone-${p.n}`);
+      if (tile) tile.classList.toggle("picked", !!picked && p.select === picked);
+    }
   }
 }
 

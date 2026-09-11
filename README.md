@@ -233,6 +233,14 @@ and any countdown.
 
     type: custom:homeconnect-hob-card
 
+Tapping a zone points the hob's level control at it, and a power picker below
+sets that zone, the way the app does. Those controls are there only while the
+hob is in its power-level programme with remote control switched on at the
+appliance, which is the only state a hob lets itself be driven remotely in;
+the rest of the time the card says as much and stays a display. Like the app,
+the hob asks you to confirm each change at its own panel before it takes hold,
+so nothing here reaches the elements on its own.
+
 The dishwasher card lays a dishwasher out the way the app does and drives it
 the same way: pick the programme, turn the options on and off, set the power
 and lock the controls, and start or stop it. Beneath the programme it shows
