@@ -295,11 +295,19 @@ exactly like this while the integration carries on talking to the cloud quite
 happily. Check the connection sensor first, and the appliance's own network
 settings after that.
 
-Reached directly, the appliance has to be on the same network, announcing
-itself on it, and awake. Several kinds, hobs above all, answer the discovery
-announcement and even accept a connection while switched off, and then say
-nothing at all until they are switched on. That looks like a fault and is not
-one.
+Reached directly, the appliance has to be on the same network and to have
+announced itself on it at some point, since that is how its address is
+learnt. Being switched off does not stop it answering: a hob that is off
+still holds a connection and reports everything, and says the moment it is
+switched on.
+
+**An appliance holds one direct connection at a time.** A second client is
+let in and the first is closed, so two clients take the appliance off each
+other every few seconds for as long as both keep trying. The Home Connect app
+takes the direct path too when it is on the same network, which means that
+with the app open the **Connection** sensor flaps and the controls come and go
+until the app is closed or leaves the network. That looks like a fault and is
+not one; it settles the moment the app lets go.
 
 If every control is unavailable and the connection sensor says the appliance is
 there, remote control has not been armed at the machine.
@@ -427,7 +435,9 @@ network, using the integration's own link, and prints every frame, every
 value and every change of connection as they happen. It only listens: nothing
 in it writes to the appliance. The shared key is read from a file so that it
 lands in neither the shell history nor the process list, and that file belongs
-under `tmp/`, which is not tracked.
+under `tmp/`, which is not tracked. An appliance holds one direct connection
+at a time, so running it takes the appliance off Home Assistant every few
+seconds until it stops; disable the entry first.
 
 The tests load a washing machine and an oven and check what comes out of them.
 The config flow tests drive the real Home Assistant flow machinery, so they
