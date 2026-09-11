@@ -306,6 +306,14 @@ class HcpLink:
             while True:
                 async with asyncio.timeout(SILENCE):
                     message = await socket.receive()
+                # Every frame, so that a conversation going quiet can be told
+                # from one whose frames are arriving and being passed over.
+                _LOGGER.debug(
+                    "%s sent %s, %d bytes",
+                    self._host,
+                    message.type.name,
+                    len(message.data) if isinstance(message.data, (str, bytes)) else 0,
+                )
                 if message.type in (
                     aiohttp.WSMsgType.CLOSE,
                     aiohttp.WSMsgType.CLOSING,
@@ -319,10 +327,12 @@ class HcpLink:
     async def _heard(self, message: aiohttp.WSMessage) -> None:
         if self._sealed is not None:
             if message.type is not aiohttp.WSMsgType.BINARY:
+                _LOGGER.debug("%s sent a frame with nothing sealed in it", self._host)
                 return
             body = self._sealed.open(message.data)
         else:
             if message.type is not aiohttp.WSMsgType.TEXT:
+                _LOGGER.debug("%s sent a frame with nothing said in it", self._host)
                 return
             body = message.data
         try:
