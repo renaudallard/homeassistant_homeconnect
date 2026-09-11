@@ -423,3 +423,26 @@ async def test_a_machine_that_used_to_work_is_not_a_repair(
 
     assert not coordinator.data[HAID].connected
     assert complaint(hass, HAID) is None
+
+
+async def test_the_hob_card_is_served_and_loaded_once(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """The card ships with the integration and is put on the frontend, so
+    there is no resource to add by hand, and only once however many accounts
+    are set up."""
+    from unittest.mock import AsyncMock, patch
+
+    from custom_components.homeconnect import _register_card
+
+    hass.http = AsyncMock()
+    with patch("custom_components.homeconnect.frontend.add_extra_js_url") as added:
+        await _register_card(hass)
+        await _register_card(hass)
+
+    hass.http.async_register_static_paths.assert_awaited_once()
+    added.assert_called_once()
+    url = added.call_args.args[1]
+    assert "homeconnect-hob-card.js" in url
+    # The version is on the url so a new release is not read from the cache.
+    assert "?v=" in url

@@ -218,6 +218,28 @@ an enumerated value also carries the appliance's own word for it as a `value`
 attribute, which is what an automation should read: that one does not change
 with the language Home Assistant is set to.
 
+## The hob card
+
+A cooking table is worth seeing rather than reading down a list, so the
+integration ships a dashboard card that draws one the way the app does: the
+dark glass surface with each zone painted on it, showing its power level,
+whether it is heating, its temperature and any countdown. The card comes with
+the integration and is loaded onto the frontend for you, so there is no
+resource to add by hand.
+
+    type: custom:homeconnect-hob-card
+    device: <the hob's device id>
+
+The device id is on the appliance's own page, under the cog, or in the URL
+while you are looking at it. An optional `name:` sets the heading.
+
+Two honest limits. The picture is drawn, not photographed: there is no cooktop
+image to be had, from the app or anywhere, so this is a rendering rather than a
+likeness of your exact model. And no appliance says where its zones physically
+sit, so they are laid out in a tidy grid rather than in the arrangement of one
+particular table. It reads the same zone sensors any hob exposes, so it works
+without knowing which model it is looking at.
+
 ## Cloud or local
 
 An appliance answers on the network it is already on, and will do it with no

@@ -1,6 +1,10 @@
 {
   "domain": "homeconnect",
   "name": "Home Connect",
+  "after_dependencies": [
+    "frontend",
+    "http"
+  ],
   "codeowners": [
     "@renaudallard"
   ],
