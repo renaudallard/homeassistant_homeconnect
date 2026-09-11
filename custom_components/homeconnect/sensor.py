@@ -44,12 +44,14 @@ from homeassistant.components.sensor import (
     SensorEntity,
     SensorStateClass,
 )
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.util import dt as dt_util
 
 from . import names
 from .capability import OPTION, SENSOR, SETTING, STATUS
+from .const import CLOUD, LOCAL
 from .coordinator import HomeConnectCoordinator
 from .entity import HomeConnectEntity, KeyEntity, follow, options, settings, statuses
 from .measures import Measure, measure_for
@@ -90,10 +92,17 @@ async def async_setup_entry(
     follow(entry, coordinator, add, _options, _option_sensor)
     follow(entry, coordinator, add, _programs, _program_sensor)
     follow(entry, coordinator, add, _endings, _finish_sensor)
+    follow(entry, coordinator, add, _reached, _transport_sensor)
 
 
 def _statuses(coordinator: HomeConnectCoordinator) -> Iterator[tuple[str, str]]:
     return statuses(coordinator, wanted_boolean=False)
+
+
+def _reached(coordinator: HomeConnectCoordinator) -> Iterator[tuple[str, str]]:
+    """One per appliance, whichever way the entry is set to reach them."""
+    for haid in coordinator.data:
+        yield haid, "transport"
 
 
 def _settings(coordinator: HomeConnectCoordinator) -> Iterator[tuple[str, str]]:
@@ -177,6 +186,33 @@ class HomeConnectSensor(KeyEntity, SensorEntity):
         if isinstance(value, (Mapping, list)):
             return {"value": value}
         return None
+
+
+class TransportSensor(HomeConnectEntity, SensorEntity):
+    """Which way this appliance is being reached.
+
+    Set to reach an appliance directly, an entry says so here whether or not
+    that appliance is answering at this moment: which way it would be reached
+    is what is being asked, and whether it is answering is the connection
+    beside it.
+    """
+
+    _attr_name = "Transport"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    def __init__(self, coordinator: HomeConnectCoordinator, haid: str) -> None:
+        super().__init__(coordinator, haid)
+        self._attr_unique_id = f"{haid}-transport"
+        self._attr_options = [CLOUD, LOCAL]
+
+    @property
+    def available(self) -> bool:
+        return self.coordinator.last_update_success and self.appliance is not None
+
+    @property
+    def native_value(self) -> str:
+        return LOCAL if self.coordinator.local is not None else CLOUD
 
 
 class ProgramSensor(HomeConnectEntity, SensorEntity):
@@ -268,3 +304,9 @@ def _finish_sensor(
     coordinator: HomeConnectCoordinator, haid: str, _key: str
 ) -> FinishSensor:
     return FinishSensor(coordinator, haid)
+
+
+def _transport_sensor(
+    coordinator: HomeConnectCoordinator, haid: str, _key: str
+) -> TransportSensor:
+    return TransportSensor(coordinator, haid)

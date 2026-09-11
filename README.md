@@ -151,6 +151,11 @@ gone, rather than every other entity saying it at once. Controls do go
 unavailable, since there is nothing to set on an appliance that cannot be
 reached.
 
+Beside it is a **Transport** sensor, reading `cloud` or `local`, which says
+which way the entry reaches that appliance. It answers a different question
+from the one beside it: the transport is how the appliance would be reached,
+the connection is whether it is answering.
+
 The device is named for what the account calls it, with the type code from its
 rating plate as the model and the full number with the customer index beside
 it.

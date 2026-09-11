@@ -197,6 +197,20 @@ async def test_a_reading_that_is_a_list_says_how_many_rather_than_what(
     assert state.attributes["value"] == {"length": 2, "list": ["E:01", "E:02"]}
 
 
+async def test_which_way_the_appliance_is_reached_is_a_reading(
+    hass: HomeAssistant, washer: MockConfigEntry
+) -> None:
+    """Which way it would be reached, told apart from whether it is
+    answering, which is the connection beside it."""
+    state = hass.states.get("sensor.washer_transport")
+    assert state is not None
+    assert state.state == "cloud"
+    registry = er.async_get(hass)
+    found = registry.async_get("sensor.washer_transport")
+    assert found is not None
+    assert found.entity_category is EntityCategory.DIAGNOSTIC
+
+
 async def test_what_says_how_it_is_reached_is_kept_out_of_the_way(
     hass: HomeAssistant, washer: MockConfigEntry
 ) -> None:

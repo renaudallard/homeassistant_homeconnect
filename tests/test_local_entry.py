@@ -134,6 +134,14 @@ async def talking(
     return made, link
 
 
+async def test_the_transport_says_local_when_that_is_how_it_is_reached(
+    hass: HomeAssistant, talking: tuple[MockConfigEntry, Stub]
+) -> None:
+    state = hass.states.get("sensor.washer_transport")
+    assert state is not None
+    assert state.state == "local"
+
+
 async def test_a_setting_that_cannot_be_written_is_a_reading(
     hass: HomeAssistant, talking: tuple[MockConfigEntry, Stub]
 ) -> None:
