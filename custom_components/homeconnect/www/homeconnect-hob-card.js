@@ -281,13 +281,17 @@ class HomeConnectHobCardEditor extends HTMLElement {
   }
 }
 
-customElements.define(CARD, HomeConnectHobCard);
-customElements.define(`${CARD}-editor`, HomeConnectHobCardEditor);
+if (!customElements.get(CARD)) {
+  customElements.define(CARD, HomeConnectHobCard);
+  customElements.define(`${CARD}-editor`, HomeConnectHobCardEditor);
+}
 
 window.customCards = window.customCards || [];
-window.customCards.push({
-  type: CARD,
-  name: "Home Connect Hob",
-  description: "A cooktop with its zones, their power, heat and timers.",
-  preview: true,
-});
+if (!window.customCards.some((c) => c.type === CARD)) {
+  window.customCards.push({
+    type: CARD,
+    name: "Home Connect Hob",
+    description: "A cooktop with its zones, their power, heat and timers.",
+    preview: true,
+  });
+}

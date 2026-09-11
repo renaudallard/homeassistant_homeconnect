@@ -37,7 +37,6 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass
 
-from homeassistant.components import frontend
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant
@@ -46,7 +45,9 @@ from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import instance_id
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.loader import async_get_integration
 
+from . import cards
 from .api import HomeConnectAccount, HomeConnectApi
 from .auth import Tokens
 from .capability import GATHERED, platform_for
@@ -133,53 +134,10 @@ async def async_migrate_entry(
     return True
 
 
-# The dashboard card this ships, served from the integration and loaded onto
-# the frontend so there is nothing to add by hand. Registered once for the
-# whole install rather than once per account.
-_CARD = "homeconnect-hob-card.js"
-_CARD_URL = f"/{DOMAIN}/{_CARD}"
-_CARD_DONE = f"{DOMAIN}_card"
-
-
-async def _register_card(hass: HomeAssistant) -> None:
-    """Serve the hob card and load it, once.
-
-    The card is a convenience, not the integration, so a frontend that will
-    not take it is noted and stepped over rather than allowed to stop an
-    account being set up.
-    """
-    if hass.data.get(_CARD_DONE):
-        return
-    from pathlib import Path
-
-    from homeassistant.components.http import (  # type: ignore[attr-defined]
-        StaticPathConfig,
-    )
-    from homeassistant.loader import async_get_integration
-
-    try:
-        # Served with the caching resource rather than the plain one, so the
-        # file goes out as text/javascript however sparse the host's own list
-        # of media types is: a module handed over as anything else is refused
-        # by the browser, and the card never loads. The version on the url is
-        # what a new release is fetched by, so caching it is right.
-        card = Path(__file__).parent / "www" / _CARD
-        await hass.http.async_register_static_paths(
-            [StaticPathConfig(_CARD_URL, str(card), cache_headers=True)]
-        )
-        # The version rides on the url so a new release is not served from an
-        # old cache.
-        version = (await async_get_integration(hass, DOMAIN)).version
-        frontend.add_extra_js_url(hass, f"{_CARD_URL}?v={version}")
-    except Exception as err:
-        _LOGGER.warning("could not add the hob card to the dashboard: %s", err)
-        return
-    hass.data[_CARD_DONE] = True
-
-
 async def async_setup_entry(hass: HomeAssistant, entry: HomeConnectConfigEntry) -> bool:
     """Set up a Home Connect account."""
-    await _register_card(hass)
+    version = (await async_get_integration(hass, DOMAIN)).version or "0"
+    await cards.register(hass, version)
     session = async_get_clientsession(hass)
 
     async def store(renewed: Tokens) -> None:

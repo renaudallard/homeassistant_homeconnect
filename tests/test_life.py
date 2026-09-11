@@ -468,29 +468,81 @@ async def test_the_wifi_reading_is_switched_off_once_on_an_older_local_entry(
     assert after.disabled_by is er.RegistryEntryDisabler.INTEGRATION
 
 
-async def test_the_hob_card_is_served_and_loaded_once(
-    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
-) -> None:
-    """The card ships with the integration and is put on the frontend, so
-    there is no resource to add by hand, and only once however many accounts
-    are set up."""
-    from unittest.mock import AsyncMock, patch
+async def test_the_cards_are_served_once(hass: HomeAssistant) -> None:
+    """Every card ships with the integration and is served from it, so there
+    is no file to host by hand, and only once however many accounts are set
+    up."""
+    from unittest.mock import AsyncMock
 
-    from custom_components.homeconnect import _register_card
+    from custom_components.homeconnect import cards
 
+    hass.data.pop("lovelace", None)
     hass.http = AsyncMock()
-    with patch("custom_components.homeconnect.frontend.add_extra_js_url") as added:
-        await _register_card(hass)
-        await _register_card(hass)
+    await cards.register(hass, "1.2.3")
+    await cards.register(hass, "1.2.3")
 
     hass.http.async_register_static_paths.assert_awaited_once()
-    # Served with the caching resource, so the module goes out as
-    # text/javascript rather than a type the browser will not load.
     (paths,) = hass.http.async_register_static_paths.await_args.args
-    assert paths[0].cache_headers is True
-    assert paths[0].url_path == "/homeconnect/homeconnect-hob-card.js"
-    added.assert_called_once()
-    url = added.call_args.args[1]
-    assert "homeconnect-hob-card.js" in url
-    # The version is on the url so a new release is not read from the cache.
-    assert "?v=" in url
+    # Both cards, each with the caching resource so the module goes out as
+    # text/javascript rather than a type the browser will not load.
+    served = {path.url_path: path.cache_headers for path in paths}
+    assert served == {"/homeconnect/homeconnect-hob-card.js": True}
+
+
+class _Resources:
+    """A stand-in for the dashboard's own resource list."""
+
+    def __init__(self) -> None:
+        self.loaded = True
+        self.items: list[dict[str, str]] = []
+        self.created: list[dict[str, str]] = []
+        self.updated: list[tuple[str, dict[str, str]]] = []
+
+    def async_items(self) -> list[dict[str, str]]:
+        return list(self.items)
+
+    async def async_create_item(self, data: dict[str, str]) -> dict[str, str]:
+        item = {"id": f"id{len(self.items)}", **data}
+        self.items.append(item)
+        self.created.append(data)
+        return item
+
+    async def async_update_item(self, item_id: str, changes: dict[str, str]) -> None:
+        self.updated.append((item_id, changes))
+        for item in self.items:
+            if item["id"] == item_id:
+                item.update(changes)
+
+
+async def test_a_card_is_added_then_freshened_in_place() -> None:
+    """A card missing from the dashboard is added as a module; one already
+    there is moved to the running version rather than added a second time, so
+    the list does not fill with a card's every past self."""
+    from custom_components.homeconnect import cards
+
+    url = "/homeconnect/homeconnect-hob-card.js"
+    resources = _Resources()
+
+    await cards._one(resources, url, "1.0.0")
+    assert resources.created == [{"res_type": "module", "url": f"{url}?v=1.0.0"}]
+
+    # The same version again touches nothing.
+    await cards._one(resources, url, "1.0.0")
+    assert len(resources.created) == 1
+    assert resources.updated == []
+
+    # A new version freshens the one entry in place.
+    await cards._one(resources, url, "1.1.0")
+    assert len(resources.created) == 1
+    assert resources.updated == [("id0", {"url": f"{url}?v=1.1.0"})]
+
+
+async def test_registering_cards_without_a_dashboard_is_harmless(
+    hass: HomeAssistant,
+) -> None:
+    """A system with no storage-backed dashboard has nothing to register the
+    cards with, which is stepped over rather than raised."""
+    from custom_components.homeconnect import cards
+
+    hass.data.pop("lovelace", None)
+    await cards._add_resources(hass, "1.0.0")
