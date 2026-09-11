@@ -1,6 +1,6 @@
 // A Lovelace card that draws a hob the way the Home Connect app does: the dark
-// glass surface, with each cooking zone painted on it showing its power level,
-// whether it is heating, its temperature and any countdown.
+// glass surface, with each cooking zone painted on it showing what it is doing,
+// its power level or the temperature it is holding, and any countdown.
 //
 // The zones are laid out where the hob itself says they sit. A hob writes the
 // position, size and shape of every zone into its description, and the
@@ -8,6 +8,11 @@
 // with a flex strip down one side is drawn as that and not as a tidy grid.
 // Reached over the cloud there is no such geometry, and the zones fall back to
 // a grid, which is the most an appliance that will not say can be drawn.
+//
+// Each plate reads its own state: off, cooking, or still warm from before. A
+// hob confirms every change at its own panel and only lets itself be driven
+// while remote control is switched on there, so this shows what the hob is
+// doing rather than pretending to a control it cannot really offer.
 //
 // Bundled with the homeconnect integration, which serves this file and adds it
 // as a dashboard resource, so there is no resource to add by hand.
@@ -17,6 +22,7 @@ const CARD = "homeconnect-hob-card";
 const SUFFIXES = [
   "power_level",
   "current_temperature",
+  "frying_sensor_level",
   "state",
   "operation_state",
   "remaining_program_time",
@@ -33,6 +39,21 @@ const leaf = (value) =>
   typeof value === "string" && value.includes(".")
     ? value.split(".").pop()
     : value;
+
+// A reading turned into just its letters, so a word matches however its label
+// was spaced: "Not selectable" reads the same as "NotSelectable".
+const plain = (value) =>
+  String(leaf(value) || "")
+    .toLowerCase()
+    .replace(/[^a-z]/g, "");
+
+// The number out of a reading, for a frying level like "180dC" that is really
+// a target in degrees.
+const degrees = (value) => {
+  const found = value == null ? null : String(value).match(/\d+/);
+  const number = found ? Number(found[0]) : NaN;
+  return number > 0 ? number : null;
+};
 
 const OFF = new Set(["off", "inactive", "0", "", undefined, null, "unavailable"]);
 
@@ -122,13 +143,8 @@ class HomeConnectHobCard extends HTMLElement {
 
   // Whether the hob is offering this zone at all. One it calls NotSelectable is
   // a joinable zone standing idle, there to be shown only once it is in use.
-  // The state reads as words with the spaces left in, so they are taken out
-  // before the match: "Not selectable" is the same answer as "NotSelectable".
   _selectable(fields) {
-    const state = String(leaf(this._value(fields.state)) || "")
-      .toLowerCase()
-      .replace(/[^a-z]/g, "");
-    return state !== "notselectable";
+    return plain(this._value(fields.state)) !== "notselectable";
   }
 
   _value(entity_id) {
@@ -168,16 +184,10 @@ class HomeConnectHobCard extends HTMLElement {
       .filter((n) => this._selectable(zones[n]))
       .sort((a, b) => Number(a) - Number(b));
     const placed = this._placed(numbers);
-    this._placedNow = placed;
-    this._ctl = this._controls(device);
-    // The controls are there to be used only while the hob is in its manual
-    // power mode with remote control switched on, which is when the level
-    // select turns up and answers. Its absence is the sign to say so instead.
-    const ready = this._available(this._ctl.power);
     const shape = placed
       .map((p) => `${p.n}:${p.x},${p.y},${p.w},${p.h},${p.round ? 1 : 0}`)
       .join(";");
-    const signature = `${device || ""}|${shape}|${this._ctl.join ? "j" : ""}`;
+    const signature = `${device || ""}|${shape}`;
 
     // Rebuild the frame only when the hob or where its live zones sit changes,
     // so a value moving does not throw the whole card away and build it again.
@@ -186,33 +196,6 @@ class HomeConnectHobCard extends HTMLElement {
       this._build(placed, device);
     }
     for (const p of placed) this._paint(p.n, zones[p.n]);
-    this._paintControls(ready);
-  }
-
-  // The controls a hob offers while it is in its manual power mode: the select
-  // that picks which zone a level is for, the select that sets the level, and
-  // the switch that joins the flex zones. They come and go with that mode.
-  _controls(device) {
-    const entities = (this._hass && this._hass.entities) || {};
-    const found = {};
-    if (!device) return found;
-    for (const id of Object.keys(entities)) {
-      if (entities[id].device_id !== device) continue;
-      if (id.startsWith("select.") && id.endsWith("_zone_selector")) found.zone = id;
-      else if (id.startsWith("select.") && id.endsWith("_power_level")) found.power = id;
-      else if (id.startsWith("switch.") && id.endsWith("_join_zone")) found.join = id;
-    }
-    return found;
-  }
-
-  _available(id) {
-    const state = id && this._hass.states[id];
-    return !!(state && state.state !== "unavailable" && state.state !== "unknown");
-  }
-
-  _call(id, domain, service, extra) {
-    if (!id || !this._hass) return;
-    this._hass.callService(domain, service, { entity_id: id, ...(extra || {}) });
   }
 
   _build(placed, device) {
@@ -271,46 +254,11 @@ class HomeConnectHobCard extends HTMLElement {
       })
       .join("");
 
-    const join = this._ctl.join
-      ? `<button class="join" type="button">Join zones</button>`
-      : "";
     this.shadowRoot.innerHTML = `${this._style(wide, tall)}
       <ha-card>
         <div class="title">${title}</div>
         <div class="glass">${tiles}</div>
-        <div class="controls" hidden>
-          <label class="pick"><span>Power</span><select class="power"></select></label>
-          ${join}
-        </div>
-        <div class="hint" hidden>
-          Set the hob to its power-level programme and switch remote control on
-          at the appliance to set a zone from here.
-        </div>
       </ha-card>`;
-
-    // Tapping a zone points the level control at it, the way the app does: you
-    // pick the plate, then set its power. The hob confirms the change at its
-    // own panel, so nothing here takes effect until you press it there.
-    for (const p of placed) {
-      const tile = this.shadowRoot.getElementById(`zone-${p.n}`);
-      if (tile && p.select) {
-        tile.addEventListener("click", () =>
-          this._call(this._ctl.zone, "select", "select_option", { option: p.select })
-        );
-      }
-    }
-    const power = this.shadowRoot.querySelector(".power");
-    if (power) {
-      power.addEventListener("change", () =>
-        this._call(this._ctl.power, "select", "select_option", { option: power.value })
-      );
-    }
-    const joinButton = this.shadowRoot.querySelector(".join");
-    if (joinButton) {
-      joinButton.addEventListener("click", () =>
-        this._call(this._ctl.join, "switch", "toggle")
-      );
-    }
   }
 
   _style(wide, tall) {
@@ -348,26 +296,14 @@ class HomeConnectHobCard extends HTMLElement {
           box-shadow: 0 0 26px rgba(255,50,30,.8),
                       inset 0 0 26px rgba(255,40,20,.6);
         }
+        .zone.hot { border-color: rgba(255,170,80,.45); }
+        .zone.hot .level { color: rgba(255,185,110,.85); font-weight: 600; }
         .level { font-size: 1.5em; font-weight: 600; color: #f5f7fa;
                  text-shadow: 0 1px 3px rgba(0,0,0,.6); line-height: 1; }
-        .zone:not(.on):not(.boost) .level { color: rgba(230,235,245,.45); }
+        .zone:not(.on):not(.boost):not(.hot) .level { color: rgba(230,235,245,.45); }
         .under { display: flex; gap: 8px; font-size: .72em; min-height: 1em;
                  color: rgba(230,235,245,.75); }
         .under:empty { display: none; }
-        .glass.live .zone { cursor: pointer; }
-        .zone.picked { outline: 2px solid rgba(120,180,255,.9); outline-offset: 2px; }
-        .controls { display: flex; gap: 10px; align-items: flex-end; margin-top: 12px; }
-        .pick { display: flex; flex-direction: column; gap: 4px; flex: 1 1 auto; }
-        .pick > span { font-size: .72em; text-transform: uppercase; letter-spacing: .04em;
-                       color: var(--secondary-text-color); }
-        .power { font: inherit; padding: 10px 12px; border-radius: 12px; width: 100%;
-                 color: var(--primary-text-color); background: var(--secondary-background-color);
-                 border: 1px solid var(--divider-color); }
-        .join { font: inherit; font-weight: 600; cursor: pointer; padding: 11px 16px;
-                border-radius: 12px; border: 1px solid var(--divider-color);
-                background: var(--secondary-background-color); color: var(--primary-text-color); }
-        .hint { margin-top: 12px; padding: 10px 12px; border-radius: 12px; font-size: .9em;
-                color: var(--secondary-text-color); background: var(--secondary-background-color); }
       </style>`;
   }
 
@@ -375,79 +311,50 @@ class HomeConnectHobCard extends HTMLElement {
     const tile = this.shadowRoot.getElementById(`zone-${number}`);
     if (!tile) return;
 
+    // The plate says what it is doing in its own state: off, actively cooking,
+    // or still warm from before. Where it gives no state, its power level and
+    // operation state stand in, so a plain hob still reads right.
+    const state = plain(this._value(fields.state));
+    const op = plain(this._value(fields.operation_state));
     const power = leaf(this._value(fields.power_level));
-    const zoneState = String(leaf(this._value(fields.state)) || "").toLowerCase();
-    const op = String(leaf(this._value(fields.operation_state)) || "").toLowerCase();
     const powerText = String(power ?? "").toLowerCase();
 
-    const off = OFF.has(powerText) && OFF.has(zoneState) && OFF.has(op);
-    // Boost reads as "Boost 1" or "Boost 2", so the whole family is caught by
-    // its start rather than an exact word.
     const boost = powerText.startsWith("boost");
+    const level = !OFF.has(powerText) && !boost; // a power level that is set
+    const hot = state === "residuelheat";
+    const active = !hot && (state === "active" || op === "run" || boost || level);
 
-    tile.classList.toggle("on", !off && !boost);
+    tile.classList.toggle("on", active && !boost);
     tile.classList.toggle("boost", boost);
+    tile.classList.toggle("hot", hot);
+
+    // What a plate holds by temperature is a frying target in real degrees; the
+    // current temperature is the live pan reading beneath it.
+    const target = degrees(this._value(fields.frying_sensor_level));
+    const now = Number(this._value(fields.current_temperature));
+    const temp = now > 0 ? Math.round(now) : null;
 
     const label = tile.querySelector(".level");
-    if (off) label.textContent = "Off";
-    else if (boost) label.textContent = "P";
-    else if (power === undefined) label.textContent = "·";
-    else label.textContent = String(power);
+    let big = "";
+    if (hot) big = "H";
+    else if (!active) big = "Off";
+    else if (boost) big = "P";
+    else if (level) big = String(power);
+    else if (target) big = `${target}°`;
+    else if (temp) big = `${temp}°`;
+    else big = "·";
+    label.textContent = big;
 
-    const temp = this._value(fields.current_temperature);
+    // The current temperature sits below, but not when it is already the big
+    // figure, and a countdown beside it. Neither shows on an idle or warm plate.
     tile.querySelector(".temp").textContent =
-      !off && temp && Number(temp) > 0 ? `${Math.round(Number(temp))}°` : "";
-
-    const left = this._value(fields.remaining_program_time);
+      active && temp && big !== `${temp}°` ? `${temp}°` : "";
+    const remaining = Number(this._value(fields.remaining_program_time));
     tile.querySelector(".left").textContent =
-      !off && left && Number(left) > 0 ? clock(Number(left)) : "";
+      active && remaining > 0 ? clock(remaining) : "";
 
-    // With nothing to say beneath it the line is taken away entirely, so the
-    // label sits in the true centre of the hole rather than a touch above it,
-    // which is where an off zone with only its "Off" wants to be.
     const under = tile.querySelector(".under");
     under.style.display = under.textContent ? "flex" : "none";
-  }
-
-  // Show the controls only while the hob will take them, and keep the level
-  // select and the picked-zone outline in step with what the hob reports.
-  _paintControls(ready) {
-    const root = this.shadowRoot;
-    const controls = root.querySelector(".controls");
-    if (!controls) return;
-    const hint = root.querySelector(".hint");
-    controls.hidden = !ready;
-    if (hint) hint.hidden = ready;
-
-    const glass = root.querySelector(".glass");
-    if (glass) glass.classList.toggle("live", ready && !!this._ctl.zone);
-    if (!ready) return;
-
-    const select = root.querySelector(".power");
-    const state = this._hass.states[this._ctl.power];
-    const options = (state && state.attributes && state.attributes.options) || [];
-    if (select && select._options !== options.join("")) {
-      select._options = options.join("");
-      select.replaceChildren(
-        ...options.map((o) => {
-          const option = document.createElement("option");
-          option.value = o;
-          option.textContent = o;
-          return option;
-        })
-      );
-    }
-    if (select && state) select.value = state.state;
-
-    // Outline the zone the selector is pointing at, so it is plain which plate
-    // the level will land on.
-    const picked = this._available(this._ctl.zone)
-      ? this._hass.states[this._ctl.zone].state
-      : null;
-    for (const p of this._placedNow || []) {
-      const tile = root.getElementById(`zone-${p.n}`);
-      if (tile) tile.classList.toggle("picked", !!picked && p.select === picked);
-    }
   }
 }
 

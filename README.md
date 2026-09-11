@@ -228,18 +228,20 @@ card added while a dashboard is open turns up in the card picker once the page
 is reloaded, so reload the browser once after installing or upgrading.
 
 The hob card draws a cooking table: the dark glass surface with each zone
-painted on it, showing its power level, whether it is heating, its temperature
-and any countdown.
+painted on it. Each plate reads its own state and shows it: off, the power
+level it is set to, a frying target in degrees with the live pan temperature
+beneath it, or an H while it is still warm from an earlier use, with any
+countdown alongside.
 
     type: custom:homeconnect-hob-card
 
-Tapping a zone points the hob's level control at it, and a power picker below
-sets that zone, the way the app does. Those controls are there only while the
-hob is in its power-level programme with remote control switched on at the
-appliance, which is the only state a hob lets itself be driven remotely in;
-the rest of the time the card says as much and stays a display. Like the app,
-the hob asks you to confirm each change at its own panel before it takes hold,
-so nothing here reaches the elements on its own.
+It is a display rather than a set of controls. A hob only lets itself be driven
+while remote control is switched on at the appliance, and it confirms every
+change at its own panel, so you are already standing at the hob to set anything
+and a card control would save nothing; the card shows what the hob is doing and
+leaves the setting to the hob. The hob's own panel tells a lot of residual heat
+from a little with a capital H and a small h, but the appliance only reports
+that a plate is warm and not which, so the card shows a single H.
 
 The dishwasher card lays a dishwasher out the way the app does and drives it
 the same way: pick the programme, turn the options on and off, set the power

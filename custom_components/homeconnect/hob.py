@@ -53,7 +53,6 @@ from homeassistant.components.websocket_api import (  # type: ignore[attr-define
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import device_registry as dr
 
-from . import names
 from .const import DOMAIN
 from .iddf import Entry
 
@@ -66,10 +65,6 @@ _REGISTERED = f"{DOMAIN}_hob_websocket"
 _ZONE = re.compile(
     r"Cooking\.Hob\.Status\.Zone\.(\d+)\.(Position|LengthX|LengthY|Shape)$"
 )
-
-# The option that picks which zone a power level is being set for. Its members
-# are keyed by the zone number, so it says which reading is which control.
-_SELECTOR = "Cooking.Hob.Option.ZoneSelector"
 
 # The shape a hob calls zero is a plain round one; the rest are drawn as a
 # rounded rectangle, which is what the long flex zones are.
@@ -96,15 +91,6 @@ def layout(entries: dict[int, Entry]) -> list[dict[str, Any]]:
         if found and entry.static is not None:
             zones.setdefault(found.group(1), {})[found.group(2)] = entry.static
 
-    # What the zone selector calls each zone, so the card can point a power
-    # level at the zone the user tapped. Named the way the select names it.
-    selector = next((one for one in entries.values() if one.key == _SELECTOR), None)
-    picks = (
-        {number: names.label(member) for number, member in selector.values.items()}
-        if selector is not None
-        else {}
-    )
-
     drawn: list[dict[str, Any]] = []
     for number, field in zones.items():
         try:
@@ -123,7 +109,6 @@ def layout(entries: dict[int, Entry]) -> list[dict[str, Any]]:
                 "w": width,
                 "h": height,
                 "round": (field.get("Shape") or "").strip() == _ROUND,
-                "select": picks.get(int(number)),
             }
         )
     drawn.sort(key=lambda zone: zone["zone"])
