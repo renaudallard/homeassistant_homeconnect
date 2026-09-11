@@ -218,7 +218,11 @@ class HomeConnectHobCard extends HTMLElement {
     const tiles = placed
       .map((p) => {
         const left = ((p.x - p.w / 2 - minX) / wide) * 100;
-        const top = ((p.y - p.h / 2 - minY) / tall) * 100;
+        // The hob counts front-to-back the opposite way a top-down picture
+        // reads, so the vertical axis is turned over: the rear zones to the
+        // top of the glass, the front zones, the ones nearest you, to the
+        // bottom, where the plate you light is where you expect it.
+        const top = ((maxY - (p.y + p.h / 2)) / tall) * 100;
         const w = (p.w / wide) * 100;
         const h = (p.h / tall) * 100;
         const radius = p.round ? "50%" : "16%";
