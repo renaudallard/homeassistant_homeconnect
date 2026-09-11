@@ -164,7 +164,7 @@ async def test_starting_carries_what_was_held_back(
     )
     washer.put(f"{AT}/programs/active", status=204)
     await hass.services.async_call(
-        "button", "press", {"entity_id": "button.washer_start"}, blocking=True
+        "button", "press", {"entity_id": "button.washer_start_programme"}, blocking=True
     )
     method, url, body = sent(washer)
     assert method == "PUT"

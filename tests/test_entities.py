@@ -175,8 +175,8 @@ async def test_starting_is_offered_and_stopping_is_not(
     hass: HomeAssistant, washer: MockConfigEntry
 ) -> None:
     """A programme is selected and nothing is running, so one of the two."""
-    start = hass.states.get("button.washer_start")
-    stop = hass.states.get("button.washer_stop")
+    start = hass.states.get("button.washer_start_programme")
+    stop = hass.states.get("button.washer_stop_programme")
     assert start is not None and start.state != "unavailable"
     assert stop is not None and stop.state == "unavailable"
 

@@ -105,7 +105,7 @@ class HomeConnectButton(HomeConnectEntity, ButtonEntity):
 class StartButton(HomeConnectButton):
     """Start whatever the appliance is set to run."""
 
-    _attr_name = "Start"
+    _attr_name = "Start programme"
 
     def __init__(self, coordinator: HomeConnectCoordinator, haid: str) -> None:
         super().__init__(coordinator, haid)
@@ -132,7 +132,7 @@ class StartButton(HomeConnectButton):
 class StopButton(HomeConnectButton):
     """Stop whatever the appliance is doing."""
 
-    _attr_name = "Stop"
+    _attr_name = "Stop programme"
 
     def __init__(self, coordinator: HomeConnectCoordinator, haid: str) -> None:
         super().__init__(coordinator, haid)
