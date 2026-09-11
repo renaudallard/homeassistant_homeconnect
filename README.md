@@ -239,9 +239,11 @@ It is a display rather than a set of controls. A hob only lets itself be driven
 while remote control is switched on at the appliance, and it confirms every
 change at its own panel, so you are already standing at the hob to set anything
 and a card control would save nothing; the card shows what the hob is doing and
-leaves the setting to the hob. The hob's own panel tells a lot of residual heat
-from a little with a capital H and a small h, but the appliance only reports
-that a plate is warm and not which, so the card shows a single H.
+leaves the setting to the hob. Tapping a plate opens its reading, its
+temperature where it cooks by one and its power level otherwise, so its history
+is a tap away. The hob's own panel tells a lot of residual heat from a little
+with a capital H and a small h, but the appliance only reports that a plate is
+warm and not which, so the card shows a single H.
 
 The dishwasher card lays a dishwasher out the way the app does and drives it
 the same way: pick the programme, turn the options on and off, set the power

@@ -176,6 +176,7 @@ class HomeConnectHobCard extends HTMLElement {
     if (!this._hass) return;
     const device = this._device();
     const zones = this._zones(device);
+    this._zonesNow = zones;
     // A hob that can join two zones into one describes the joined zone as well
     // as the two, and marks whichever are idle NotSelectable, so a zone the hob
     // will not let you pick is left off. That drops the phantom flex tile until
@@ -259,6 +260,12 @@ class HomeConnectHobCard extends HTMLElement {
         <div class="title">${title}</div>
         <div class="glass">${tiles}</div>
       </ha-card>`;
+
+    // Tapping a plate opens its reading, so its history is one tap away.
+    for (const p of placed) {
+      const tile = this.shadowRoot.getElementById(`zone-${p.n}`);
+      if (tile) tile.addEventListener("click", () => this._more(p.n));
+    }
   }
 
   _style(wide, tall) {
@@ -279,6 +286,7 @@ class HomeConnectHobCard extends HTMLElement {
         .glass.empty div { color: rgba(230,235,245,.72); max-width: 22ch; padding: 12px; }
         .zone {
           position: absolute; box-sizing: border-box; overflow: hidden;
+          cursor: pointer;
           display: flex; flex-direction: column; align-items: center;
           justify-content: center; gap: 4px;
           border: 2px solid rgba(255,255,255,.14);
@@ -364,6 +372,27 @@ class HomeConnectHobCard extends HTMLElement {
     if (Number.isNaN(tenths)) return String(power);
     const shown = tenths / 10;
     return Number.isInteger(shown) ? String(shown) : shown.toFixed(1);
+  }
+
+  // Open the more-info for a plate's reading, where its history is, on a tap.
+  // The temperature where the plate cooks by one, else its power level.
+  _more(number) {
+    const fields = (this._zonesNow || {})[number] || {};
+    const byHeat =
+      degrees(this._value(fields.frying_sensor_level)) ||
+      Number(this._value(fields.current_temperature)) > 0;
+    const entity =
+      byHeat && fields.current_temperature
+        ? fields.current_temperature
+        : fields.power_level;
+    if (!entity) return;
+    this.dispatchEvent(
+      new CustomEvent("hass-more-info", {
+        detail: { entityId: entity },
+        bubbles: true,
+        composed: true,
+      })
+    );
   }
 }
 
