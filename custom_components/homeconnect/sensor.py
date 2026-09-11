@@ -35,7 +35,7 @@ which figure it was.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
 from datetime import datetime, timedelta
 from typing import Any
 
@@ -167,9 +167,14 @@ class HomeConnectSensor(KeyEntity, SensorEntity):
         The reading itself is written the way the cloud writes it for whoever
         is reading, which follows the language Home Assistant is set to. An
         automation wants the name that does not, so it is here.
+
+        A reading that is a list of things shows how many there are, so what
+        they are goes here, there being nowhere else for them.
         """
         value = self.held
         if isinstance(value, str) and "." in value:
+            return {"value": value}
+        if isinstance(value, (Mapping, list)):
             return {"value": value}
         return None
 

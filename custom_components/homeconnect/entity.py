@@ -39,7 +39,7 @@ and makes the ones that have appeared since.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator, Mapping
 from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
@@ -222,6 +222,13 @@ class KeyEntity(HomeConnectEntity):
                 return named
         if isinstance(found.value, str) and "." in found.value:
             return names.label(found.value)
+        if isinstance(found.value, (Mapping, list)):
+            # A list of error codes is a list, not a reading. Written out it
+            # is unreadable, and a long one is past the longest state Home
+            # Assistant will hold, which loses the entity outright at the
+            # moment it has something to say. How many there are is the
+            # reading; what they are is beside it.
+            return str(len(found.value))
         return str(found.value)
 
     @property

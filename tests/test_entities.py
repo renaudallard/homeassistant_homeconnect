@@ -185,6 +185,18 @@ async def test_an_event_becomes_something_that_is_happening_or_not(
     assert state.state == "off"
 
 
+async def test_a_reading_that_is_a_list_says_how_many_rather_than_what(
+    hass: HomeAssistant, washer: MockConfigEntry
+) -> None:
+    """Written out, a list of error codes is unreadable, and a long one is
+    past the longest state Home Assistant will hold, which loses the entity
+    at the moment it finally has something to say."""
+    state = hass.states.get("sensor.washer_error_codes_list")
+    assert state is not None
+    assert state.state == "2"
+    assert state.attributes["value"] == {"length": 2, "list": ["E:01", "E:02"]}
+
+
 async def test_what_says_how_it_is_reached_is_kept_out_of_the_way(
     hass: HomeAssistant, washer: MockConfigEntry
 ) -> None:
