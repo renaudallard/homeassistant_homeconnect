@@ -233,12 +233,12 @@ and any countdown.
 
     type: custom:homeconnect-hob-card
 
-The dishwasher card lays a dishwasher out the way the app does when a programme
-is picked: the programme, what it forecasts for energy and water, the time it
-will take, the options along the bottom, and a start and a stop, with a warning
-across the top while the door is open. The options are switches you can turn on
-and off from the card, and the two buttons are the appliance's own start and
-stop.
+The dishwasher card lays a dishwasher out the way the app does and drives it
+the same way: pick the programme, turn the options on and off, set the power
+and lock the controls, and start or stop it. Beneath the programme it shows
+what the run forecasts for energy and water and how long it will take, with a
+warning across the top while the door is open. Every control is the appliance's
+own entity, so whatever the card does the appliance does.
 
     type: custom:homeconnect-dishwasher-card
 

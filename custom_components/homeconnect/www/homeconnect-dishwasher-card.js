@@ -1,12 +1,13 @@
 // A Lovelace card that lays a dishwasher out the way the Home Connect app
-// does when a programme is picked: the programme and what it will cost, the
-// options along the bottom, and a start and a stop, with the door warning
-// across the top when the door is open.
+// does, and drives it the same way: pick the programme, turn the options on
+// and off, set the power, lock the controls, and start or stop it, with the
+// door warning across the top while the door is open and a forecast of what
+// the run will cost beneath the programme.
 //
 // It reads and drives the entities the integration already makes, so there is
-// nothing to wire up: the programme select, the energy and water forecasts,
-// the remaining time, each option switch and the two programme buttons are
-// found on the appliance by the names they carry.
+// nothing to wire up: the programme and power selects, the option switches,
+// the child lock, the energy and water forecasts, the remaining time and the
+// two programme buttons are found on the appliance by the names they carry.
 //
 // Bundled with the homeconnect integration, which serves this file and adds
 // it as a dashboard resource, so there is no resource to add by hand.
@@ -14,7 +15,7 @@
 const CARD = "homeconnect-dishwasher-card";
 
 // The options the app shows as pills, in the order it shows them, each paired
-// with the tail of the entity that stands for it.
+// with the tail of the switch that stands for it.
 const OPTIONS = [
   { slug: "vario_speed_plus", label: "SpeedPerfect+" },
   { slug: "extra_dry", label: "Extra dry" },
@@ -34,6 +35,8 @@ const SIGNATURE = /^switch\..*_(half_load|intensiv_zone)$/;
 // Programme time is spelled both ways depending on where the words came from.
 const FIELDS = {
   programme: /^select\..*_programme$/,
+  power: /^select\..*_power_state$/,
+  childlock: /^switch\..*_child_lock$/,
   energy: /^sensor\..*_energy_forecast$/,
   water: /^sensor\..*_water_forecast$/,
   remaining: /^sensor\..*_remaining_program(?:me)?_time$/,
@@ -45,11 +48,17 @@ const FIELDS = {
 const OFF = new Set(["off", "inactive", "", undefined, null, "unavailable", "unknown"]);
 
 // The last part of a value, so a key reads as its own tail: Eco50 from
-// Dishcare.Dishwasher.Program.Eco50, Run from OperationState.Run.
+// Dishcare.Dishwasher.Program.Eco50, On from PowerState.On.
 const leaf = (value) =>
   typeof value === "string" && value.includes(".")
     ? value.split(".").pop()
     : value;
+
+const escape = (text) =>
+  String(text).replace(
+    /[&<>"']/g,
+    (ch) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[ch]
+  );
 
 // Every device that carries a dishwasher's own option, which is every
 // dishwasher and nothing else.
@@ -79,7 +88,7 @@ class HomeConnectDishwasherCard extends HTMLElement {
   }
 
   getCardSize() {
-    return 6;
+    return 7;
   }
 
   static getConfigElement() {
@@ -123,9 +132,9 @@ class HomeConnectDishwasherCard extends HTMLElement {
     return state ? state.state : undefined;
   }
 
-  _call(entity_id, domain, service) {
+  _call(entity_id, domain, service, extra) {
     if (!entity_id || !this._hass) return;
-    this._hass.callService(domain, service, { entity_id });
+    this._hass.callService(domain, service, { entity_id, ...(extra || {}) });
   }
 
   _render() {
@@ -133,26 +142,43 @@ class HomeConnectDishwasherCard extends HTMLElement {
     const device = this._device();
     const found = this._entities(device);
     const present = OPTIONS.filter((o) => found.options[o.slug]);
-    const signature = `${device || ""}|${present.map((o) => o.slug).join(",")}`;
+    // The frame is rebuilt only when the dishwasher, its set of options, or
+    // which of the one-off controls it has changes, so the handlers are wired
+    // once and a value moving does not throw the card away and build it again.
+    const has = ["programme", "power", "childlock", "start", "stop"]
+      .map((k) => (found[k] ? k[0] : ""))
+      .join("");
+    const signature = `${device || ""}|${present.map((o) => o.slug).join(",")}|${has}`;
 
-    // Rebuild the frame only when the dishwasher or its set of options changes,
-    // so the click handlers are wired once and a value moving does not throw
-    // the card away and build it again.
     if (signature !== this._signature) {
       this._signature = signature;
-      this._build(device, present);
+      this._build(device, found, present);
     }
     this._found = found;
     this._paint(found, present);
   }
 
-  _build(device, present) {
+  _build(device, found, present) {
     const title = this._config.name || "Dishwasher";
     const note = !device
       ? dishDevices(this._hass).length
         ? "More than one dishwasher here. Set 'device' to the one you mean."
         : "No dishwasher found on this system."
       : "";
+
+    const quick = [];
+    if (found.power)
+      quick.push(
+        `<label class="field"><span>Power</span><select class="picker" data-role="power"></select></label>`
+      );
+    if (found.childlock)
+      quick.push(
+        `<button class="pill" data-role="childlock" type="button">Child lock</button>`
+      );
+
+    const programme = found.programme
+      ? `<label class="field prog"><span>Programme</span><select class="picker" data-role="programme"></select></label>`
+      : `<div class="prog"><span class="lab">Programme</span><span class="val" data-role="progtext">—</span></div>`;
 
     const pills = present
       .map(
@@ -174,12 +200,21 @@ class HomeConnectDishwasherCard extends HTMLElement {
                      background: #ea7814; color: #fff; font-weight: 700;
                      display: flex; align-items: center; justify-content: center;
                      font-size: 13px; }
+        .quick { display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+                 margin-bottom: 12px; }
+        .field { display: flex; flex-direction: column; gap: 4px; flex: 1 1 auto;
+                 min-width: 140px; }
+        .field > span { font-size: .72em; letter-spacing: .04em; text-transform: uppercase;
+                        color: var(--secondary-text-color); }
+        .field.prog { margin-bottom: 14px; }
+        .picker { font: inherit; padding: 10px 12px; border-radius: 12px;
+                  color: var(--primary-text-color); background: var(--secondary-background-color);
+                  border: 1px solid var(--divider-color); width: 100%; }
         .prog { display: flex; justify-content: space-between; align-items: baseline;
                 padding: 12px 14px; border-radius: 12px; margin-bottom: 14px;
                 background: var(--secondary-background-color); }
         .prog .lab { color: var(--secondary-text-color); }
-        .prog .val { font-size: 1.15em; font-weight: 600;
-                     color: var(--primary-color); }
+        .prog .val { font-size: 1.15em; font-weight: 600; color: var(--primary-color); }
         .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
                  margin-bottom: 16px; }
         .stat .cap { font-size: .72em; letter-spacing: .04em; text-transform: uppercase;
@@ -188,8 +223,7 @@ class HomeConnectDishwasherCard extends HTMLElement {
                      color: var(--primary-text-color); }
         .bar { height: 4px; border-radius: 2px; margin-top: 6px;
                background: var(--divider-color); overflow: hidden; }
-        .bar > span { display: block; height: 100%; width: 0;
-                      background: var(--primary-color); }
+        .bar > span { display: block; height: 100%; width: 0; background: var(--primary-color); }
         .opts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
         .opts:empty { display: none; }
         .pill { font: inherit; cursor: pointer; padding: 8px 14px; border-radius: 999px;
@@ -203,18 +237,16 @@ class HomeConnectDishwasherCard extends HTMLElement {
         .actions button { flex: 1; font: inherit; font-weight: 600; cursor: pointer;
                           padding: 12px; border-radius: 12px; border: none; }
         .go { background: var(--primary-color); color: var(--text-primary-color, #fff); }
-        .stop { background: var(--secondary-background-color);
-                color: var(--primary-text-color); }
+        .stop { background: var(--secondary-background-color); color: var(--primary-text-color); }
         .actions button:disabled { opacity: .5; cursor: default; }
         .note { color: var(--secondary-text-color); text-align: center; padding: 24px 8px; }
       </style>
       <ha-card>
-        <div class="title">${title}</div>
-        ${note ? `<div class="note">${note}</div>` : ""}
+        <div class="title">${escape(title)}</div>
+        ${note ? `<div class="note">${escape(note)}</div>` : ""}
         <div class="door" hidden><span class="dot">!</span><span>Please close the door.</span></div>
-        <div class="prog">
-          <span class="lab">Programme</span><span class="val">—</span>
-        </div>
+        <div class="quick">${quick.join("")}</div>
+        ${programme}
         <div class="stats">
           <div class="stat"><div class="cap">Energy</div><div class="num" data-k="energy">—</div><div class="bar"><span data-b="energy"></span></div></div>
           <div class="stat"><div class="cap">Water</div><div class="num" data-k="water">—</div><div class="bar"><span data-b="water"></span></div></div>
@@ -228,18 +260,34 @@ class HomeConnectDishwasherCard extends HTMLElement {
       </ha-card>`;
 
     if (note) {
-      // Nothing to drive, so leave the body but wire nothing.
-      this.shadowRoot.querySelectorAll(".prog, .stats, .opts, .actions").forEach(
-        (el) => (el.hidden = true)
-      );
+      this.shadowRoot
+        .querySelectorAll(".quick, .prog, .field, .stats, .opts, .actions")
+        .forEach((el) => (el.hidden = true));
       return;
     }
+    if (!this.shadowRoot.querySelector(".quick").children.length)
+      this.shadowRoot.querySelector(".quick").hidden = true;
 
-    for (const pill of this.shadowRoot.querySelectorAll(".pill")) {
-      pill.addEventListener("click", () => {
-        const entity_id = this._found.options[pill.dataset.slug];
-        this._call(entity_id, "switch", "toggle");
-      });
+    this._wire("power", () =>
+      this._call(this._found.power, "select", "select_option", {
+        option: this._pick("power").value,
+      })
+    );
+    this._wire("programme", () =>
+      this._call(this._found.programme, "select", "select_option", {
+        option: this._pick("programme").value,
+      })
+    );
+    const lock = this.shadowRoot.querySelector('[data-role="childlock"]');
+    if (lock)
+      lock.addEventListener("click", () =>
+        this._call(this._found.childlock, "switch", "toggle")
+      );
+
+    for (const pill of this.shadowRoot.querySelectorAll(".pill[data-slug]")) {
+      pill.addEventListener("click", () =>
+        this._call(this._found.options[pill.dataset.slug], "switch", "toggle")
+      );
     }
     this.shadowRoot
       .querySelector(".go")
@@ -247,6 +295,15 @@ class HomeConnectDishwasherCard extends HTMLElement {
     this.shadowRoot
       .querySelector(".stop")
       .addEventListener("click", () => this._call(this._found.stop, "button", "press"));
+  }
+
+  _pick(role) {
+    return this.shadowRoot.querySelector(`[data-role="${role}"]`);
+  }
+
+  _wire(role, handler) {
+    const el = this._pick(role);
+    if (el && el.tagName === "SELECT") el.addEventListener("change", handler);
   }
 
   _paint(found, present) {
@@ -258,11 +315,17 @@ class HomeConnectDishwasherCard extends HTMLElement {
     const door = root.querySelector(".door");
     if (door) door.hidden = this._value(found.door) !== "on";
 
-    const prog = root.querySelector(".prog .val");
-    if (prog) {
+    this._fill(this._pick("power"), found.power);
+    this._fill(this._pick("programme"), found.programme);
+
+    const text = this._pick("progtext");
+    if (text) {
       const name = leaf(this._value(found.programme));
-      prog.textContent = OFF.has(String(name).toLowerCase()) ? "—" : String(name);
+      text.textContent = OFF.has(String(name).toLowerCase()) ? "—" : String(name);
     }
+
+    const lock = root.querySelector('[data-role="childlock"]');
+    if (lock) lock.classList.toggle("on", this._value(found.childlock) === "on");
 
     this._stat("energy", found.energy);
     this._stat("water", found.water);
@@ -275,15 +338,35 @@ class HomeConnectDishwasherCard extends HTMLElement {
 
     for (const option of present) {
       const pill = root.querySelector(`.pill[data-slug="${option.slug}"]`);
-      if (!pill) continue;
-      const on = this._value(found.options[option.slug]) === "on";
-      pill.classList.toggle("on", on);
+      if (pill) pill.classList.toggle("on", this._value(found.options[option.slug]) === "on");
     }
 
     const go = root.querySelector(".go");
     if (go) go.disabled = !found.start || !door.hidden;
     const stop = root.querySelector(".stop");
     if (stop) stop.disabled = !found.stop;
+  }
+
+  // Fill a select from the entity's own list of choices, once per change of
+  // that list so an open menu is not rebuilt under the finger, and point it at
+  // what is chosen now. A value read as its own tail, so a key reads plainly.
+  _fill(el, entity_id) {
+    if (!el) return;
+    const state = entity_id && this._hass.states[entity_id];
+    if (!state) {
+      el.disabled = true;
+      return;
+    }
+    el.disabled = false;
+    const options = state.attributes.options || [];
+    const signature = options.join("");
+    if (el._signature !== signature) {
+      el._signature = signature;
+      el.innerHTML = options
+        .map((o) => `<option value="${escape(o)}">${escape(leaf(o))}</option>`)
+        .join("");
+    }
+    el.value = state.state;
   }
 
   // One percentage stat: the number, and a bar filled to it.
@@ -356,7 +439,7 @@ if (!window.customCards.some((c) => c.type === CARD)) {
   window.customCards.push({
     type: CARD,
     name: "Home Connect Dishwasher",
-    description: "A dishwasher's programme, what it will use, its options and start.",
+    description: "A dishwasher's programme, options, power and start, driven like the app.",
     preview: true,
   });
 }
