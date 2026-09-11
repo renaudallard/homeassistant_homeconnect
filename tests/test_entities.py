@@ -51,6 +51,16 @@ async def washer(
     return await set_up(hass, aioclient_mock, "washer")
 
 
+async def test_cloud_mode_without_the_stream_asks_often(
+    hass: HomeAssistant, washer: MockConfigEntry
+) -> None:
+    """Reached through the cloud, the poll is what carries the changes until
+    the stream is up, so it is the fast one."""
+    from custom_components.homeconnect.coordinator import SCAN_INTERVAL
+
+    assert washer.runtime_data.coordinator.update_interval == SCAN_INTERVAL
+
+
 async def test_the_appliance_becomes_a_device(
     hass: HomeAssistant, washer: MockConfigEntry
 ) -> None:

@@ -56,7 +56,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .api import ACTIVE, SELECTED, HomeConnectApi
 from .capability import OPTION, SETTING, Feature, Reading, feature, reading
-from .const import DOMAIN
+from .const import CONF_TRANSPORT, DOMAIN, LOCAL
 from .errors import (
     HomeConnectAuthError,
     HomeConnectError,
@@ -290,12 +290,20 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         api: HomeConnectApi,
         local: LocalControl | None = None,
     ) -> None:
+        # Reached directly, an appliance pushes its live state over its own
+        # connection, so the account is polled only to catch one being
+        # paired, renamed or unpaired, which is rare: the long interval is
+        # plenty and the fast one would spend the quota it was meant to save.
+        # Through the cloud without the stream the fast one is right, and with
+        # the stream it lengthens itself once the stream is up.
+        reached_locally = entry.data.get(CONF_TRANSPORT) == LOCAL
+        rarely = SCAN_INTERVAL_STREAMING if reached_locally else SCAN_INTERVAL
         super().__init__(
             hass,
             _LOGGER,
             name=DOMAIN,
             config_entry=entry,
-            update_interval=SCAN_INTERVAL,
+            update_interval=rarely,
         )
         self.api = api
         # Set when the entry is being driven over the local network. The

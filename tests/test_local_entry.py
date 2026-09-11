@@ -150,6 +150,19 @@ async def test_the_identity_is_this_install_with_a_few_of_its_own_bytes(
     assert control._identity != "homeassistant"
 
 
+async def test_local_mode_asks_the_account_rarely(
+    hass: HomeAssistant, talking: tuple[MockConfigEntry, Stub]
+) -> None:
+    """The live state comes over the appliance's own connection, so the
+    account is polled only to catch a pairing or a rename. Asking every
+    minute would spend the quota that reaching an appliance directly is meant
+    to save."""
+    from custom_components.homeconnect.coordinator import SCAN_INTERVAL_STREAMING
+
+    made, _ = talking
+    assert made.runtime_data.coordinator.update_interval == SCAN_INTERVAL_STREAMING
+
+
 async def test_the_transport_says_local_when_that_is_how_it_is_reached(
     hass: HomeAssistant, talking: tuple[MockConfigEntry, Stub]
 ) -> None:

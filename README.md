@@ -71,8 +71,9 @@ model nobody has tried works the same way as the one this was written against.
 - **Careful with the quota** — the API counts every call. What a model can do
   is read once and kept between restarts, the stream carries the changes, and
   a fresh look is only arranged when something happened that the stream cannot
-  describe. Reached directly, an appliance costs nothing at all after the
-  first look.
+  describe. Reached directly, an appliance costs nothing after the first look
+  but the account listing, read every half hour to catch one being paired or
+  renamed, since the appliance's own state comes over its own connection.
 - **The words the appliance uses** — the cloud names each programme and each
   value it offers, in whatever language Home Assistant is set to, and that is
   what gets shown. Where it has not, the key says plainly enough what it is.
@@ -224,8 +225,10 @@ else changes and there is no need to sign in again.
 Signing in is needed either way, and once either way. The account is the only
 place two things are kept, and neither is on the network: the key an appliance
 is reached with, and the appliance's own description of itself. Both are
-fetched once, kept between restarts, and then nothing talks to the cloud
-again.
+fetched once and kept between restarts, so nothing about what an appliance is
+doing is asked of the cloud again. The account listing is still read every
+half hour, to notice an appliance being paired, renamed or unpaired; that is
+the whole of what the cloud is asked once an appliance is reached directly.
 
 |  | Through the cloud | Straight to the appliance |
 | --- | --- | --- |
@@ -372,7 +375,9 @@ Set to reach the appliances through the cloud, that host is the whole of it:
 | `GET /api/homeappliances/events` | the stream, carrying the whole account |
 
 Set to reach the appliances directly, it asks the account's own service two
-things about each appliance once and then leaves the cloud alone:
+things about each appliance once, and after that the only thing it reads from
+the cloud is the appliance listing above, every half hour, to catch a pairing
+or a rename:
 
 | | |
 | --- | --- |
