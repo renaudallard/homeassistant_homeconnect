@@ -152,11 +152,17 @@ class HomeConnectSensor(KeyEntity, SensorEntity):
         super().__init__(coordinator, haid, key, kind)
         if key == WIFI and coordinator.local is not None:
             self._attr_entity_registry_enabled_default = False
+        self._counting = _counts(key)
         self._measure = measure_for(key, self._unit_of())
         if self._measure is not None:
             self._attr_native_unit_of_measurement = self._measure.unit
             self._attr_device_class = self._measure.device_class
             self._attr_state_class = _state_class(key, self._measure)
+        elif self._counting:
+            # A tally has no unit and so no measure, but it is still a figure
+            # that only ever climbs, which Home Assistant keeps a statistic of
+            # once it is told as much.
+            self._attr_state_class = SensorStateClass.TOTAL_INCREASING
 
     def _unit_of(self) -> str | None:
         """What this reading is measured in, from wherever it was said.
@@ -174,7 +180,7 @@ class HomeConnectSensor(KeyEntity, SensorEntity):
     @property
     def native_value(self) -> Any:
         """The reading, as a figure where it is one and as words otherwise."""
-        if self._measure is None:
+        if self._measure is None and not self._counting:
             return self.shown
         value = self.held
         return value if isinstance(value, (int, float)) else None

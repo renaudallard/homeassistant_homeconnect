@@ -85,6 +85,18 @@ async def test_a_status_becomes_a_reading(
     assert state.attributes["value"] == "BSH.Common.EnumType.OperationState.Ready"
 
 
+async def test_a_tally_is_a_figure_that_keeps_a_statistic(
+    hass: HomeAssistant, washer: MockConfigEntry
+) -> None:
+    state = hass.states.get("sensor.washer_programme_all_count_started")
+    assert state is not None
+    # A count carries no unit, but it is still a number and one that only
+    # climbs, so it is kept as a figure with a running statistic rather than
+    # written out as a word.
+    assert state.state == "42"
+    assert state.attributes["state_class"] == "total_increasing"
+
+
 async def test_a_status_holding_a_flag_becomes_a_binary_sensor(
     hass: HomeAssistant, washer: MockConfigEntry
 ) -> None:

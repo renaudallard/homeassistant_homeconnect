@@ -40,6 +40,10 @@
       "unit": "dBm"
     },
     {
+      "key": "BSH.Common.Status.Program.All.Count.Started",
+      "value": 42
+    },
+    {
       "key": "BSH.Common.Root.ErrorCodesList",
       "value": {
         "length": 2,
