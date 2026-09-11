@@ -168,6 +168,11 @@ class Sorted:
     # Which programme is running and which is set, where either was said.
     active: str | None = None
     selected: str | None = None
+    # Whether the appliance spoke of each slot at all in what it just sent. A
+    # slot it said nothing about is left as it was; one it emptied is emptied,
+    # which a bare None on its own cannot tell apart from silence.
+    active_said: bool = False
+    selected_said: bool = False
 
 
 def sort(entries: dict[int, Entry], values: dict[int, Any]) -> Sorted:
@@ -191,8 +196,10 @@ def sort(entries: dict[int, Entry], values: dict[int, Any]) -> Sorted:
             named = running.key if running is not None else None
             if entry.key == ACTIVE_PROGRAM:
                 found.active = named
+                found.active_said = True
             else:
                 found.selected = named
+                found.selected_said = True
             continue
         named, _ = content(entry.content) or ("", "")
         if named == PROGRAM_REFERENCE:

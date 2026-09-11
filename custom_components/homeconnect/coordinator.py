@@ -513,8 +513,12 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         appliance.settings.update(sorted_out.settings)
         appliance.options.update(sorted_out.options)
         appliance.events.update(sorted_out.events)
-        if sorted_out.active is not None or sorted_out.selected is not None:
+        # Only a slot the appliance actually spoke of is moved, so a programme
+        # finishing (the slot emptied) is cleared, while a delta that touched
+        # one slot does not wipe the other it never mentioned.
+        if sorted_out.active_said:
             appliance.active = sorted_out.active
+        if sorted_out.selected_said:
             appliance.selected = sorted_out.selected
         self.async_set_updated_data(self.data)
 

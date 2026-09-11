@@ -171,6 +171,25 @@ def test_nothing_running_is_said_by_the_slot_holding_nothing() -> None:
     assert found.active is None
 
 
+def test_a_slot_the_appliance_did_not_mention_is_left_unsaid() -> None:
+    """A delta about one slot must not read as emptying the other, so each slot
+    carries whether the appliance spoke of it at all."""
+    found = local.sort(_with_programmes(), {0x0305: 0x0301})
+    assert found.active == "LaundryCare.Washer.Program.Wool"
+    assert found.active_said is True
+    # The selected slot was not in the delta, so it is left unsaid, not None.
+    assert found.selected is None
+    assert found.selected_said is False
+
+
+def test_a_slot_emptied_is_said_to_be_empty() -> None:
+    """A programme finishing empties its slot, which has to read as a real
+    change rather than as silence, or the finished programme is never cleared."""
+    found = local.sort(_with_programmes(), {0x0305: 0})
+    assert found.active is None
+    assert found.active_said is True
+
+
 def test_a_value_goes_back_as_the_number_it_goes_by() -> None:
     entry = ENTRIES[0x0100]
     assert local._as_sent(entry, "BSH.Common.EnumType.PowerState.On") == 2
