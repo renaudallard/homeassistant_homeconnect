@@ -10,6 +10,8 @@
 // Bundled with the homeconnect integration, which serves this file and loads
 // it, so there is no resource to add by hand.
 
+const CARD = "homeconnect-hob-card";
+
 const SUFFIXES = [
   "power_level",
   "current_temperature",
@@ -32,12 +34,23 @@ const leaf = (value) =>
 
 const OFF = new Set(["off", "inactive", "0", "", undefined, null, "unavailable"]);
 
+// Every device that has zone readings on it, which is every hob.
+function hobDevices(hass) {
+  const entities = (hass && hass.entities) || {};
+  const devices = new Set();
+  for (const entity_id of Object.keys(entities)) {
+    if (ZONE.test(entity_id) && entities[entity_id].device_id) {
+      devices.add(entities[entity_id].device_id);
+    }
+  }
+  return [...devices];
+}
+
 class HomeConnectHobCard extends HTMLElement {
   setConfig(config) {
-    if (!config || !config.device) {
-      throw new Error("Set 'device' to the hob's device id.");
-    }
-    this._config = config;
+    // The device is not required: with one hob on the system it is found on
+    // its own, and only more than one has to be told apart.
+    this._config = config || {};
     this._signature = null;
     if (!this.shadowRoot) this.attachShadow({ mode: "open" });
   }
@@ -51,21 +64,33 @@ class HomeConnectHobCard extends HTMLElement {
     return 5;
   }
 
-  static getStubConfig() {
-    return { device: "" };
+  static getConfigElement() {
+    return document.createElement(`${CARD}-editor`);
   }
 
-  // Every zone entity on the chosen device, gathered by the number of its zone.
-  _zones() {
+  static getStubConfig(hass) {
+    const devices = hobDevices(hass);
+    return devices.length === 1 ? { device: devices[0] } : { device: "" };
+  }
+
+  // The chosen hob, or the only one there is when none was chosen.
+  _device() {
+    if (this._config.device) return this._config.device;
+    const devices = hobDevices(this._hass);
+    return devices.length === 1 ? devices[0] : undefined;
+  }
+
+  // The zone readings on that hob, gathered by the number of their zone.
+  _zones(device) {
     const entities = (this._hass && this._hass.entities) || {};
     const found = {};
+    if (!device) return found;
     for (const entity_id of Object.keys(entities)) {
-      if (entities[entity_id].device_id !== this._config.device) continue;
+      if (entities[entity_id].device_id !== device) continue;
       const match = entity_id.match(ZONE);
       if (!match) continue;
-      const number = match[1];
-      let field = match[2].replace("programme", "program");
-      (found[number] ||= {})[field] = entity_id;
+      const field = match[2].replace("programme", "program");
+      (found[match[1]] ||= {})[field] = entity_id;
     }
     return found;
   }
@@ -78,20 +103,21 @@ class HomeConnectHobCard extends HTMLElement {
 
   _render() {
     if (!this._hass) return;
-    const zones = this._zones();
+    const device = this._device();
+    const zones = this._zones(device);
     const numbers = Object.keys(zones).sort((a, b) => Number(a) - Number(b));
-    const signature = numbers.join(",");
+    const signature = `${device || ""}|${numbers.join(",")}`;
 
-    // Rebuild the frame only when the set of zones changes, so a value moving
-    // does not throw the whole card away and build it again.
+    // Rebuild the frame only when the hob or its set of zones changes, so a
+    // value moving does not throw the whole card away and build it again.
     if (signature !== this._signature) {
       this._signature = signature;
-      this._build(numbers);
+      this._build(numbers, device);
     }
     for (const number of numbers) this._paint(number, zones[number]);
   }
 
-  _build(numbers) {
+  _build(numbers, device) {
     const columns = Math.max(1, Math.ceil(Math.sqrt(numbers.length || 1)));
     const title = this._config.name || "Hob";
     const tiles = numbers
@@ -103,9 +129,18 @@ class HomeConnectHobCard extends HTMLElement {
           </div>`
       )
       .join("");
-    const empty = numbers.length
-      ? ""
-      : `<div class="empty">No zones found for this device.</div>`;
+
+    let note = "";
+    if (!numbers.length) {
+      note = !device
+        ? hobDevices(this._hass).length
+          ? "More than one hob here. Set 'device' to the one you mean."
+          : "No hob found on this system."
+        : "No zones found for this device.";
+    }
+    const glass = numbers.length
+      ? `<div class="glass">${tiles}</div>`
+      : `<div class="glass empty"><div>${note}</div></div>`;
 
     this.shadowRoot.innerHTML = `
       <style>
@@ -122,6 +157,9 @@ class HomeConnectHobCard extends HTMLElement {
           grid-template-columns: repeat(${columns}, 1fr);
           align-content: center;
         }
+        .glass.empty { align-items: center; justify-items: center;
+                       grid-template-columns: 1fr; text-align: center; }
+        .glass.empty div { color: rgba(230,235,245,.72); max-width: 22ch; }
         .zone { display: flex; flex-direction: column; align-items: center;
                 justify-content: center; gap: 6px; min-width: 0; }
         .ring {
@@ -153,12 +191,10 @@ class HomeConnectHobCard extends HTMLElement {
         .under { display: flex; gap: 10px; font-size: .8em; min-height: 1em;
                  color: rgba(230,235,245,.75); }
         .under:empty { display: none; }
-        .empty { color: rgba(230,235,245,.7); grid-column: 1 / -1;
-                 text-align: center; align-self: center; }
       </style>
       <ha-card>
         <div class="title">${title}</div>
-        <div class="glass">${tiles || empty}</div>
+        ${glass}
       </ha-card>`;
   }
 
@@ -184,17 +220,17 @@ class HomeConnectHobCard extends HTMLElement {
     else label.textContent = String(power);
 
     const temp = this._value(fields.current_temperature);
-    const tempEl = tile.querySelector(".temp");
-    tempEl.textContent = !off && temp && Number(temp) > 0 ? `${Math.round(Number(temp))}°` : "";
+    tile.querySelector(".temp").textContent =
+      !off && temp && Number(temp) > 0 ? `${Math.round(Number(temp))}°` : "";
 
     const left = this._value(fields.remaining_program_time);
-    const leftEl = tile.querySelector(".left");
-    leftEl.textContent = !off && left && Number(left) > 0 ? _clock(Number(left)) : "";
+    tile.querySelector(".left").textContent =
+      !off && left && Number(left) > 0 ? clock(Number(left)) : "";
   }
 }
 
 // Seconds as an appliance counts them, shown the way a timer reads.
-function _clock(seconds) {
+function clock(seconds) {
   const m = Math.floor(seconds / 60);
   const s = Math.round(seconds % 60);
   if (m >= 60) {
@@ -204,12 +240,54 @@ function _clock(seconds) {
   return `${m}:${String(s).padStart(2, "0")}`;
 }
 
-customElements.define("homeconnect-hob-card", HomeConnectHobCard);
+// The little form shown when the card is edited: pick the hob, name it.
+class HomeConnectHobCardEditor extends HTMLElement {
+  setConfig(config) {
+    this._config = config || {};
+    this._render();
+  }
+
+  set hass(hass) {
+    this._hass = hass;
+    this._render();
+  }
+
+  _render() {
+    if (!this._hass) return;
+    if (!this._form) {
+      this._form = document.createElement("ha-form");
+      this._form.computeLabel = (schema) =>
+        ({ device: "Hob", name: "Name (optional)" })[schema.name] || schema.name;
+      this._form.addEventListener("value-changed", (event) => {
+        event.stopPropagation();
+        this.dispatchEvent(
+          new CustomEvent("config-changed", {
+            detail: { config: { type: `custom:${CARD}`, ...event.detail.value } },
+          })
+        );
+      });
+      this.appendChild(this._form);
+    }
+    this._form.hass = this._hass;
+    this._form.data = this._config;
+    this._form.schema = [
+      {
+        name: "device",
+        required: true,
+        selector: { device: { integration: "homeconnect" } },
+      },
+      { name: "name", selector: { text: {} } },
+    ];
+  }
+}
+
+customElements.define(CARD, HomeConnectHobCard);
+customElements.define(`${CARD}-editor`, HomeConnectHobCardEditor);
 
 window.customCards = window.customCards || [];
 window.customCards.push({
-  type: "homeconnect-hob-card",
+  type: CARD,
   name: "Home Connect Hob",
   description: "A cooktop with its zones, their power, heat and timers.",
-  preview: false,
+  preview: true,
 });

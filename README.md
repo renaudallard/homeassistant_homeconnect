@@ -228,10 +228,14 @@ the integration and is loaded onto the frontend for you, so there is no
 resource to add by hand.
 
     type: custom:homeconnect-hob-card
-    device: <the hob's device id>
 
-The device id is on the appliance's own page, under the cog, or in the URL
-while you are looking at it. An optional `name:` sets the heading.
+Add it from the dashboard's card picker and a small form lets you choose the
+hob and give it a heading; with only one hob on the system it is chosen for
+you and even that is not needed. Where there is more than one, set which:
+
+    type: custom:homeconnect-hob-card
+    device: <the hob's device id>
+    name: Kitchen hob
 
 Two honest limits. The picture is drawn, not photographed: there is no cooktop
 image to be had, from the app or anywhere, so this is a rendering rather than a
