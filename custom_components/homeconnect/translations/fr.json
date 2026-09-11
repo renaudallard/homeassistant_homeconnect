@@ -1,0 +1,64 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Se connecter à Home Connect",
+        "description": "Ouvrez [cette adresse]({url}) et connectez-vous avec le compte utilisé par l'application. Le navigateur aboutit à une page Home Connect destinée à un téléphone, qui peut afficher un QR code ; ignorez ce qu'elle montre. Copiez l'adresse entière depuis la barre d'adresse et collez-la ci-dessous.",
+        "data": {
+          "code": "Adresse sur laquelle le navigateur a abouti",
+          "transport": "Comment atteindre les appareils"
+        },
+        "data_description": {
+          "code": "L'adresse entière, pas seulement une partie. Elle n'est valable qu'une fois et seulement quelques minutes.",
+          "transport": "Par le cloud Home Connect, ou directement vers les appareils sur votre propre réseau. La connexion au compte est nécessaire dans les deux cas : le compte est le seul endroit où la clé d'un appareil est conservée."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Se reconnecter à Home Connect",
+        "description": "La connexion enregistrée a cessé de fonctionner. Ouvrez [cette adresse]({url}), connectez-vous avec le même compte et copiez l'adresse entière sur laquelle le navigateur aboutit depuis la barre d'adresse.",
+        "data": {
+          "code": "Adresse sur laquelle le navigateur a abouti"
+        },
+        "data_description": {
+          "code": "L'adresse entière, pas seulement une partie. Elle n'est valable qu'une fois et seulement quelques minutes."
+        }
+      },
+      "reconfigure": {
+        "title": "Comment atteindre les appareils",
+        "description": "Modifiez ceci pour faire passer un compte déjà configuré entre le cloud et le réseau local. Rien d'autre ne change et il n'est pas nécessaire de se reconnecter.",
+        "data": {
+          "transport": "Comment atteindre les appareils"
+        },
+        "data_description": {
+          "transport": "Le contrôle local exige que chaque appareil soit sur le même réseau que Home Assistant et qu'il s'y annonce."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Impossible de joindre Home Connect. Vérifiez votre connexion et réessayez.",
+      "invalid_auth": "Cette adresse n'a pas été acceptée. Un code n'est valable qu'une fois et seulement quelques minutes ; ouvrez à nouveau l'adresse ci-dessus et reconnectez-vous.",
+      "unknown": "Une erreur inattendue s'est produite. Consultez le journal pour plus de détails."
+    },
+    "abort": {
+      "already_configured": "Ce compte est déjà configuré.",
+      "already_in_progress": "Un autre appareil a déjà fait la demande. Une seule connexion couvre tous les appareils du compte.",
+      "reauth_successful": "Reconnexion réussie.",
+      "unique_id_mismatch": "Il s'agit d'un compte différent. Connectez-vous avec celui pour lequel cette entrée a été configurée.",
+      "reconfigure_successful": "Modifié. Les appareils sont désormais atteints de la nouvelle manière."
+    }
+  },
+  "issues": {
+    "never_answered": {
+      "title": "{name} ne communique pas avec Home Connect",
+      "description": "Le cloud Home Connect répertorie ce {type} sur votre compte mais indique qu'il ne s'est jamais connecté ; il n'y a donc rien à en lire et rien à y régler. Home Assistant ne peut rien y faire d'ici : c'est à l'appareil de joindre le cloud.\n\nTrois choses à vérifier sur l'appareil, dans cet ordre.\n\nS'il est allumé. Plusieurs types, les tables de cuisson surtout, ne maintiennent une connexion au cloud que lorsqu'ils sont utilisés. Un appareil éteint garde juste assez de son module réseau éveillé pour répondre à l'application sur le réseau local ; il y paraît donc parfaitement sain alors que le cloud n'a jamais eu de ses nouvelles.\n\nS'il est autorisé à sortir. L'application Home Connect appelle cette permission « Connexion au serveur », et elle détermine si l'appareil peut communiquer avec les serveurs Home Connect.\n\nCe que disent ses paramètres réseau. Les paramètres réseau étendus de l'application indiquent l'adresse, la passerelle et le serveur DNS utilisés par l'appareil. Un appareil sans passerelle ni serveur DNS n'a nulle part où envoyer quoi que ce soit.\n\nRien à faire ici. Cet avis disparaîtra de lui-même dès que l'appareil répondra."
+    }
+  },
+  "selector": {
+    "transport": {
+      "options": {
+        "cloud": "Par le cloud Home Connect",
+        "local": "Directement vers les appareils, sur ce réseau"
+      }
+    }
+  }
+}

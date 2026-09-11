@@ -1,0 +1,64 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Bei Home Connect anmelden",
+        "description": "Öffne [diese Adresse]({url}) und melde dich mit dem Konto an, das die App verwendet. Der Browser landet auf einer Home-Connect-Seite für ein Telefon, die einen QR-Code zeigen kann; ignoriere, was sie anzeigt. Kopiere die vollständige Adresse aus der Adressleiste und füge sie unten ein.",
+        "data": {
+          "code": "Adresse, auf welcher der Browser gelandet ist",
+          "transport": "Wie die Geräte erreicht werden"
+        },
+        "data_description": {
+          "code": "Die vollständige Adresse, nicht nur einen Teil davon. Sie ist nur einmal und nur für wenige Minuten gültig.",
+          "transport": "Über die Home-Connect-Cloud oder direkt zu den Geräten im eigenen Netzwerk. Die Anmeldung ist in beiden Fällen nötig: Das Konto ist der einzige Ort, an dem der Schlüssel eines Geräts aufbewahrt wird."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Erneut bei Home Connect anmelden",
+        "description": "Die gespeicherte Anmeldung funktioniert nicht mehr. Öffne [diese Adresse]({url}), melde dich mit demselben Konto an und kopiere die vollständige Adresse, auf welcher der Browser landet, aus der Adressleiste.",
+        "data": {
+          "code": "Adresse, auf welcher der Browser gelandet ist"
+        },
+        "data_description": {
+          "code": "Die vollständige Adresse, nicht nur einen Teil davon. Sie ist nur einmal und nur für wenige Minuten gültig."
+        }
+      },
+      "reconfigure": {
+        "title": "Wie die Geräte erreicht werden",
+        "description": "Ändere dies, um ein bereits eingerichtetes Konto zwischen der Cloud und dem lokalen Netzwerk umzustellen. Sonst ändert sich nichts und eine erneute Anmeldung ist nicht nötig.",
+        "data": {
+          "transport": "Wie die Geräte erreicht werden"
+        },
+        "data_description": {
+          "transport": "Die lokale Steuerung erfordert, dass jedes Gerät im selben Netzwerk wie Home Assistant ist und sich darin ankündigt."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Home Connect konnte nicht erreicht werden. Prüfe deine Verbindung und versuche es erneut.",
+      "invalid_auth": "Diese Adresse wurde nicht akzeptiert. Ein Code ist nur einmal und nur für wenige Minuten gültig; öffne die Adresse oben erneut und melde dich neu an.",
+      "unknown": "Etwas Unerwartetes ist schiefgelaufen. Sieh im Protokoll nach Einzelheiten."
+    },
+    "abort": {
+      "already_configured": "Dieses Konto ist bereits eingerichtet.",
+      "already_in_progress": "Ein anderes Gerät hat bereits gefragt. Eine Anmeldung deckt alle Geräte des Kontos ab.",
+      "reauth_successful": "Erfolgreich erneut angemeldet.",
+      "unique_id_mismatch": "Das ist ein anderes Konto. Melde dich mit dem an, für das dieser Eintrag eingerichtet wurde.",
+      "reconfigure_successful": "Geändert. Die Geräte werden jetzt auf die neue Weise erreicht."
+    }
+  },
+  "issues": {
+    "never_answered": {
+      "title": "{name} spricht nicht mit Home Connect",
+      "description": "Die Home-Connect-Cloud führt dieses {type} in deinem Konto, sagt aber, dass es sich nie verbunden hat, sodass es nichts davon zu lesen und nichts daran einzustellen gibt. Home Assistant kann von hier aus nichts dagegen tun: Das Gerät ist es, das die Cloud erreichen muss.\n\nDrei Dinge sind am Gerät zu prüfen, in dieser Reihenfolge.\n\nOb es eingeschaltet ist. Einige Arten, vor allem Kochfelder, halten eine Verbindung zur Cloud nur, während sie in Gebrauch sind. Ein ausgeschaltetes Gerät hält gerade genug seines Netzwerkmoduls wach, um der App im lokalen Netzwerk zu antworten, sodass es dort kerngesund wirkt, während die Cloud nie etwas von ihm gehört hat.\n\nOb es nach außen darf. Die Home-Connect-App nennt diese Berechtigung „Verbindung zum Server“, und sie entscheidet, ob das Gerät überhaupt mit den Home-Connect-Servern sprechen darf.\n\nWas seine Netzwerkeinstellungen sagen. Die erweiterten Netzwerkeinstellungen der App zeigen die Adresse, das Gateway und den DNS-Server, die das Gerät verwendet. Ein Gerät ohne Gateway oder ohne DNS-Server hat nirgendwohin, etwas zu senden.\n\nHier ist nichts zu tun. Dieser Hinweis verschwindet von selbst, sobald das Gerät antwortet."
+    }
+  },
+  "selector": {
+    "transport": {
+      "options": {
+        "cloud": "Über die Home-Connect-Cloud",
+        "local": "Direkt zu den Geräten, in diesem Netzwerk"
+      }
+    }
+  }
+}

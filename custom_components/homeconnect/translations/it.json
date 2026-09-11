@@ -1,0 +1,64 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Accedi a Home Connect",
+        "description": "Apri [questo indirizzo]({url}) e accedi con l'account usato dall'app. Il browser termina su una pagina Home Connect pensata per un telefono, che può mostrare un codice QR; ignora ciò che mostra. Copia l'intero indirizzo dalla barra degli indirizzi e incollalo qui sotto.",
+        "data": {
+          "code": "Indirizzo su cui il browser è terminato",
+          "transport": "Come raggiungere gli elettrodomestici"
+        },
+        "data_description": {
+          "code": "L'intero indirizzo, non solo una parte. È valido una sola volta e solo per pochi minuti.",
+          "transport": "Tramite il cloud Home Connect, o direttamente agli elettrodomestici sulla tua rete. L'accesso è necessario in entrambi i casi: l'account è l'unico posto in cui è conservata la chiave di un elettrodomestico."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Accedi di nuovo a Home Connect",
+        "description": "L'accesso salvato ha smesso di funzionare. Apri [questo indirizzo]({url}), accedi con lo stesso account e copia dalla barra degli indirizzi l'intero indirizzo su cui il browser termina.",
+        "data": {
+          "code": "Indirizzo su cui il browser è terminato"
+        },
+        "data_description": {
+          "code": "L'intero indirizzo, non solo una parte. È valido una sola volta e solo per pochi minuti."
+        }
+      },
+      "reconfigure": {
+        "title": "Come raggiungere gli elettrodomestici",
+        "description": "Cambia questo per spostare un account già configurato tra il cloud e la rete locale. Non cambia nient'altro e non serve accedere di nuovo.",
+        "data": {
+          "transport": "Come raggiungere gli elettrodomestici"
+        },
+        "data_description": {
+          "transport": "Il controllo locale richiede che ogni elettrodomestico sia sulla stessa rete di Home Assistant e che si annunci su di essa."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Impossibile raggiungere Home Connect. Controlla la connessione e riprova.",
+      "invalid_auth": "Quell'indirizzo non è stato accettato. Un codice è valido una sola volta e solo per pochi minuti, quindi apri di nuovo l'indirizzo qui sopra e accedi da capo.",
+      "unknown": "Qualcosa di inaspettato è andato storto. Controlla il registro per i dettagli."
+    },
+    "abort": {
+      "already_configured": "Questo account è già configurato.",
+      "already_in_progress": "Un altro elettrodomestico ha già chiesto. Un solo accesso copre tutti gli elettrodomestici dell'account.",
+      "reauth_successful": "Accesso eseguito di nuovo con successo.",
+      "unique_id_mismatch": "Questo è un account diverso. Accedi con quello per cui è stata configurata questa voce.",
+      "reconfigure_successful": "Modificato. Gli elettrodomestici vengono ora raggiunti nel nuovo modo."
+    }
+  },
+  "issues": {
+    "never_answered": {
+      "title": "{name} non comunica con Home Connect",
+      "description": "Il cloud Home Connect elenca questo {type} sul tuo account ma dice che non si è mai connesso, quindi non c'è nulla da leggere da esso e nulla da impostare su di esso. Home Assistant non può farci nulla da qui: è l'elettrodomestico a dover raggiungere il cloud.\n\nTre cose da controllare sull'elettrodomestico, in quest'ordine.\n\nSe è acceso. Diversi tipi, i piani cottura soprattutto, mantengono una connessione al cloud solo mentre sono in uso. Uno spento tiene sveglio quel tanto del suo modulo di rete che basta per rispondere all'app sulla rete locale, quindi lì sembra perfettamente sano mentre il cloud non ha mai avuto sue notizie.\n\nSe è autorizzato a uscire. L'app Home Connect chiama questo permesso «Connessione al server», e decide se l'elettrodomestico possa comunicare con i server Home Connect.\n\nCosa dicono le sue impostazioni di rete. Le impostazioni di rete avanzate dell'app mostrano l'indirizzo, il gateway e il server DNS che l'elettrodomestico sta usando. Uno senza gateway o senza server DNS non ha da nessuna parte dove inviare qualcosa.\n\nQui non c'è nulla da fare. Questo avviso scompare da solo non appena l'elettrodomestico risponde."
+    }
+  },
+  "selector": {
+    "transport": {
+      "options": {
+        "cloud": "Tramite il cloud Home Connect",
+        "local": "Direttamente agli elettrodomestici, su questa rete"
+      }
+    }
+  }
+}

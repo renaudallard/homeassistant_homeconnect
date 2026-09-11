@@ -1,0 +1,64 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Iniciar sesión en Home Connect",
+        "description": "Abre [esta dirección]({url}) e inicia sesión con la cuenta que usa la aplicación. El navegador termina en una página de Home Connect pensada para un teléfono, que puede mostrar un código QR; ignora lo que muestre. Copia la dirección completa de la barra de direcciones y pégala abajo.",
+        "data": {
+          "code": "Dirección en la que terminó el navegador",
+          "transport": "Cómo llegar a los aparatos"
+        },
+        "data_description": {
+          "code": "La dirección completa, no solo una parte. Solo sirve una vez y solo durante unos minutos.",
+          "transport": "A través de la nube de Home Connect, o directamente a los aparatos en tu propia red. Iniciar sesión es necesario en ambos casos: la cuenta es el único lugar donde se guarda la clave de un aparato."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Volver a iniciar sesión en Home Connect",
+        "description": "El inicio de sesión guardado ha dejado de funcionar. Abre [esta dirección]({url}), inicia sesión con la misma cuenta y copia de la barra de direcciones la dirección completa en la que termina el navegador.",
+        "data": {
+          "code": "Dirección en la que terminó el navegador"
+        },
+        "data_description": {
+          "code": "La dirección completa, no solo una parte. Solo sirve una vez y solo durante unos minutos."
+        }
+      },
+      "reconfigure": {
+        "title": "Cómo llegar a los aparatos",
+        "description": "Cambia esto para pasar una cuenta ya configurada entre la nube y la red local. No cambia nada más y no hace falta volver a iniciar sesión.",
+        "data": {
+          "transport": "Cómo llegar a los aparatos"
+        },
+        "data_description": {
+          "transport": "El control local requiere que cada aparato esté en la misma red que Home Assistant y que se anuncie en ella."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "No se pudo llegar a Home Connect. Comprueba tu conexión e inténtalo de nuevo.",
+      "invalid_auth": "Esa dirección no se aceptó. Un código solo sirve una vez y solo durante unos minutos, así que abre de nuevo la dirección de arriba e inicia sesión otra vez.",
+      "unknown": "Algo inesperado salió mal. Consulta el registro para más detalles."
+    },
+    "abort": {
+      "already_configured": "Esta cuenta ya está configurada.",
+      "already_in_progress": "Otro aparato ya lo ha pedido. Un solo inicio de sesión cubre todos los aparatos de la cuenta.",
+      "reauth_successful": "Sesión iniciada de nuevo correctamente.",
+      "unique_id_mismatch": "Esa es una cuenta diferente. Inicia sesión con aquella para la que se configuró esta entrada.",
+      "reconfigure_successful": "Cambiado. Ahora se llega a los aparatos de la nueva manera."
+    }
+  },
+  "issues": {
+    "never_answered": {
+      "title": "{name} no se comunica con Home Connect",
+      "description": "La nube de Home Connect incluye este {type} en tu cuenta pero dice que nunca se ha conectado, así que no hay nada que leer de él ni nada que ajustar en él. Home Assistant no puede hacer nada al respecto desde aquí: es el aparato el que tiene que llegar a la nube.\n\nTres cosas que comprobar en el aparato, en este orden.\n\nSi está encendido. Varios tipos, sobre todo las placas de cocción, solo mantienen una conexión con la nube mientras están en uso. Uno apagado mantiene despierta la parte justa de su módulo de red para responder a la aplicación en la red local, así que allí parece perfectamente sano mientras la nube nunca ha sabido de él.\n\nSi tiene permiso para salir. La aplicación de Home Connect llama a ese permiso «Conexión al servidor», y decide si el aparato puede comunicarse con los servidores de Home Connect.\n\nQué dicen sus ajustes de red. Los ajustes de red avanzados de la aplicación muestran la dirección, la puerta de enlace y el servidor DNS que usa el aparato. Uno sin puerta de enlace o sin servidor DNS no tiene a dónde enviar nada.\n\nAquí no hay que hacer nada. Este aviso desaparece por sí solo en cuanto el aparato responde."
+    }
+  },
+  "selector": {
+    "transport": {
+      "options": {
+        "cloud": "A través de la nube de Home Connect",
+        "local": "Directamente a los aparatos, en esta red"
+      }
+    }
+  }
+}

@@ -1,0 +1,64 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Aanmelden bij Home Connect",
+        "description": "Open [dit adres]({url}) en meld je aan met het account dat de app gebruikt. De browser eindigt op een Home Connect-pagina bedoeld voor een telefoon, die een QR-code kan tonen; negeer wat er staat. Kopieer het volledige adres uit de adresbalk en plak het hieronder.",
+        "data": {
+          "code": "Adres waarop de browser eindigde",
+          "transport": "Hoe de apparaten te bereiken"
+        },
+        "data_description": {
+          "code": "Het volledige adres, niet slechts een deel. Het is maar één keer en slechts enkele minuten geldig.",
+          "transport": "Via de Home Connect-cloud, of rechtstreeks naar de apparaten op je eigen netwerk. Aanmelden is hoe dan ook nodig: het account is de enige plek waar de sleutel van een apparaat wordt bewaard."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Opnieuw aanmelden bij Home Connect",
+        "description": "De opgeslagen aanmelding werkt niet meer. Open [dit adres]({url}), meld je aan met hetzelfde account en kopieer het volledige adres waarop de browser eindigt uit de adresbalk.",
+        "data": {
+          "code": "Adres waarop de browser eindigde"
+        },
+        "data_description": {
+          "code": "Het volledige adres, niet slechts een deel. Het is maar één keer en slechts enkele minuten geldig."
+        }
+      },
+      "reconfigure": {
+        "title": "Hoe de apparaten te bereiken",
+        "description": "Wijzig dit om een al ingesteld account tussen de cloud en het lokale netwerk te verplaatsen. Verder verandert er niets en opnieuw aanmelden is niet nodig.",
+        "data": {
+          "transport": "Hoe de apparaten te bereiken"
+        },
+        "data_description": {
+          "transport": "Lokale besturing vereist dat elk apparaat op hetzelfde netwerk als Home Assistant zit en zich daarop aankondigt."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Kon Home Connect niet bereiken. Controleer je verbinding en probeer het opnieuw.",
+      "invalid_auth": "Dat adres werd niet geaccepteerd. Een code is maar één keer en slechts enkele minuten geldig, dus open het adres hierboven opnieuw en meld je opnieuw aan.",
+      "unknown": "Er ging iets onverwachts mis. Bekijk het logboek voor details."
+    },
+    "abort": {
+      "already_configured": "Dit account is al ingesteld.",
+      "already_in_progress": "Een ander apparaat heeft het al gevraagd. Eén aanmelding dekt alle apparaten op het account.",
+      "reauth_successful": "Opnieuw aangemeld.",
+      "unique_id_mismatch": "Dat is een ander account. Meld je aan met het account waarvoor dit item is ingesteld.",
+      "reconfigure_successful": "Gewijzigd. De apparaten worden nu op de nieuwe manier bereikt."
+    }
+  },
+  "issues": {
+    "never_answered": {
+      "title": "{name} praat niet met Home Connect",
+      "description": "De Home Connect-cloud vermeldt deze {type} op je account maar zegt dat hij nog nooit verbinding heeft gemaakt, dus er valt niets van af te lezen en niets op in te stellen. Home Assistant kan daar van hieruit niets aan doen: het apparaat is degene die de cloud moet bereiken.\n\nDrie dingen om op het apparaat te controleren, in deze volgorde.\n\nOf het aan staat. Sommige soorten, kookplaten vooral, houden alleen verbinding met de cloud terwijl ze in gebruik zijn. Een uitgeschakeld apparaat houdt net genoeg van zijn netwerkmodule wakker om de app op het lokale netwerk te antwoorden, dus daar lijkt het kerngezond terwijl de cloud er nooit iets van heeft gehoord.\n\nOf het naar buiten mag. De Home Connect-app noemt die toestemming „Verbinding met server”, en die bepaalt of het apparaat überhaupt met de Home Connect-servers mag praten.\n\nWat de netwerkinstellingen zeggen. De uitgebreide netwerkinstellingen van de app tonen het adres, de gateway en de DNS-server die het apparaat gebruikt. Een apparaat zonder gateway of zonder DNS-server heeft nergens om iets naartoe te sturen.\n\nHier hoeft niets te gebeuren. Deze melding verdwijnt vanzelf zodra het apparaat antwoordt."
+    }
+  },
+  "selector": {
+    "transport": {
+      "options": {
+        "cloud": "Via de Home Connect-cloud",
+        "local": "Rechtstreeks naar de apparaten, op dit netwerk"
+      }
+    }
+  }
+}
