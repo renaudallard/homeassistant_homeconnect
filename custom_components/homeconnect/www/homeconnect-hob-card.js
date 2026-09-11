@@ -299,7 +299,9 @@ class HomeConnectHobCard extends HTMLElement {
     const powerText = String(power ?? "").toLowerCase();
 
     const off = OFF.has(powerText) && OFF.has(zoneState) && OFF.has(op);
-    const boost = powerText === "boost";
+    // Boost reads as "Boost 1" or "Boost 2", so the whole family is caught by
+    // its start rather than an exact word.
+    const boost = powerText.startsWith("boost");
 
     tile.classList.toggle("on", !off && !boost);
     tile.classList.toggle("boost", boost);
