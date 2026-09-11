@@ -97,6 +97,8 @@ def layout(entries: dict[int, Entry]) -> list[dict[str, Any]]:
             point = json.loads(field["Position"])
         except (KeyError, ValueError, TypeError):
             continue
+        if not isinstance(point, dict):
+            continue
         x, y = _figure(point.get("x")), _figure(point.get("y"))
         width, height = _figure(field.get("LengthX")), _figure(field.get("LengthY"))
         if x is None or y is None or width is None or height is None:

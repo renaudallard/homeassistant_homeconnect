@@ -392,6 +392,8 @@ class HcpLink:
         self._sid = said.get("sID")
         data = said.get("data")
         first = data[0] if isinstance(data, list) and data else {}
+        if not isinstance(first, dict):
+            first = {}
         self._msgid = int(first.get("edMsgID", 1))
         await self._reply(
             said,

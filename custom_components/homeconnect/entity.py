@@ -216,7 +216,11 @@ class KeyEntity(HomeConnectEntity):
         if found.shown:
             return found.shown
         described = self.described
-        if described is not None and described.shown:
+        if (
+            described is not None
+            and described.shown
+            and not isinstance(found.value, (Mapping, list))
+        ):
             named = described.shown.get(found.value)
             if named:
                 return named
