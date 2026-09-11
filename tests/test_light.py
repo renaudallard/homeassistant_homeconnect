@@ -134,6 +134,25 @@ async def test_setting_the_brightness_sends_the_percentage_the_lamp_uses(
     assert brightness == 100
 
 
+async def test_the_dimmest_setting_is_not_rounded_below_what_the_lamp_takes(
+    hass: HomeAssistant, oven: AiohttpClientMocker
+) -> None:
+    oven.put(f"{AT}/settings/Cooking.Common.Setting.LightingBrightness", status=204)
+    oven.put(f"{AT}/settings/Cooking.Common.Setting.Lighting", status=204)
+    await hass.services.async_call(
+        "light",
+        "turn_on",
+        {"entity_id": "light.oven_light", "brightness": 1},
+        blocking=True,
+    )
+    written = {str(url): body["data"]["value"] for _, url, body, _ in oven.mock_calls}
+    brightness = next(v for k, v in written.items() if k.endswith("LightingBrightness"))
+    # This lamp goes no dimmer than ten percent. Home Assistant's dimmest is a
+    # notch above off, which the percentage scale rounds to nine, under the ten
+    # the lamp will take. It is held at the ten rather than refused.
+    assert brightness == 10
+
+
 async def test_an_appliance_with_no_lamp_gets_no_light(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
 ) -> None:

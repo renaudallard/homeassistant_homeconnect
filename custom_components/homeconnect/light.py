@@ -181,9 +181,13 @@ class HomeConnectLight(HomeConnectEntity, LightEntity):
             await self._set(self._lamp.colour, _written(colour))
         brightness = kwargs.get(ATTR_BRIGHTNESS)
         if brightness is not None and self._dims:
+            # Kept at or above the dimmest the appliance allows: the scale Home
+            # Assistant rounds by can land a notch under the stated minimum,
+            # which the appliance refuses.
+            span = self._range
             await self._set(
                 self._lamp.brightness,
-                round(brightness_to_value(self._range, brightness)),
+                max(round(span[0]), round(brightness_to_value(span, brightness))),
             )
         await self._set(self._lamp.on, True)
 
