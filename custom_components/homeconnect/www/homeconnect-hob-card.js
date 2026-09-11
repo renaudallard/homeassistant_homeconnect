@@ -122,8 +122,12 @@ class HomeConnectHobCard extends HTMLElement {
 
   // Whether the hob is offering this zone at all. One it calls NotSelectable is
   // a joinable zone standing idle, there to be shown only once it is in use.
+  // The state reads as words with the spaces left in, so they are taken out
+  // before the match: "Not selectable" is the same answer as "NotSelectable".
   _selectable(fields) {
-    const state = String(leaf(this._value(fields.state)) || "").toLowerCase();
+    const state = String(leaf(this._value(fields.state)) || "")
+      .toLowerCase()
+      .replace(/[^a-z]/g, "");
     return state !== "notselectable";
   }
 
