@@ -333,3 +333,44 @@ def test_the_offer_is_the_two_suites_the_app_offers() -> None:
     # Only the shared key suites, and only the version they belong to.
     assert not [one for one in made.get_ciphers() if one["name"].startswith("PSK-")]
     assert made.minimum_version is made.maximum_version
+
+
+async def test_what_is_said_is_read_out_of_either_kind_of_frame(
+    session: aiohttp.ClientSession,
+) -> None:
+    """An appliance that secures the connection rather than the messages
+    speaks in text. Bytes saying the same thing are read too, because which
+    frame they came in says nothing about what they mean, and passing one
+    over loses the whole conversation rather than the one message."""
+    seen: list[dict[int, Any]] = []
+    link = HcpLink(session, "hob", KEY, None, seen.append, lambda _c: None)
+    said = json.dumps(
+        {
+            "sID": 1,
+            "msgID": 1,
+            "resource": "/ro/values",
+            "version": 1,
+            "action": "NOTIFY",
+            "data": [{"uid": 256, "value": 3}],
+        }
+    )
+    await link._heard(
+        aiohttp.WSMessage(type=aiohttp.WSMsgType.TEXT, data=said, extra=None)
+    )
+    await link._heard(
+        aiohttp.WSMessage(type=aiohttp.WSMsgType.BINARY, data=said.encode(), extra=None)
+    )
+    assert seen == [{256: 3}, {256: 3}]
+
+
+async def test_a_frame_holding_nothing_readable_is_passed_over(
+    session: aiohttp.ClientSession,
+) -> None:
+    seen: list[dict[int, Any]] = []
+    link = HcpLink(session, "hob", KEY, None, seen.append, lambda _c: None)
+    for message in (
+        aiohttp.WSMessage(type=aiohttp.WSMsgType.BINARY, data=b"\xff\xfe", extra=None),
+        aiohttp.WSMessage(type=aiohttp.WSMsgType.PING, data=b"", extra=None),
+    ):
+        await link._heard(message)
+    assert seen == []

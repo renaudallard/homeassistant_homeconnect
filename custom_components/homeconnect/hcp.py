@@ -193,6 +193,24 @@ def context(psk: bytes) -> Any:
     return made
 
 
+def _spoken(message: aiohttp.WSMessage) -> str | None:
+    """What a message says, whichever kind of frame carried it.
+
+    A conversation that is not sealed is carried in text, and that is what an
+    appliance sends. Bytes saying the same thing are read as well: which
+    frame they arrived in says nothing about what they mean, and passing over
+    one loses the whole conversation rather than the one message.
+    """
+    if message.type is aiohttp.WSMsgType.TEXT:
+        return str(message.data)
+    if message.type is aiohttp.WSMsgType.BINARY:
+        try:
+            return bytes(message.data).decode()
+        except UnicodeDecodeError:
+            return None
+    return None
+
+
 def _written(host: str) -> str:
     """A host as it goes into an address.
 
@@ -331,10 +349,11 @@ class HcpLink:
                 return
             body = self._sealed.open(message.data)
         else:
-            if message.type is not aiohttp.WSMsgType.TEXT:
+            spoken = _spoken(message)
+            if spoken is None:
                 _LOGGER.debug("%s sent a frame with nothing said in it", self._host)
                 return
-            body = message.data
+            body = spoken
         try:
             said = json.loads(body)
         except ValueError:
