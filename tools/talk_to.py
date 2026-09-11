@@ -162,6 +162,7 @@ async def _talk(args: argparse.Namespace) -> None:
             iv,
             listening.values,
             listening.connection,
+            identifier=args.device_id,
             port=args.port,
         )
         print(f"{_stamp()} opening {link.url} for {args.minutes} minutes", flush=True)
@@ -188,6 +189,13 @@ def main() -> int:
         "its messages rather than its connection",
     )
     parser.add_argument("--port", type=int, help="port, where not the usual one")
+    parser.add_argument(
+        "--device-id",
+        default="talk-to",
+        help="the identity to announce. An appliance allows one connection per\n"
+        "identity and evicts a second that reuses one, so this is left unlike\n"
+        "the integration's own so that the two can listen at once",
+    )
     parser.add_argument(
         "--describe",
         type=Path,

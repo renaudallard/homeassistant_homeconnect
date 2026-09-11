@@ -301,13 +301,15 @@ learnt. Being switched off does not stop it answering: a hob that is off
 still holds a connection and reports everything, and says the moment it is
 switched on.
 
-**An appliance holds one direct connection at a time.** A second client is
-let in and the first is closed, so two clients take the appliance off each
-other every few seconds for as long as both keep trying. The Home Connect app
-takes the direct path too when it is on the same network, which means that
-with the app open the **Connection** sensor flaps and the controls come and go
-until the app is closed or leaves the network. That looks like a fault and is
-not one; it settles the moment the app lets go.
+**An appliance allows one direct connection per identity.** A client says who
+it is when it connects, and a second client saying the same thing is let in
+while the first is closed, so the two take the appliance off each other every
+few seconds for as long as both keep trying. Different identities sit side by
+side without trouble: this integration says `homeassistant` and the Home
+Connect app says its own, so the app running on the same network does not
+disturb it. What does is a second thing announcing `homeassistant` at the same
+appliance, which in practice means a second Home Assistant reaching it over
+the local network.
 
 If every control is unavailable and the connection sensor says the appliance is
 there, remote control has not been armed at the machine.
@@ -435,9 +437,10 @@ network, using the integration's own link, and prints every frame, every
 value and every change of connection as they happen. It only listens: nothing
 in it writes to the appliance. The shared key is read from a file so that it
 lands in neither the shell history nor the process list, and that file belongs
-under `tmp/`, which is not tracked. An appliance holds one direct connection
-at a time, so running it takes the appliance off Home Assistant every few
-seconds until it stops; disable the entry first.
+under `tmp/`, which is not tracked. It announces a different identity from the
+integration, so the two listen to one appliance at once without taking it off
+each other; `--device-id homeassistant` makes it stand in the integration's
+place instead, for seeing what a collision looks like.
 
 The tests load a washing machine and an oven and check what comes out of them.
 The config flow tests drive the real Home Assistant flow machinery, so they

@@ -246,6 +246,8 @@ async def test_the_appliance_opens_and_we_take_it_up(
     assert said[0] == "/ei/initialValues"
     assert pretend.heard[0]["action"] == "RESPONSE"
     assert pretend.heard[0]["data"][0]["deviceType"] == "Application"
+    # Who it says it is, which an appliance allows one connection per.
+    assert pretend.heard[0]["data"][0]["deviceID"] == "homeassistant"
     # Then what it can do, and everything it is holding.
     assert "/ci/services" in said
     assert "/ro/allMandatoryValues" in said
@@ -254,6 +256,30 @@ async def test_the_appliance_opens_and_we_take_it_up(
     assert pretend.heard[1]["msgID"] == 77
     assert seen == [{256: 2, 257: 5}]
     assert opened == [True]
+
+
+async def test_the_identity_announced_is_the_one_it_was_given(
+    appliance: tuple[Appliance, int], session: aiohttp.ClientSession
+) -> None:
+    """An appliance allows one connection per identity and evicts a second
+    that reuses one, so two clients that mean to sit side by side have to
+    announce different things. What is announced is what was asked for."""
+    pretend, port = appliance
+    link = HcpLink(
+        session,
+        "127.0.0.1",
+        KEY,
+        IV,
+        lambda _v: None,
+        lambda _c: None,
+        identifier="a-name-of-its-own",
+        port=port,
+    )
+    running(link)
+    async with asyncio.timeout(10):
+        await pretend.ready.wait()
+    await link.stop()
+    assert pretend.heard[0]["data"][0]["deviceID"] == "a-name-of-its-own"
 
 
 async def test_setting_something_goes_by_the_number_it_goes_by(
