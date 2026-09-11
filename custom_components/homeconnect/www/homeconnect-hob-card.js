@@ -338,8 +338,8 @@ class HomeConnectHobCard extends HTMLElement {
     let big = "";
     if (hot) big = "H";
     else if (!active) big = "Off";
-    else if (boost) big = "P";
-    else if (level) big = String(power);
+    else if (boost) big = "b";
+    else if (level) big = this._level(power);
     else if (target) big = `${target}°`;
     else if (temp) big = `${temp}°`;
     else big = "·";
@@ -355,6 +355,15 @@ class HomeConnectHobCard extends HTMLElement {
 
     const under = tile.querySelector(".under");
     under.style.display = under.textContent ? "flex" : "none";
+  }
+
+  // A power level as the hob shows it. The number arrives in tenths, so 50 is
+  // the hob's 5 and 45 its 4.5; a named step like keep-warm reads as it is.
+  _level(power) {
+    const tenths = Number(power);
+    if (Number.isNaN(tenths)) return String(power);
+    const shown = tenths / 10;
+    return Number.isInteger(shown) ? String(shown) : shown.toFixed(1);
   }
 }
 
