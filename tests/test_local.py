@@ -139,6 +139,8 @@ def test_an_option_written_inside_a_programme_belongs_to_it() -> None:
     description that does not bother to say says it."""
     described = local.describe(_with_programmes())
     assert set(described.programs) == {
+        # The one the description itself carries, and the two added here.
+        "Cooking.Hob.Program.PowerLevel",
         "LaundryCare.Washer.Program.Cotton",
         "LaundryCare.Washer.Program.Wool",
     }

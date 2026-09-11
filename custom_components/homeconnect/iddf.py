@@ -62,7 +62,22 @@ DESCRIPTION = "_DeviceDescription.xml"
 # The kinds of thing a description lists, by the element each is written as.
 # Anything else carrying a number is skipped: a description also numbers
 # things that are not features of the appliance.
-KINDS = frozenset({"status", "setting", "command", "option", "event", "program"})
+# The elements that describe one numbered thing. The two programme slots are
+# written as their own kinds rather than as entries in a list, and they are
+# where an appliance says what it is running and what it is set to run, so a
+# description read without them is one that cannot say either.
+KINDS = frozenset(
+    {
+        "status",
+        "setting",
+        "command",
+        "option",
+        "event",
+        "program",
+        "activeProgram",
+        "selectedProgram",
+    }
+)
 
 # What an element that describes a feature calls its number, and what the
 # elements that name one call theirs.

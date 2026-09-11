@@ -16,6 +16,12 @@
   <commandList>
     <command uid="0x0104" access="writeOnly" available="true"/>
   </commandList>
+  <programList>
+    <program uid="0x0109" available="true"/>
+  </programList>
+  <!-- The two programme slots are their own kinds, not list entries. -->
+  <activeProgram access="read" uid="0x0107"/>
+  <selectedProgram access="readWrite" uid="0x0108" fullOptionSet="true"/>
   <eventList>
     <event uid="0x0105" access="read" available="true"/>
   </eventList>

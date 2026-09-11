@@ -11,6 +11,9 @@
     <feature refUID="0x0104">BSH.Common.Command.AcknowledgeEvent</feature>
     <feature refUID="0x0105">BSH.Common.Event.ProgramFinished</feature>
     <feature refUID="0x0106">BSH.Common.Setting.TemperatureUnit</feature>
+    <feature refUID="0x0107">BSH.Common.Root.ActiveProgram</feature>
+    <feature refUID="0x0108">BSH.Common.Root.SelectedProgram</feature>
+    <feature refUID="0x0109">Cooking.Hob.Program.PowerLevel</feature>
   </featureDescriptionList>
   <errorDescriptionList>
     <error refEID="0x0001">SomeError</error>

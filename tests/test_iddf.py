@@ -51,9 +51,31 @@ def test_every_numbered_thing_gets_the_key_it_stands_for() -> None:
 
 def test_what_kind_of_thing_it_is_comes_from_how_it_is_listed() -> None:
     kinds = {ENTRIES[uid].kind for uid in ENTRIES}
-    assert kinds == {"status", "setting", "command", "event"}
+    assert kinds == {
+        "status",
+        "setting",
+        "command",
+        "event",
+        "program",
+        "activeProgram",
+        "selectedProgram",
+    }
     assert ENTRIES[0x0100].kind == "setting"
     assert ENTRIES[0x0104].kind == "command"
+
+
+def test_the_programme_slots_are_read_though_they_sit_in_no_list() -> None:
+    """An appliance writes these two as their own kinds rather than as
+    entries in a list, and they are where it says what it is running and
+    what it is set to run. Read without them, a description of sixty
+    programmes cannot say which of them is on."""
+    active = ENTRIES[0x0107]
+    assert active.key == "BSH.Common.Root.ActiveProgram"
+    assert active.kind == "activeProgram"
+    assert not active.writable
+    selected = ENTRIES[0x0108]
+    assert selected.key == "BSH.Common.Root.SelectedProgram"
+    assert selected.writable
 
 
 def test_a_value_is_spelled_the_way_it_is_spelled_everywhere_else() -> None:
