@@ -1,28 +1,28 @@
 // A Lovelace card that lays a dishwasher out the way the Home Connect app
-// does, and drives it the same way: pick the programme, turn the options on
-// and off, set the power, lock the controls, and start or stop it, with the
-// door warning across the top while the door is open and a forecast of what
-// the run will cost beneath the programme.
+// does, and drives it the same way: the programme across a card of its own,
+// what the run will cost in energy and water on coloured bars, the options as
+// pills with an icon each, the power and the child lock to hand, and a start
+// and a stop, with the door warning across the top while the door is open.
 //
 // It reads and drives the entities the integration already makes, so there is
 // nothing to wire up: the programme and power selects, the option switches,
 // the child lock, the energy and water forecasts, the remaining time and the
 // two programme buttons are found on the appliance by the names they carry.
 //
-// Bundled with the homeconnect integration, which serves this file and adds
-// it as a dashboard resource, so there is no resource to add by hand.
+// Bundled with the homeconnect integration, which serves this file and adds it
+// as a dashboard resource, so there is no resource to add by hand.
 
 const CARD = "homeconnect-dishwasher-card";
 
-// The options the app shows as pills, in the order it shows them, each paired
-// with the tail of the switch that stands for it.
+// The options the app shows as pills, in its order, each paired with the tail
+// of the switch that stands for it and a line-art icon that stands for it.
 const OPTIONS = [
-  { slug: "vario_speed_plus", label: "SpeedPerfect+" },
-  { slug: "extra_dry", label: "Extra dry" },
-  { slug: "hygiene_plus", label: "Hygiene+" },
-  { slug: "half_load", label: "Half load" },
-  { slug: "intensiv_zone", label: "Intensive zone" },
-  { slug: "silence_on_demand", label: "Silent" },
+  { slug: "vario_speed_plus", label: "SpeedPerfect+", icon: "mdi:fast-forward" },
+  { slug: "extra_dry", label: "Extra dry", icon: "mdi:tumble-dryer" },
+  { slug: "hygiene_plus", label: "Hygiene+", icon: "mdi:shield-plus-outline" },
+  { slug: "half_load", label: "Half load", icon: "mdi:circle-half-full" },
+  { slug: "intensiv_zone", label: "Intensive zone", icon: "mdi:target" },
+  { slug: "silence_on_demand", label: "Silent", icon: "mdi:volume-off" },
 ];
 
 // Half load and the intensive zone are a dishwasher's own, so a device with a
@@ -44,6 +44,9 @@ const FIELDS = {
   start: /^button\..*_start_program(?:me)?$/,
   stop: /^button\..*_stop_program(?:me)?$/,
 };
+
+// How many bits a forecast bar is drawn in, the way the app draws it.
+const SEGMENTS = 5;
 
 const OFF = new Set(["off", "inactive", "", undefined, null, "unavailable", "unknown"]);
 
@@ -88,7 +91,7 @@ class HomeConnectDishwasherCard extends HTMLElement {
   }
 
   getCardSize() {
-    return 7;
+    return 8;
   }
 
   static getConfigElement() {
@@ -142,9 +145,6 @@ class HomeConnectDishwasherCard extends HTMLElement {
     const device = this._device();
     const found = this._entities(device);
     const present = OPTIONS.filter((o) => found.options[o.slug]);
-    // The frame is rebuilt only when the dishwasher, its set of options, or
-    // which of the one-off controls it has changes, so the handlers are wired
-    // once and a value moving does not throw the card away and build it again.
     const has = ["programme", "power", "childlock", "start", "stop"]
       .map((k) => (found[k] ? k[0] : ""))
       .join("");
@@ -166,105 +166,64 @@ class HomeConnectDishwasherCard extends HTMLElement {
         : "No dishwasher found on this system."
       : "";
 
-    const quick = [];
-    if (found.power)
-      quick.push(
-        `<label class="field"><span>Power</span><select class="picker" data-role="power"></select></label>`
-      );
-    if (found.childlock)
-      quick.push(
-        `<button class="pill" data-role="childlock" type="button">Child lock</button>`
-      );
+    if (note) {
+      this.shadowRoot.innerHTML = `${STYLE}
+        <ha-card>
+          <div class="title">${escape(title)}</div>
+          <div class="note">${escape(note)}</div>
+        </ha-card>`;
+      return;
+    }
 
     const programme = found.programme
-      ? `<label class="field prog"><span>Programme</span><select class="picker" data-role="programme"></select></label>`
-      : `<div class="prog"><span class="lab">Programme</span><span class="val" data-role="progtext">—</span></div>`;
+      ? `<label class="programme"><span class="cap">Programme</span><select class="picker prog" data-role="programme"></select></label>`
+      : `<div class="programme"><span class="cap">Programme</span><span class="prog-text" data-role="progtext">—</span></div>`;
+
+    const bar = (key) =>
+      `<div class="bar ${key}" data-bar="${key}">${'<span></span>'.repeat(SEGMENTS)}</div>`;
 
     const pills = present
       .map(
-        (o) =>
-          `<button class="pill" data-slug="${o.slug}" type="button">${o.label}</button>`
+        (o) => `<button class="pill" data-slug="${o.slug}" type="button">
+          <ha-icon icon="${o.icon}"></ha-icon><span>${o.label}</span>
+        </button>`
       )
       .join("");
 
-    this.shadowRoot.innerHTML = `
-      <style>
-        ha-card { padding: 16px; }
-        .title { font-size: 1.2em; font-weight: 600; margin: 0 0 12px;
-                 color: var(--primary-text-color); }
-        .door { display: flex; gap: 10px; align-items: center; padding: 10px 12px;
-                border-radius: 12px; margin-bottom: 12px; font-weight: 500;
-                color: #7a3d00; background: #ffedd5;
-                border: 1px solid rgba(234,120,20,.5); }
-        .door .dot { width: 18px; height: 18px; border-radius: 50%; flex: 0 0 18px;
-                     background: #ea7814; color: #fff; font-weight: 700;
-                     display: flex; align-items: center; justify-content: center;
-                     font-size: 13px; }
-        .quick { display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
-                 margin-bottom: 12px; }
-        .field { display: flex; flex-direction: column; gap: 4px; flex: 1 1 auto;
-                 min-width: 140px; }
-        .field > span { font-size: .72em; letter-spacing: .04em; text-transform: uppercase;
-                        color: var(--secondary-text-color); }
-        .field.prog { margin-bottom: 14px; }
-        .picker { font: inherit; padding: 10px 12px; border-radius: 12px;
-                  color: var(--primary-text-color); background: var(--secondary-background-color);
-                  border: 1px solid var(--divider-color); width: 100%; }
-        .prog { display: flex; justify-content: space-between; align-items: baseline;
-                padding: 12px 14px; border-radius: 12px; margin-bottom: 14px;
-                background: var(--secondary-background-color); }
-        .prog .lab { color: var(--secondary-text-color); }
-        .prog .val { font-size: 1.15em; font-weight: 600; color: var(--primary-color); }
-        .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px;
-                 margin-bottom: 16px; }
-        .stat .cap { font-size: .72em; letter-spacing: .04em; text-transform: uppercase;
-                     color: var(--secondary-text-color); }
-        .stat .num { font-size: 1.15em; font-weight: 600; margin-top: 2px;
-                     color: var(--primary-text-color); }
-        .bar { height: 4px; border-radius: 2px; margin-top: 6px;
-               background: var(--divider-color); overflow: hidden; }
-        .bar > span { display: block; height: 100%; width: 0; background: var(--primary-color); }
-        .opts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
-        .opts:empty { display: none; }
-        .pill { font: inherit; cursor: pointer; padding: 8px 14px; border-radius: 999px;
-                border: 1px solid var(--divider-color); background: transparent;
-                color: var(--primary-text-color); transition: all .2s ease; }
-        .pill.on { border-color: var(--primary-color); color: var(--primary-color);
-                   background: color-mix(in srgb, var(--primary-color) 12%, transparent);
-                   font-weight: 600; }
-        .pill:disabled { opacity: .5; cursor: default; }
-        .actions { display: flex; gap: 10px; }
-        .actions button { flex: 1; font: inherit; font-weight: 600; cursor: pointer;
-                          padding: 12px; border-radius: 12px; border: none; }
-        .go { background: var(--primary-color); color: var(--text-primary-color, #fff); }
-        .stop { background: var(--secondary-background-color); color: var(--primary-text-color); }
-        .actions button:disabled { opacity: .5; cursor: default; }
-        .note { color: var(--secondary-text-color); text-align: center; padding: 24px 8px; }
-      </style>
+    const quick = [];
+    if (found.power)
+      quick.push(
+        `<label class="field"><span class="cap">Power</span><select class="picker" data-role="power"></select></label>`
+      );
+    if (found.childlock)
+      quick.push(
+        `<button class="pill lock" data-role="childlock" type="button">
+          <ha-icon icon="mdi:lock"></ha-icon><span>Child lock</span>
+        </button>`
+      );
+
+    this.shadowRoot.innerHTML = `${STYLE}
       <ha-card>
         <div class="title">${escape(title)}</div>
-        ${note ? `<div class="note">${escape(note)}</div>` : ""}
-        <div class="door" hidden><span class="dot">!</span><span>Please close the door.</span></div>
-        <div class="quick">${quick.join("")}</div>
+        <div class="door" hidden>
+          <span class="dot"><ha-icon icon="mdi:exclamation"></ha-icon></span>
+          <span>Please close the door.</span>
+        </div>
         ${programme}
         <div class="stats">
-          <div class="stat"><div class="cap">Energy</div><div class="num" data-k="energy">—</div><div class="bar"><span data-b="energy"></span></div></div>
-          <div class="stat"><div class="cap">Water</div><div class="num" data-k="water">—</div><div class="bar"><span data-b="water"></span></div></div>
-          <div class="stat"><div class="cap">Duration</div><div class="num" data-k="remaining">—</div></div>
+          <div class="stat"><span class="cap">Energy</span><span class="num" data-k="energy">—</span>${bar("energy")}</div>
+          <div class="stat"><span class="cap">Water</span><span class="num" data-k="water">—</span>${bar("water")}</div>
+          <div class="stat"><span class="cap">Duration</span><span class="num" data-k="remaining">—</span></div>
         </div>
+        <div class="opts-head" ${present.length ? "" : "hidden"}>Options</div>
         <div class="opts">${pills}</div>
+        <div class="quick">${quick.join("")}</div>
         <div class="actions">
-          <button class="go" type="button">Start</button>
-          <button class="stop" type="button">Stop</button>
+          <button class="go" type="button"><ha-icon icon="mdi:play"></ha-icon><span>Start</span></button>
+          <button class="stop" type="button"><ha-icon icon="mdi:stop"></ha-icon><span>Stop</span></button>
         </div>
       </ha-card>`;
 
-    if (note) {
-      this.shadowRoot
-        .querySelectorAll(".quick, .prog, .field, .stats, .opts, .actions")
-        .forEach((el) => (el.hidden = true));
-      return;
-    }
     if (!this.shadowRoot.querySelector(".quick").children.length)
       this.shadowRoot.querySelector(".quick").hidden = true;
 
@@ -283,7 +242,6 @@ class HomeConnectDishwasherCard extends HTMLElement {
       lock.addEventListener("click", () =>
         this._call(this._found.childlock, "switch", "toggle")
       );
-
     for (const pill of this.shadowRoot.querySelectorAll(".pill[data-slug]")) {
       pill.addEventListener("click", () =>
         this._call(this._found.options[pill.dataset.slug], "switch", "toggle")
@@ -359,7 +317,7 @@ class HomeConnectDishwasherCard extends HTMLElement {
     }
     el.disabled = false;
     const options = state.attributes.options || [];
-    const signature = options.join("");
+    const signature = options.join("");
     if (el._signature !== signature) {
       el._signature = signature;
       el.innerHTML = options
@@ -369,15 +327,20 @@ class HomeConnectDishwasherCard extends HTMLElement {
     el.value = state.state;
   }
 
-  // One percentage stat: the number, and a bar filled to it.
+  // One forecast: its percentage as a number, and a bar lit in bits to it, the
+  // way the app fills a segmented gauge.
   _stat(key, entity_id) {
     const root = this.shadowRoot;
     const num = root.querySelector(`[data-k="${key}"]`);
-    const bar = root.querySelector(`[data-b="${key}"]`);
     const raw = this._value(entity_id);
     const value = Number(raw);
-    if (num) num.textContent = raw === undefined || Number.isNaN(value) ? "—" : `${Math.round(value)}%`;
-    if (bar) bar.style.width = Number.isNaN(value) ? "0" : `${Math.max(0, Math.min(100, value))}%`;
+    const known = raw !== undefined && !Number.isNaN(value);
+    if (num) num.textContent = known ? `${Math.round(value)}%` : "—";
+    const bar = root.querySelector(`[data-bar="${key}"]`);
+    if (bar) {
+      const lit = known ? Math.round((Math.max(0, Math.min(100, value)) / 100) * SEGMENTS) : 0;
+      [...bar.children].forEach((seg, i) => seg.classList.toggle("lit", i < lit));
+    }
   }
 }
 
@@ -387,6 +350,69 @@ function clock(seconds) {
   if (m >= 60) return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, "0")}`;
   return `${m} min`;
 }
+
+const STYLE = `
+  <style>
+    ha-card { padding: 16px; }
+    .title { font-size: 1.4em; font-weight: 700; letter-spacing: -.01em;
+             margin: 0 0 14px; color: var(--primary-text-color); }
+    .cap { font-size: .72em; letter-spacing: .05em; text-transform: uppercase;
+           color: var(--secondary-text-color); }
+    .note { color: var(--secondary-text-color); text-align: center; padding: 24px 8px; }
+    .door { display: flex; gap: 10px; align-items: center; padding: 12px 14px;
+            border-radius: 16px; margin-bottom: 14px; font-weight: 600;
+            color: #7a3d00; background: #ffedd5; border: 1px solid rgba(234,120,20,.4); }
+    .door .dot { width: 26px; height: 26px; border-radius: 50%; flex: 0 0 26px;
+                 background: #ea7814; color: #fff; display: flex; align-items: center;
+                 justify-content: center; --mdc-icon-size: 18px; }
+    .programme { display: flex; align-items: center; justify-content: space-between;
+                 gap: 12px; padding: 14px 16px; border-radius: 16px; margin-bottom: 16px;
+                 background: var(--card-background-color, #fff);
+                 box-shadow: 0 1px 3px rgba(0,0,0,.10); }
+    .programme .prog-text { font-size: 1.15em; font-weight: 700; color: var(--primary-color); }
+    .picker { font: inherit; padding: 9px 12px; border-radius: 12px;
+              color: var(--primary-text-color); background: var(--secondary-background-color);
+              border: 1px solid var(--divider-color); }
+    .picker.prog { font-weight: 700; color: var(--primary-color); text-align: right;
+                   border: none; background: transparent; max-width: 60%; }
+    .field { display: flex; flex-direction: column; gap: 5px; flex: 1 1 auto; min-width: 130px; }
+    .field .picker { width: 100%; }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0;
+             margin-bottom: 18px; }
+    .stat { display: flex; flex-direction: column; gap: 4px; padding: 0 14px;
+            border-left: 1px solid var(--divider-color); }
+    .stat:first-child { border-left: none; padding-left: 0; }
+    .stat .num { font-size: 1.25em; font-weight: 700; color: var(--primary-text-color); }
+    .bar { display: flex; gap: 3px; margin-top: 4px; }
+    .bar span { flex: 1; height: 5px; border-radius: 3px; background: var(--divider-color); }
+    .bar.energy span.lit { background: #e8896b; }
+    .bar.water span.lit { background: #4f9fe0; }
+    .opts-head { font-weight: 700; margin: 0 0 10px; color: var(--primary-text-color); }
+    .opts { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .opts:empty { display: none; }
+    .quick { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end;
+             margin-bottom: 16px; }
+    .quick:empty { display: none; }
+    .pill { display: inline-flex; align-items: center; gap: 8px; font: inherit;
+            cursor: pointer; padding: 9px 15px 9px 12px; border-radius: 999px;
+            border: 1px solid var(--divider-color); background: transparent;
+            color: var(--primary-text-color); transition: all .2s ease;
+            --mdc-icon-size: 20px; }
+    .pill ha-icon { color: var(--secondary-text-color); }
+    .pill.on { border-color: var(--primary-color); color: var(--primary-color);
+               background: color-mix(in srgb, var(--primary-color) 12%, transparent);
+               font-weight: 600; }
+    .pill.on ha-icon { color: var(--primary-color); }
+    .pill:disabled { opacity: .5; cursor: default; }
+    .actions { display: flex; gap: 10px; }
+    .actions button { flex: 1; display: inline-flex; align-items: center;
+                      justify-content: center; gap: 8px; font: inherit; font-weight: 700;
+                      cursor: pointer; padding: 14px; border-radius: 14px; border: none;
+                      --mdc-icon-size: 20px; }
+    .go { background: var(--primary-color); color: var(--text-primary-color, #fff); }
+    .stop { background: var(--secondary-background-color); color: var(--primary-text-color); }
+    .actions button:disabled { opacity: .5; cursor: default; }
+  </style>`;
 
 // The little form shown when the card is edited: pick the dishwasher, name it.
 class HomeConnectDishwasherCardEditor extends HTMLElement {

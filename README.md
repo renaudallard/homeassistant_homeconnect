@@ -246,11 +246,12 @@ with a capital H and a small h, but the appliance only reports that a plate is
 warm and not which, so the card shows a single H.
 
 The dishwasher card lays a dishwasher out the way the app does and drives it
-the same way: pick the programme, turn the options on and off, set the power
-and lock the controls, and start or stop it. Beneath the programme it shows
-what the run forecasts for energy and water and how long it will take, with a
-warning across the top while the door is open. Every control is the appliance's
-own entity, so whatever the card does the appliance does.
+the same way: the programme on a card of its own, the options as pills with an
+icon each, the power and the child lock to hand, and a start and a stop. What
+the run forecasts for energy and water reads on the same coloured bars the app
+uses, beside how long it will take, with a warning across the top while the
+door is open. Every control is the appliance's own entity, so whatever the
+card does the appliance does.
 
     type: custom:homeconnect-dishwasher-card
 
