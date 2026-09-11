@@ -147,6 +147,20 @@ class StopButton(HomeConnectButton):
         await self._asking(self.coordinator.stop_program(self._haid))
 
 
+# Commands that do something disruptive or hard to undo: a factory reset, a
+# firmware operation, a channel to the maker's own support. They are built
+# like every other command, and left switched off unless asked for, so none
+# is a press away by accident. Recognised by the word in the key rather than
+# by a list of appliances, so a sibling on a machine nobody here has tried is
+# caught the same way.
+SENSITIVE = ("FactoryReset", "Software", "CustomerService")
+
+
+def sensitive_command(key: str) -> bool:
+    """Whether a key is a command better left off until it is wanted."""
+    return ".Command." in key and any(word in key for word in SENSITIVE)
+
+
 class CommandButton(HomeConnectButton):
     """One of the things the appliance says it will be told to do."""
 
@@ -157,6 +171,8 @@ class CommandButton(HomeConnectButton):
         self._key = key
         self._attr_unique_id = f"{haid}-{key}"
         self._attr_name = names.readable(key)
+        if sensitive_command(key):
+            self._attr_entity_registry_enabled_default = False
 
     @property
     def available(self) -> bool:

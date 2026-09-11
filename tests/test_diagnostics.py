@@ -58,6 +58,7 @@ async def test_the_account_report_carries_the_whole_of_what_was_said(
     assert one["describes"]["commands"] == [
         "BSH.Common.Command.PauseProgram",
         "BSH.Common.Command.ResumeProgram",
+        "BSH.Common.Command.ApplyFactoryReset",
     ]
 
 

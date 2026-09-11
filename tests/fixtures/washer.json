@@ -140,6 +140,10 @@
     {
       "key": "BSH.Common.Command.ResumeProgram",
       "name": "Continue the programme"
+    },
+    {
+      "key": "BSH.Common.Command.ApplyFactoryReset",
+      "name": "Apply factory reset"
     }
   ],
   "events": [

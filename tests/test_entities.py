@@ -171,6 +171,23 @@ async def test_the_commands_the_appliance_offers_become_buttons(
     assert hass.states.get("button.washer_resume_programme") is not None
 
 
+async def test_a_dangerous_command_is_built_but_left_switched_off(
+    hass: HomeAssistant, washer: MockConfigEntry
+) -> None:
+    """A factory reset is a press nobody should trip over, so the button is
+    there for whoever wants it but not switched on out of the box."""
+    from homeassistant.helpers import entity_registry as er
+
+    registry = er.async_get(hass)
+    found = registry.async_get("button.washer_apply_factory_reset")
+    assert found is not None
+    assert found.disabled_by is er.RegistryEntryDisabler.INTEGRATION
+    # So it has no state to press.
+    assert hass.states.get("button.washer_apply_factory_reset") is None
+    # An ordinary command is still there and usable.
+    assert hass.states.get("button.washer_pause_programme") is not None
+
+
 async def test_starting_is_offered_and_stopping_is_not(
     hass: HomeAssistant, washer: MockConfigEntry
 ) -> None:

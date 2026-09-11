@@ -170,6 +170,45 @@ async def test_an_appliance_taken_off_the_account_loses_its_device(
     assert device_for(hass, made, HAID) is None
 
 
+async def test_dangerous_commands_are_switched_off_once_on_an_older_entry(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """New entries never switch these on. One set up before they were tamed
+    has them switched off here, the first time and once: a factory reset and
+    the like should not be left a press away by an upgrade, and an ordinary
+    command a user turned on is left alone."""
+    made = entry(hass, minor_version=1)
+    registry = er.async_get(hass)
+    reset = registry.async_get_or_create(
+        "button",
+        DOMAIN,
+        f"{HAID}-BSH.Common.Command.ApplyFactoryReset",
+        config_entry=made,
+        suggested_object_id="washer_apply_factory_reset",
+    )
+    pause = registry.async_get_or_create(
+        "button",
+        DOMAIN,
+        f"{HAID}-BSH.Common.Command.PauseProgram",
+        config_entry=made,
+        suggested_object_id="washer_pause_old",
+    )
+    assert reset.disabled_by is None and pause.disabled_by is None
+
+    serve(aioclient_mock, [fixture("washer")])
+    with patch("custom_components.homeconnect.HomeConnectStream.start"):
+        await hass.config_entries.async_setup(made.entry_id)
+        await hass.async_block_till_done()
+
+    assert made.minor_version == 2
+    # The dangerous one is switched off, the ordinary one left as it was.
+    reset_now = registry.async_get(reset.entity_id)
+    pause_now = registry.async_get(pause.entity_id)
+    assert reset_now is not None and pause_now is not None
+    assert reset_now.disabled_by is er.RegistryEntryDisabler.INTEGRATION
+    assert pause_now.disabled_by is None
+
+
 async def test_a_key_that_moved_platform_loses_the_entity_it_was(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
 ) -> None:

@@ -158,7 +158,9 @@ def serve(mock: AiohttpClientMocker, appliances: list[dict[str, Any]]) -> None:
         )
 
 
-def entry(hass: HomeAssistant, email: str | None = None) -> MockConfigEntry:
+def entry(
+    hass: HomeAssistant, email: str | None = None, minor_version: int = 2
+) -> MockConfigEntry:
     """An account already signed in, with a token that has not expired."""
     data: dict[str, Any] = {
         CONF_ACCESS_TOKEN: "an-access-token",
@@ -172,6 +174,7 @@ def entry(hass: HomeAssistant, email: str | None = None) -> MockConfigEntry:
         title="Home Connect",
         unique_id="account-under-test",
         data=data,
+        minor_version=minor_version,
     )
     made.add_to_hass(hass)
     return made

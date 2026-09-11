@@ -143,9 +143,11 @@ away on the next look.
 | the door | a door binary sensor, with locked told from merely shut |
 | whatever it is complaining about | a binary sensor each |
 | the commands it takes | a button each |
-| the programmes it will run | a **Programme** select, with **Start** and **Stop** |
+| the programmes it will run | a **Programme** select, with **Start programme** and **Stop programme** |
 | how long is left | a duration sensor, and a **Finish at** timestamp |
 | anything else it reports | a sensor |
+
+A handful of commands are built like the rest but left switched off until you ask for them: a factory reset, a firmware download or update, and the lines that open a channel to the manufacturer's support. They are one press and hard to take back, so none sits there pressable out of the box; enable the one you want from the appliance's page. An account set up before this keeps whatever it had, except that these are switched off once on the upgrade.
 
 An appliance that the account lists but that has never once answered raises a
 repair notice saying so, because otherwise it arrives as a single Disconnected

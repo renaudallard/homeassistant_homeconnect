@@ -89,6 +89,32 @@ class HomeConnectData:
 type HomeConnectConfigEntry = ConfigEntry[HomeConnectData]
 
 
+async def async_migrate_entry(
+    hass: HomeAssistant, entry: HomeConnectConfigEntry
+) -> bool:
+    """Bring an older entry up to date.
+
+    2: the commands that reset an appliance, move its software or open a line
+    to the maker's support are left switched off unless asked for. An entry
+    set up before this has them switched off here, once. One set up after
+    never had them on, so there is nothing to do.
+    """
+    if entry.minor_version < 2:
+        from .button import sensitive_command
+
+        registry = er.async_get(hass)
+        for registered in er.async_entries_for_config_entry(registry, entry.entry_id):
+            if registered.disabled_by is None and sensitive_command(
+                registered.unique_id
+            ):
+                registry.async_update_entity(
+                    registered.entity_id,
+                    disabled_by=er.RegistryEntryDisabler.INTEGRATION,
+                )
+        hass.config_entries.async_update_entry(entry, minor_version=2)
+    return True
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: HomeConnectConfigEntry) -> bool:
     """Set up a Home Connect account."""
     session = async_get_clientsession(hass)
