@@ -262,6 +262,10 @@ in the arrangement of one particular table. Each card reads the same entities
 any appliance of its kind exposes, so it works without knowing which model it
 is looking at.
 
+A hob that can join two of its zones into one is drawn as it stands: the joined
+zone shows only while the two are joined, and the two on their own the rest of
+the time, since the hob marks whichever are not in use as not selectable.
+
 ## Cloud or local
 
 An appliance answers on the network it is already on, and will do it with no

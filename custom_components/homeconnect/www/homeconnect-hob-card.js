@@ -105,16 +105,30 @@ class HomeConnectHobCard extends HTMLElement {
     if (!this._hass) return;
     const device = this._device();
     const zones = this._zones(device);
-    const numbers = Object.keys(zones).sort((a, b) => Number(a) - Number(b));
+    // A hob that can join two zones into one describes the joined zone as well
+    // as the two, and says which of the set are live by calling the rest
+    // NotSelectable. So a zone the hob will not let you pick right now is left
+    // off, which is what drops the phantom flex tile until the two are joined,
+    // and swaps to the one big tile when they are.
+    const numbers = Object.keys(zones)
+      .filter((n) => this._selectable(zones[n]))
+      .sort((a, b) => Number(a) - Number(b));
     const signature = `${device || ""}|${numbers.join(",")}`;
 
-    // Rebuild the frame only when the hob or its set of zones changes, so a
-    // value moving does not throw the whole card away and build it again.
+    // Rebuild the frame only when the hob or its set of live zones changes, so
+    // a value moving does not throw the whole card away and build it again.
     if (signature !== this._signature) {
       this._signature = signature;
       this._build(numbers, device);
     }
     for (const number of numbers) this._paint(number, zones[number]);
+  }
+
+  // Whether the hob is offering this zone at all. One it calls NotSelectable is
+  // a joinable zone standing idle, there to be shown only once it is in use.
+  _selectable(fields) {
+    const state = String(leaf(this._value(fields.state)) || "").toLowerCase();
+    return state !== "notselectable";
   }
 
   _build(numbers, device) {
