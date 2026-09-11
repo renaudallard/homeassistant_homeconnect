@@ -47,7 +47,7 @@ from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClien
 
 from custom_components.homeconnect import iddf, local
 from custom_components.homeconnect.const import CONF_TRANSPORT, LOCAL
-from custom_components.homeconnect.errors import HomeConnectAuthError
+from custom_components.homeconnect.errors import HomeConnectAuthError, HomeConnectError
 
 from .common import entry, fixture, serve, state_of
 
@@ -343,6 +343,39 @@ async def test_the_account_service_refusing_is_not_a_reason_to_sign_in_again(
         for flow in hass.config_entries.flow.async_progress()
         if flow["context"].get("source") == "reauth"
     ]
+
+
+async def test_one_unreadable_description_does_not_stop_the_rest(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """An appliance whose description will not read is skipped, not fatal.
+    Letting it stop the setup would take local control of every other machine
+    on the account with it, and leave the entry retrying for good."""
+    serve(aioclient_mock, [fixture("washer")])
+    made = entry(hass)
+    hass.config_entries.async_update_entry(
+        made, data={**made.data, CONF_TRANSPORT: LOCAL}
+    )
+    with (
+        patch(
+            "custom_components.homeconnect.api.HomeConnectAccount.keys",
+            AsyncMock(return_value={HAID: {"key": "a-key"}}),
+        ),
+        patch(
+            "custom_components.homeconnect.api.HomeConnectAccount.description",
+            AsyncMock(side_effect=HomeConnectError("this description will not read")),
+        ),
+        patch.object(local.Finder, "start", AsyncMock()),
+        patch.object(local.Finder, "stop", AsyncMock()),
+    ):
+        await hass.config_entries.async_setup(made.entry_id)
+        await hass.async_block_till_done()
+
+    # The entry comes up rather than retrying, with nothing learnt locally.
+    assert made.state is ConfigEntryState.LOADED
+    control = made.runtime_data.local
+    assert control is not None
+    assert not control.knows(HAID)
 
 
 async def test_an_account_that_publishes_no_key_says_why(

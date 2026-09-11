@@ -438,7 +438,18 @@ class LocalControl:
             if secured is None:
                 _LOGGER.warning("the account holds no key for %s", hidden_id(haid))
                 continue
-            entries = unpack(await self._account.description(haid))
+            try:
+                entries = unpack(await self._account.description(haid))
+            except HomeConnectError as err:
+                # One appliance whose description will not read is one
+                # appliance. Letting it stop here would take local control of
+                # every other machine on the account down with it, the same
+                # way one that answers nothing over the cloud does not stop
+                # the rest being read.
+                _LOGGER.warning(
+                    "could not learn %s for local control: %s", hidden_id(haid), err
+                )
+                continue
             self._known[haid] = Known(
                 key=secured["key"], iv=secured.get("iv"), entries=entries
             )
