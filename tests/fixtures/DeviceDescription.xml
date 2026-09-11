@@ -11,6 +11,7 @@
   <settingList>
     <setting uid="0x0100" access="readWrite" available="true" enumerationType="0x0200"/>
     <setting uid="0x0102" access="readWrite" available="true"/>
+    <setting uid="0x0106" access="read" available="true" enumerationType="0x0202"/>
   </settingList>
   <commandList>
     <command uid="0x0104" access="writeOnly" available="true"/>

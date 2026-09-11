@@ -10,6 +10,7 @@
     <feature refUID="0x0103">Cooking.Hob.Status.Zone.001.PowerLevel</feature>
     <feature refUID="0x0104">BSH.Common.Command.AcknowledgeEvent</feature>
     <feature refUID="0x0105">BSH.Common.Event.ProgramFinished</feature>
+    <feature refUID="0x0106">BSH.Common.Setting.TemperatureUnit</feature>
   </featureDescriptionList>
   <errorDescriptionList>
     <error refEID="0x0001">SomeError</error>
@@ -24,6 +25,11 @@
       <enumMember refValue="0">Inactive</enumMember>
       <enumMember refValue="2">Ready</enumMember>
       <enumMember refValue="5">Run</enumMember>
+    </enumDescription>
+    <enumDescription refENID="0x0202" enumKey="BSH.Common.EnumType.TemperatureUnit">
+      <enumMember refValue="0">Celsius</enumMember>
+      <enumMember refValue="1">Fahrenheit</enumMember>
+      <enumMember refValue="2">Kelvin</enumMember>
     </enumDescription>
   </enumDescriptionList>
 </featureMappingFile>

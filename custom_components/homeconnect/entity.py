@@ -52,7 +52,16 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from . import names
-from .capability import GATHERED, OPTION, SETTING, Feature, Reading, platform_for
+from .capability import (
+    BINARY_SENSOR,
+    GATHERED,
+    OPTION,
+    SENSOR,
+    SETTING,
+    Feature,
+    Reading,
+    platform_for,
+)
 from .const import DOMAIN
 from .coordinator import Appliance, HomeConnectCoordinator
 from .errors import HomeConnectError
@@ -292,6 +301,12 @@ def follow(
     entry.async_on_unload(coordinator.async_add_listener(look))
 
 
+# The platforms that only ever read. A setting that lands on one of them is a
+# reading whatever the appliance calls it, and Home Assistant will not add a
+# reading that is marked as configuration.
+READ_ONLY = frozenset({SENSOR, BINARY_SENSOR})
+
+
 def _category(
     coordinator: HomeConnectCoordinator, haid: str, key: str, kind: str
 ) -> EntityCategory | None:
@@ -301,6 +316,11 @@ def _category(
     something, which is what tells the temperature a fridge is held at from
     the language its display is in. What it is doing, and what the programme
     it is running can be adjusted by, are never housekeeping.
+
+    Housekeeping that cannot be changed is not configuration but a reading
+    about the appliance, so it is marked as one. Home Assistant refuses
+    outright to add a reading that claims to be configuration, and whether a
+    setting becomes one is decided by the same call that placed it.
     """
     if key in DIAGNOSTIC:
         return EntityCategory.DIAGNOSTIC
@@ -309,6 +329,8 @@ def _category(
     described = coordinator.data[haid].model.settings.get(key)
     if described is not None and described.unit:
         return None
+    if described is None or platform_for(described) in READ_ONLY:
+        return EntityCategory.DIAGNOSTIC
     return EntityCategory.CONFIG
 
 

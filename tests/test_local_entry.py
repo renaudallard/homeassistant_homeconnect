@@ -134,6 +134,27 @@ async def talking(
     return made, link
 
 
+async def test_a_setting_that_cannot_be_written_is_a_reading(
+    hass: HomeAssistant, talking: tuple[MockConfigEntry, Stub]
+) -> None:
+    """A description marks some settings read only. One of those becomes a
+    reading rather than a control, and a reading that claims to be
+    configuration is one Home Assistant refuses to add at all.
+    """
+    from homeassistant.const import EntityCategory
+    from homeassistant.helpers import entity_registry as er
+
+    made = hass.states.get("sensor.washer_temperature_unit")
+    assert made is not None
+    entry = er.async_get(hass).async_get("sensor.washer_temperature_unit")
+    assert entry is not None
+    assert entry.entity_category is EntityCategory.DIAGNOSTIC
+    # The writable ones are still configuration, and still controls.
+    written = er.async_get(hass).async_get("switch.washer_child_lock")
+    assert written is not None
+    assert written.entity_category is EntityCategory.CONFIG
+
+
 async def test_the_serial_stays_out_of_the_log(
     hass: HomeAssistant,
     talking: tuple[MockConfigEntry, Stub],
