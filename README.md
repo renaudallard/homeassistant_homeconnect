@@ -255,8 +255,20 @@ card does the appliance does.
 
     type: custom:homeconnect-dishwasher-card
 
-Add either from the dashboard's card picker, where a small form lets you choose
-the appliance and give the card a heading; with only one of that kind on the
+The appliance card is the same idea for every other programme machine: a
+washer, a dryer, a washer-dryer, an oven, a microwave, a coffee maker or a
+wine cooler. It reads whatever the machine offers rather than a list held per
+model, and draws it the way the app does: the programme on its own card, the
+forecast on coloured bars, and the options each by what it is, a flag as a
+chip, a choice as a picker, a number as a slider, with the power, the child
+lock and a start and a stop. It is built the way the app builds these, from the
+machine's own parts, so it fits one it has never seen. The hob and the
+dishwasher keep their own cards, drawn to their own shapes.
+
+    type: custom:homeconnect-appliance-card
+
+Add any of them from the dashboard's card picker, where a small form lets you
+choose the appliance and give the card a heading; with only one of that kind on the
 system it is chosen for you and even that is not needed. Where there is more
 than one, set which:
 
