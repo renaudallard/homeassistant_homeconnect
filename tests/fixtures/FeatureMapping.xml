@@ -17,6 +17,7 @@
     <feature refUID="0x010A">BSH.Common.Status.WiFiSignalStrength</feature>
     <feature refUID="0x010B">BSH.Common.Setting.Favorite.001.Name</feature>
     <feature refUID="0x010C">BSH.Common.Setting.AlarmClock</feature>
+    <feature refUID="0x010D">Cooking.Hob.Status.Zone.100.ActiveProgram</feature>
   </featureDescriptionList>
   <errorDescriptionList>
     <error refEID="0x0001">SomeError</error>

@@ -258,3 +258,19 @@ def test_where_an_appliance_was_last_found_is_written_down() -> None:
     )
     assert quiet is not None
     assert quiet.where is None
+
+
+def test_a_thing_holding_a_programme_number_reads_as_the_programme() -> None:
+    """A zone has slots of its own, and a hob with five zones was reporting
+    five raw numbers where the root slots read as names. The schema says
+    which entries hold another thing's number, so all of them read alike."""
+    found = local.sort(ENTRIES, {0x010D: 0x0109})
+    zone = found.status["Cooking.Hob.Status.Zone.100.ActiveProgram"]
+    assert zone.value == "Cooking.Hob.Program.PowerLevel"
+    # Nothing means no programme, the same as for the root slots.
+    assert (
+        local.sort(ENTRIES, {0x010D: 0})
+        .status["Cooking.Hob.Status.Zone.100.ActiveProgram"]
+        .value
+        is None
+    )

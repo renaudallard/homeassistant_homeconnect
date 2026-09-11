@@ -8,6 +8,7 @@
     <status uid="0x0101" access="read" available="true" enumerationType="0x0201"/>
     <status uid="0x0103" access="read" available="true" min="0" max="9" stepSize="1"/>
     <status uid="0x010A" access="read" available="true" refCID="12" refDID="82"/>
+    <status uid="0x010D" access="read" available="true" refCID="15" refDID="81"/>
   </statusList>
   <settingList>
     <setting uid="0x0100" access="readWrite" available="true" enumerationType="0x0200"/>

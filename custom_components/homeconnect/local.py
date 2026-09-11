@@ -110,6 +110,10 @@ ACTIVE_PROGRAM = "BSH.Common.Root.ActiveProgram"
 SELECTED_PROGRAM = "BSH.Common.Root.SelectedProgram"
 PROGRAM_SLOTS = frozenset({ACTIVE_PROGRAM, SELECTED_PROGRAM})
 
+# What the schema calls a thing that holds another thing's number. A hob has
+# eighteen of them, three to a zone, and every one is a programme.
+PROGRAM_REFERENCE = "uidValue"
+
 
 @dataclass
 class Described:
@@ -191,7 +195,14 @@ def sort(entries: dict[int, Entry], values: dict[int, Any]) -> Sorted:
                 found.selected = named
             continue
         named, _ = content(entry.content) or ("", "")
-        reading = Reading(value=named_value(entry, value), unit=unit_of(named))
+        if named == PROGRAM_REFERENCE:
+            # A zone's own slots, and anything else holding the number of a
+            # programme rather than a value of its own. Read the same way as
+            # the two root slots: the programme's key, or nothing for none.
+            referenced = entries.get(value) if isinstance(value, int) else None
+            reading = Reading(value=referenced.key if referenced else None)
+        else:
+            reading = Reading(value=named_value(entry, value), unit=unit_of(named))
         kind = KINDS.get(entry.kind)
         if kind == STATUS:
             found.status[entry.key] = reading
