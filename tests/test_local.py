@@ -216,3 +216,45 @@ def test_something_holding_words_is_not_a_figure_between_two_ends() -> None:
 def test_a_reading_is_measured_in_what_its_number_says() -> None:
     found = local.sort(ENTRIES, {0x010A: -55})
     assert found.status["BSH.Common.Status.WiFiSignalStrength"].unit == "dBm"
+
+
+def test_what_a_thing_is_survives_being_written_down() -> None:
+    """The number saying what each thing is has to be kept with the rest of
+    the description. Read back without it, an alarm clock goes back to being
+    35940 of nothing and a name goes back to being a slider."""
+    known = local.Known(key="k", iv=None, entries=ENTRIES)
+    back = local.Known.from_stored(known.as_stored())
+    assert back is not None
+    assert {uid: one.content for uid, one in back.entries.items()} == {
+        uid: one.content for uid, one in ENTRIES.items()
+    }
+    assert back.entries[0x010C].content == 0x10
+
+
+def test_a_description_stored_before_this_still_reads() -> None:
+    """One written down by an older release has no such number in it."""
+    known = local.Known(key="k", iv=None, entries=ENTRIES)
+    stored = known.as_stored()
+    for one in stored["entries"].values():
+        del one["content"]
+    back = local.Known.from_stored(stored)
+    assert back is not None
+    assert all(one.content is None for one in back.entries.values())
+
+
+def test_where_an_appliance_was_last_found_is_written_down() -> None:
+    """An appliance shouts its address when it feels like it rather than when
+    asked, so one that is quiet when Home Assistant starts would never be
+    reached, however reachable it is."""
+    known = local.Known(
+        key="k", iv=None, entries=ENTRIES, where=local.Where("172.20.0.209", 443)
+    )
+    back = local.Known.from_stored(known.as_stored())
+    assert back is not None
+    assert back.where == local.Where("172.20.0.209", 443)
+    # One never yet heard from has nowhere written down, and still reads.
+    quiet = local.Known.from_stored(
+        local.Known(key="k", iv=None, entries=ENTRIES).as_stored()
+    )
+    assert quiet is not None
+    assert quiet.where is None

@@ -34,6 +34,7 @@ point of these is that nothing above the coordinator can tell which it was.
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, patch
@@ -161,6 +162,52 @@ async def test_a_setting_that_cannot_be_written_is_a_reading(
     written = er.async_get(hass).async_get("switch.washer_child_lock")
     assert written is not None
     assert written.entity_category is EntityCategory.CONFIG
+
+
+async def test_an_appliance_that_is_not_shouting_is_still_reached(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """Discovery only hears an appliance that happens to be shouting. One
+    heard before and quiet now is reached where it was last heard, which is
+    the difference between working after a restart and not."""
+    serve(aioclient_mock, [fixture("washer")])
+    made = entry(hass)
+    hass.config_entries.async_update_entry(
+        made, data={**made.data, CONF_TRANSPORT: LOCAL}
+    )
+    link = Stub()
+    with (
+        patch(
+            "custom_components.homeconnect.api.HomeConnectAccount.keys",
+            AsyncMock(return_value={HAID: {"key": "a-key"}}),
+        ),
+        patch(
+            "custom_components.homeconnect.api.HomeConnectAccount.description",
+            AsyncMock(return_value=b"a zip"),
+        ),
+        patch.object(iddf, "unpack", lambda _archive: iddf.parse(MAPPING, DESCRIPTION)),
+        patch.object(
+            local, "unpack", lambda _archive: iddf.parse(MAPPING, DESCRIPTION)
+        ),
+        patch.object(local.Finder, "start", AsyncMock()),
+        patch.object(local.Finder, "stop", AsyncMock()),
+        # Nothing is shouting, which is what discovery hears most of the time.
+        patch.object(local.Finder, "where", lambda _self, _haid: None),
+        patch.object(local.LocalControl, "_make", _standing_in(link)),
+    ):
+        await hass.config_entries.async_setup(made.entry_id)
+        await hass.async_block_till_done()
+        control = made.runtime_data.local
+        assert control is not None
+        assert not control.talking(HAID)
+
+        # Once it has been heard of, that address is what is used next time.
+        control._known[HAID] = replace(
+            control._known[HAID], where=local.Where("host", 80)
+        )
+        control._look_again()
+        await hass.async_block_till_done()
+        assert control.talking(HAID)
 
 
 async def test_the_serial_stays_out_of_the_log(

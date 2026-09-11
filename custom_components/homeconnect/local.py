@@ -41,7 +41,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from homeassistant.core import HomeAssistant, callback
@@ -72,6 +72,10 @@ KINDS = {
 
 # How long to give an appliance to answer when asked where it is.
 RESOLVE = 5.0
+
+# How long to sit on a newly heard address before writing it down. It only has
+# to outlast the burst of announcements that arrive when an appliance wakes.
+REMEMBER_AFTER = 30.0
 
 
 def _feature(entry: Entry, kind: str) -> Feature:
@@ -292,11 +296,18 @@ class Known:
     key: str
     iv: str | None
     entries: dict[int, Entry]
+    # Where it was last found. An appliance shouts its address when it feels
+    # like it and not when asked, so one that is quiet at the moment Home
+    # Assistant starts would otherwise never be reached at all, however
+    # reachable it is.
+    where: Where | None = None
 
     def as_stored(self) -> dict[str, Any]:
         return {
             "key": self.key,
             "iv": self.iv,
+            "host": self.where.host if self.where else None,
+            "port": self.where.port if self.where else None,
             "entries": {
                 str(uid): {
                     "kind": entry.kind,
@@ -308,6 +319,7 @@ class Known:
                     "maximum": entry.maximum,
                     "step": entry.step,
                     "execution": entry.execution,
+                    "content": entry.content,
                 }
                 for uid, entry in self.entries.items()
             },
@@ -319,9 +331,11 @@ class Known:
         if not isinstance(stored, dict):
             return None
         try:
+            host = stored.get("host")
             return cls(
                 key=str(stored["key"]),
                 iv=stored["iv"],
+                where=Where(str(host), int(stored["port"])) if host else None,
                 entries={
                     int(uid): Entry(
                         uid=int(uid),
@@ -334,6 +348,10 @@ class Known:
                         maximum=one["maximum"],
                         step=one["step"],
                         execution=one["execution"],
+                        # Written down since 0.1.1. One stored before that
+                        # has none, and reads as an appliance that never
+                        # said what its numbers are.
+                        content=one.get("content"),
                     )
                     for uid, one in stored["entries"].items()
                 },
@@ -408,9 +426,19 @@ class LocalControl:
                 key=secured["key"], iv=secured.get("iv"), entries=entries
             )
             _LOGGER.debug("learnt %d things about %s", len(entries), hidden_id(haid))
-        await self._store.async_save(
-            {haid: known.as_stored() for haid, known in self._known.items()}
-        )
+        await self._store.async_save(self._stored())
+
+    def _stored(self) -> dict[str, Any]:
+        return {haid: known.as_stored() for haid, known in self._known.items()}
+
+    def _remember(self) -> None:
+        """Write down where things are, without waiting on the disk.
+
+        Discovery fires a callback, which cannot wait for a write, and an
+        address heard a moment ago is not worth one of its own: whatever is
+        written last is what is wanted, and a few seconds late will do.
+        """
+        self._store.async_delay_save(self._stored, REMEMBER_AFTER)
 
     def knows(self, haid: str) -> bool:
         return haid in self._known
@@ -445,13 +473,25 @@ class LocalControl:
         for haid, known in self._known.items():
             if haid in self._links:
                 continue
-            where = self._finder.where(haid)
+            # Where it is shouting from now, or where it was last heard
+            # shouting from. An appliance shouts when it feels like it, so
+            # waiting for one to shout again is waiting for nothing.
+            found = self._finder.where(haid)
+            where = found or known.where
             if where is None:
                 continue
+            if found is not None and found != known.where:
+                self._known[haid] = replace(known, where=found)
+                self._remember()
             link = self._make(haid, known, where)
             self._links[haid] = link
             link.start(self._spawn)
-            _LOGGER.debug("talking to %s at %s", hidden_id(haid), where.host)
+            _LOGGER.debug(
+                "talking to %s at %s, %s",
+                hidden_id(haid),
+                where.host,
+                "where it is shouting from" if found else "where it last was",
+            )
 
     def _make(self, haid: str, known: Known, where: Where) -> Any:
         from .hcp import HcpLink
