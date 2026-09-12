@@ -37,6 +37,7 @@ import pytest
 from homeassistant.core import HomeAssistant
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
+from custom_components.homeconnect.errors import HomeConnectAuthError
 from custom_components.homeconnect.events import EVENTS_URL, Event, HomeConnectStream
 
 PUSHED = (
@@ -111,6 +112,30 @@ async def test_a_refusal_that_says_how_long_to_wait_is_believed(
     with pytest.raises(TooSoon) as asked:
         await stream._listen()
     assert asked.value.wait == 90.0
+
+
+async def test_a_stream_that_cannot_sign_in_stops_asking(
+    session: aiohttp.ClientSession,
+) -> None:
+    """A refresh token the cloud has revoked will not be taken in half a
+    minute either. The stream says it is down, which is what has the account
+    polled and the user asked to sign in again, and stops rather than asking
+    the token endpoint the same question until then."""
+    asked = 0
+
+    async def headers() -> dict[str, str]:
+        nonlocal asked
+        asked += 1
+        raise HomeConnectAuthError("renewing the token was refused")
+
+    opened: list[bool] = []
+    stream = HomeConnectStream(
+        session, headers, lambda: 0.0, lambda _e: None, opened.append
+    )
+    async with asyncio.timeout(5):
+        await stream._run()
+    assert asked == 1
+    assert opened == [False]
 
 
 async def test_stopping_a_stream_that_was_never_started_is_no_trouble(

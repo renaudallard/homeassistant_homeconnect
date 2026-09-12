@@ -49,6 +49,7 @@ from typing import Any
 import aiohttp
 
 from .const import API_HOST, API_PATH, STREAM_READ_TIMEOUT
+from .errors import HomeConnectAuthError
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -187,6 +188,16 @@ class HomeConnectStream:
             except TooSoon as err:
                 delay = err.wait
                 _LOGGER.debug("the cloud asked for %d seconds before reopening", delay)
+            except HomeConnectAuthError as err:
+                # There is no token to open with and the cloud will not hand
+                # one over, which only the user signing in again can mend.
+                # Saying the stream is down is what has the account polled,
+                # and the poll is what asks them. Trying again every half
+                # minute until then would only ask the token endpoint the
+                # same question.
+                _LOGGER.debug("the event stream cannot sign in: %s", err)
+                self._on_connected(False)
+                return
             except Exception:
                 # A stream that is never going to work would otherwise write a
                 # traceback every half minute for as long as the entry is

@@ -126,8 +126,10 @@ renewed in the background from then on.
 
 Tokens are written into the config entry and renewed in the background. If they
 stop working, Home Assistant asks you to sign in again rather than failing
-quietly. It has to be the same account: signing in as somebody else is refused
-rather than quietly pointing the entry at another household's appliances.
+quietly, and the live stream waits for that rather than asking the cloud every
+half minute for a token it will not give. It has to be the same account:
+signing in as somebody else is refused rather than quietly pointing the entry
+at another household's appliances.
 
 An appliance unpaired in the app stops being listed, and its device is taken
 away on the next look.
