@@ -80,7 +80,17 @@
     },
     "event": {
       "program": {
-        "name": "Programa"
+        "name": "Programa",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "finished": "Finalizado",
+              "aborted": "Cancelado",
+              "preheat_finished": "Precalentamiento finalizado",
+              "alarm_clock_elapsed": "Temporizador finalizado"
+            }
+          }
+        }
       }
     },
     "select": {

@@ -80,7 +80,17 @@
     },
     "event": {
       "program": {
-        "name": "Programma"
+        "name": "Programma",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "finished": "Terminato",
+              "aborted": "Interrotto",
+              "preheat_finished": "Preriscaldamento terminato",
+              "alarm_clock_elapsed": "Timer scaduto"
+            }
+          }
+        }
       }
     },
     "select": {

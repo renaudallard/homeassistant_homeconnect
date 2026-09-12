@@ -80,7 +80,17 @@
     },
     "event": {
       "program": {
-        "name": "Programme"
+        "name": "Programme",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "finished": "Finished",
+              "aborted": "Aborted",
+              "preheat_finished": "Preheat finished",
+              "alarm_clock_elapsed": "Alarm clock elapsed"
+            }
+          }
+        }
       }
     },
     "select": {

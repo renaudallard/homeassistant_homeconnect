@@ -80,7 +80,17 @@
     },
     "event": {
       "program": {
-        "name": "Programm"
+        "name": "Programm",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "finished": "Beendet",
+              "aborted": "Abgebrochen",
+              "preheat_finished": "Vorheizen beendet",
+              "alarm_clock_elapsed": "Wecker abgelaufen"
+            }
+          }
+        }
       }
     },
     "select": {

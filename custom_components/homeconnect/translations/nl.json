@@ -80,7 +80,17 @@
     },
     "event": {
       "program": {
-        "name": "Programma"
+        "name": "Programma",
+        "state_attributes": {
+          "event_type": {
+            "state": {
+              "finished": "Klaar",
+              "aborted": "Afgebroken",
+              "preheat_finished": "Voorverwarmen klaar",
+              "alarm_clock_elapsed": "Kookwekker afgelopen"
+            }
+          }
+        }
       }
     },
     "select": {
