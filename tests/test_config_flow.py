@@ -35,7 +35,7 @@ from collections.abc import Mapping
 from dataclasses import replace
 from ipaddress import ip_address
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 from urllib.parse import parse_qs, urlparse
 
 from homeassistant import config_entries
@@ -45,6 +45,7 @@ from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers.service_info.zeroconf import ZeroconfServiceInfo
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
+from custom_components.homeconnect.auth import Tokens
 from custom_components.homeconnect.const import (
     API_HOST,
     CONF_ACCESS_TOKEN,
@@ -104,6 +105,31 @@ async def test_signing_in_makes_an_entry(
     assert made["title"] == "Home Connect"
     assert made["data"][CONF_ACCESS_TOKEN] == "an-access-token"
     assert made["data"][CONF_REFRESH_TOKEN] == "a-refresh-token"
+
+
+async def test_a_pair_renewed_while_being_proved_is_the_pair_written_down(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """A pair handed out with no lifetime is renewed the moment it is used,
+    and proving it uses it. The entry has to hold the pair the cloud holds
+    now, or the refresh token it stores is one the cloud has already spent."""
+    shown = await browser_step(hass)
+    aioclient_mock.post(
+        TOKEN_URL,
+        json={"access_token": "a-brief-token", "refresh_token": "a-brief-refresh"},
+    )
+    serve(aioclient_mock, [fixture("washer")])
+    renewed = Tokens("a-renewed-token", "a-renewed-refresh", time.time() + 3600)
+    with patch(
+        "custom_components.homeconnect.auth.renew", AsyncMock(return_value=renewed)
+    ) as renew:
+        made = await hass.config_entries.flow.async_configure(
+            shown["flow_id"], {CONF_CODE: answer(shown)}
+        )
+    assert made["type"] is FlowResultType.CREATE_ENTRY
+    renew.assert_awaited_once()
+    assert made["data"][CONF_ACCESS_TOKEN] == "a-renewed-token"
+    assert made["data"][CONF_REFRESH_TOKEN] == "a-renewed-refresh"
 
 
 async def test_an_address_from_a_different_sign_in_is_refused(

@@ -244,10 +244,15 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
 
         A token the cloud will hand out and then refuse makes an entry that
         fails on every start with nothing to say about why.
+
+        Using the pair can renew it: one handed out with no lifetime is due
+        the moment it is used. What is written down has to be the pair the
+        cloud holds after that, since the refresh token it replaced is spent.
         """
         session = async_get_clientsession(self.hass)
-        await HomeConnectApi(session, tokens, self.hass.config.language).appliances()
-        return tokens
+        api = HomeConnectApi(session, tokens, self.hass.config.language)
+        await api.appliances()
+        return api.tokens
 
     async def _finish(self, tokens: Tokens) -> ConfigFlowResult:
         """Make the entry, or hand the new tokens to the one already there."""
