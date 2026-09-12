@@ -35,6 +35,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import cast
+from unittest.mock import AsyncMock, MagicMock
 
 from homeassistant.core import HomeAssistant
 
@@ -437,6 +438,31 @@ def test_a_thing_holding_a_programme_number_reads_as_the_programme() -> None:
         .value
         is None
     )
+
+
+async def test_a_new_appliance_without_a_key_does_not_stop_the_known_ones() -> None:
+    """An account already reaching an appliance directly gains one the cloud
+    holds no key for. That is one appliance to leave out, not none to reach,
+    and an entry that came up before must come up again."""
+    account = MagicMock()
+    account.keys = AsyncMock(return_value={})
+    store = MagicMock()
+    store.async_save = AsyncMock()
+    control = local.LocalControl(
+        cast(HomeAssistant, None),
+        object(),
+        account,
+        store,
+        lambda *_a: None,
+        lambda *_a: None,
+    )
+    control._known["BOSCH-HOB-1"] = local.Known(key="AAAA", iv=None, entries={})
+
+    await control.learn(["BOSCH-HOB-1", "BOSCH-FRIDGE-2"])
+
+    account.keys.assert_awaited_once_with(["BOSCH-FRIDGE-2"])
+    assert control.knows("BOSCH-HOB-1")
+    assert not control.knows("BOSCH-FRIDGE-2")
 
 
 def test_the_identity_is_carried_into_every_link() -> None:

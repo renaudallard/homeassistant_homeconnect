@@ -493,7 +493,11 @@ class LocalControl:
             return
         keys = await self._account.keys(wanted)
         _LOGGER.debug("the account named %d appliances with a key", len(keys))
-        if not keys:
+        # Only an account with a key for nothing at all is refused. One that
+        # already reaches an appliance this way and has gained one the cloud
+        # holds no key for has one appliance to leave out, which the warning
+        # below says, and not none to reach.
+        if not keys and not self._known:
             raise HomeConnectError(
                 "the account publishes no key for any appliance on it, so "
                 "there is no way to reach one directly. Reach these "
