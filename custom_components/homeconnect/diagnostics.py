@@ -147,17 +147,24 @@ def _identifiers(haid: str) -> set[str]:
     return {one for one in found if one}
 
 
-async def async_get_config_entry_diagnostics(
-    hass: HomeAssistant, entry: HomeConnectConfigEntry
-) -> dict[str, Any]:
-    """Everything on the account."""
-    coordinator = entry.runtime_data.coordinator
-    interval = coordinator.update_interval
+def _entry(entry: HomeConnectConfigEntry) -> dict[str, Any]:
+    """What is worth knowing about the entry itself, in either report."""
+    interval = entry.runtime_data.coordinator.update_interval
     return {
         "entry": redact(dict(entry.data)),
         # How often the account is being asked, which says whether the stream
         # is carrying the changes or the poll is.
         "polling_seconds": interval.total_seconds() if interval else None,
+    }
+
+
+async def async_get_config_entry_diagnostics(
+    hass: HomeAssistant, entry: HomeConnectConfigEntry
+) -> dict[str, Any]:
+    """Everything on the account."""
+    coordinator = entry.runtime_data.coordinator
+    return {
+        **_entry(entry),
         "appliances": [
             _appliance(appliance, await _description(entry, haid))
             for haid, appliance in coordinator.data.items()
@@ -174,7 +181,7 @@ async def async_get_device_diagnostics(
         identifier for domain, identifier in device.identifiers if domain == DOMAIN
     ]
     return {
-        "entry": redact(dict(entry.data)),
+        **_entry(entry),
         "appliances": [
             _appliance(appliance, await _description(entry, haid))
             for haid, appliance in coordinator.data.items()

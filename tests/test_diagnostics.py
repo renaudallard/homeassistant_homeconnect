@@ -111,3 +111,5 @@ async def test_one_appliance_reports_only_itself(
     assert device is not None
     report = await async_get_device_diagnostics(hass, entry, device)
     assert len(report["appliances"]) == 1
+    # How often the account is asked is in the one report people send too.
+    assert report["polling_seconds"] == 60.0
