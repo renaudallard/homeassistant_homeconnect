@@ -52,6 +52,7 @@ import argparse
 import asyncio
 import json
 import logging
+import re
 import secrets
 import sys
 import time
@@ -65,7 +66,7 @@ sys.path.insert(0, ".")
 from custom_components.homeconnect import auth
 from custom_components.homeconnect.api import ACTIVE, SELECTED, HomeConnectApi
 from custom_components.homeconnect.errors import HomeConnectError
-from custom_components.homeconnect.http import redact
+from custom_components.homeconnect.http import hidden_id, redact
 
 
 def _step(number: int, what: str) -> None:
@@ -73,11 +74,12 @@ def _step(number: int, what: str) -> None:
 
 
 def _hide(haid: str) -> str:
-    """An appliance id with the part that names one machine taken out."""
-    parts = haid.split("-")
-    if len(parts) > 2:
-        parts[2] = "hidden"
-    return "-".join(parts)
+    """An appliance id with the machine taken out, fit for a file name.
+
+    What is hidden is decided in one place for the log, the report and this,
+    so an id written as a bare serial is hidden whole here as it is there.
+    """
+    return re.sub(r"[^A-Za-z0-9_]+", "-", hidden_id(haid)).strip("-")
 
 
 async def _describe(api: HomeConnectApi, haid: str) -> dict[str, Any]:
@@ -169,7 +171,11 @@ async def run(into: Path | None) -> int:
             if not haid:
                 continue
             print(f"\n   {one.get('name')} ({one.get('type')})")
-            dumped[_hide(haid)] = {
+            # Two ids hidden whole read the same, and neither is worth losing.
+            name = _hide(haid)
+            if name in dumped:
+                name = f"{name}-{len(dumped) + 1}"
+            dumped[name] = {
                 "appliance": {**one, "haId": _hide(haid)},
                 **await _describe(api, haid),
             }
