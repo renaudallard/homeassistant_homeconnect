@@ -185,15 +185,39 @@ def test_a_programme_narrows_the_range_of_an_option_but_keeps_what_it_is() -> No
         ),
     }
     options = local.describe(entries).options
-    frying = options["Cooking.Hob.Program.Frying"]["BSH.Common.Option.Duration"]
-    simmer = options["Cooking.Hob.Program.Simmer"]["BSH.Common.Option.Duration"]
-    # Frying's own cap, with the root's measure kept.
-    assert frying.maximum == 35940
-    assert frying.unit == "s"
-    assert frying.numeric
-    # Simmer did not narrow it, so it is left at the widest the root allows.
-    assert simmer.maximum == 266400
-    assert simmer.unit == "s"
+    frying = options["Cooking.Hob.Program.Frying"]
+    # Frying names the option, with its own cap and the root's measure kept.
+    duration = frying["BSH.Common.Option.Duration"]
+    assert duration.maximum == 35940
+    assert duration.unit == "s"
+    assert duration.numeric
+    # Simmer does not name it, so it is not among Simmer's options at all.
+    assert "BSH.Common.Option.Duration" not in options["Cooking.Hob.Program.Simmer"]
+
+
+def test_a_programme_is_not_offered_an_option_another_programme_keeps() -> None:
+    """A root option some programme names belongs to those programmes alone,
+    not to every programme that happens to share the appliance."""
+    cotton, wool, spin = 0x0300, 0x0301, "LaundryCare.Washer.Option.SpinSpeed"
+    entries = {
+        0x0500: iddf.Entry(
+            0x0500, "option", spin, access="readWrite", minimum=0, maximum=1600
+        ),
+        cotton: iddf.Entry(cotton, "program", "LaundryCare.Washer.Program.Cotton"),
+        wool: iddf.Entry(wool, "program", "LaundryCare.Washer.Program.Wool"),
+        (cotton << 16) | 0x0500: iddf.Entry(
+            (cotton << 16) | 0x0500,
+            "option",
+            spin,
+            access="readWrite",
+            minimum=0,
+            maximum=1600,
+            under=cotton,
+        ),
+    }
+    options = local.describe(entries).options
+    assert spin in options["LaundryCare.Washer.Program.Cotton"]
+    assert spin not in options["LaundryCare.Washer.Program.Wool"]
 
 
 def test_a_programme_can_shorten_the_list_of_choices_for_an_option() -> None:

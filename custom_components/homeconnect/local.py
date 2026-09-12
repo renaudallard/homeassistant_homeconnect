@@ -151,9 +151,10 @@ def describe(entries: dict[int, Entry]) -> Described:
 
     An option written inside a programme belongs to that programme and refines
     the root option of the same name: a tighter range, or a shorter list of
-    choices. One written on its own belongs to all of them, which is how a
-    description that does not bother to say says it. Each programme is handed
-    the root options with its own refinements laid over them.
+    choices. An option no programme names at all belongs to all of them, which
+    is how a description that does not bother to say says it. So each programme
+    is handed the options it names, laid over the root for what they leave
+    unsaid, together with the ones no programme claims.
     """
     described = Described()
     commands: list[str] = []
@@ -170,8 +171,10 @@ def describe(entries: dict[int, Entry]) -> Described:
         elif entry.kind == "program" and entry.available:
             programs[entry.uid] = entry.key
     everywhere = options.get(None, {})
+    claimed = {name for uid in programs for name in options.get(uid, {})}
+    shared = {name: e for name, e in everywhere.items() if name not in claimed}
     for uid, key in programs.items():
-        merged = {name: _feature(entry, OPTION) for name, entry in everywhere.items()}
+        merged = {name: _feature(entry, OPTION) for name, entry in shared.items()}
         for name, refinement in options.get(uid, {}).items():
             root = everywhere.get(name)
             narrowed = _refined(root, refinement) if root is not None else refinement
