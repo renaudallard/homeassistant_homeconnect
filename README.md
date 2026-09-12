@@ -228,7 +228,7 @@ with the language Home Assistant is set to.
 ## The dashboard cards
 
 An appliance is worth seeing rather than reading down a list, so the
-integration ships two dashboard cards, each drawn the way the app draws that
+integration ships four dashboard cards, each drawn the way the app draws that
 appliance. They come with the integration and are added to the dashboard's own
 list of resources for you, so there is nothing to host or register by hand. A
 card added while a dashboard is open turns up in the card picker once the page
