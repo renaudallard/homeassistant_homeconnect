@@ -554,8 +554,9 @@ in it writes to the appliance. The shared key is read from a file so that it
 lands in neither the shell history nor the process list, and that file belongs
 under `tmp/`, which is not tracked. It announces a different identity from the
 integration, so the two listen to one appliance at once without taking it off
-each other; `--device-id homeassistant` makes it stand in the integration's
-place instead, for seeing what a collision looks like.
+each other; `--device-id` with the integration's own name, `homeassistant-`
+and the last four characters of this install's id, makes it stand in the
+integration's place instead, for seeing what a collision looks like.
 
 The tests load a washing machine and an oven and check what comes out of them.
 The config flow tests drive the real Home Assistant flow machinery, so they
