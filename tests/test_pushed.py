@@ -183,6 +183,7 @@ CONFIRMED = "BSH.Common.EnumType.EventPresentState.Confirmed"
 OFF = "BSH.Common.EnumType.EventPresentState.Off"
 FINISHED = "BSH.Common.Event.ProgramFinished"
 ABORTED = "BSH.Common.Event.ProgramAborted"
+PREHEAT = "Cooking.Common.Event.PreheatFinished"
 
 
 async def _push_event(
@@ -234,6 +235,15 @@ async def test_a_programme_cut_short_fires_aborted(
 ) -> None:
     await _push_event(hass, washer, ABORTED, PRESENT)
     assert _event(hass).attributes["event_type"] == "aborted"
+
+
+async def test_another_one_off_moment_fires_its_own_type(
+    hass: HomeAssistant, washer: HomeConnectCoordinator
+) -> None:
+    """The event carries more than the programme ending: a preheat reaching
+    temperature fires as its own type on the same entity."""
+    await _push_event(hass, washer, PREHEAT, PRESENT)
+    assert _event(hass).attributes["event_type"] == "preheat_finished"
 
 
 async def test_an_appliance_going_away_takes_its_entities_with_it(

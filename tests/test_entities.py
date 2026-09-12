@@ -103,7 +103,12 @@ async def test_a_programme_machine_gets_a_programme_event(
     """The thing to trigger on is there before the first programme ends."""
     state = hass.states.get("event.washer_programme")
     assert state is not None
-    assert set(state.attributes["event_types"]) == {"finished", "aborted"}
+    assert set(state.attributes["event_types"]) == {
+        "finished",
+        "aborted",
+        "preheat_finished",
+        "alarm_clock_elapsed",
+    }
 
 
 async def test_an_appliance_that_runs_nothing_gets_no_programme_event(

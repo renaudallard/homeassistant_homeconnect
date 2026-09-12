@@ -48,13 +48,17 @@ from .capability import happening
 from .coordinator import HomeConnectCoordinator
 from .entity import HomeConnectEntity, follow
 
-# The programme events worth firing, each by the key the appliance names it
-# with and the word an automation triggers on. These are the one-off moments a
-# programme ends at. The lingering conditions, a door left open or salt running
-# low, stay binary sensors, where a flag that holds is the right shape.
+# The events worth firing, each by the key the appliance names it with and the
+# word an automation triggers on. These are the one-off moments worth acting
+# on: a programme ending, a cook reaching temperature, a timer going off. An
+# appliance that does not have one of them simply never fires it. The lingering
+# conditions, a door left open or salt running low, stay binary sensors, where
+# a flag that holds is the right shape.
 LIFECYCLE = {
     "BSH.Common.Event.ProgramFinished": "finished",
     "BSH.Common.Event.ProgramAborted": "aborted",
+    "Cooking.Common.Event.PreheatFinished": "preheat_finished",
+    "BSH.Common.Event.AlarmClockElapsed": "alarm_clock_elapsed",
 }
 
 
@@ -80,7 +84,7 @@ def _program_events(
 
 
 class ProgramEventEntity(HomeConnectEntity, EventEntity):
-    """Fires as an appliance's programme finishes or is cut short."""
+    """Fires at a one-off moment: a programme ending, a preheat or a timer."""
 
     _attr_name = "Programme"
 
