@@ -46,7 +46,7 @@ from __future__ import annotations
 import io
 import logging
 import zipfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 from xml.etree import ElementTree
 
@@ -241,6 +241,21 @@ def parse(mapping_xml: bytes, description_xml: bytes) -> dict[int, Entry]:
                     entries[uid] = found
                 if tag == "program":
                     inside = uid
+            elif tag == "option" and under is not None:
+                # An option written inside a programme with no uid of its own
+                # is that programme's refinement of a root option: a tighter
+                # range, or a shorter list of choices. It names the root by
+                # refUID, the same number the root carries as its uid, so it
+                # resolves to the same key. The several programmes each write
+                # their own, so it is kept under a made-up number that cannot
+                # clash with a real uid (those being sixteen bits) or with
+                # another programme's version of the same option.
+                ref = _number(child.get(FEATURE))
+                if ref is not None:
+                    found = _entry(child, ref, keys, enums, under)
+                    if found is not None:
+                        made = (under << 16) | ref
+                        entries.setdefault(made, replace(found, uid=made))
             walk(child, inside)
 
     walk(description, None)
@@ -304,6 +319,11 @@ def uids_by_key(entries: dict[int, Entry]) -> dict[str, int]:
     """
     found: dict[str, int] = {}
     for uid, entry in entries.items():
+        if entry.under is not None:
+            # A programme's refinement of an option is not a thing to send to;
+            # the root option under no programme is. Its made-up number means
+            # nothing to the appliance, so the way back skips it.
+            continue
         found.setdefault(entry.key, uid)
     return found
 

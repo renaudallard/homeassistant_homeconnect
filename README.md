@@ -345,8 +345,11 @@ A few differences worth knowing. Talked to directly, an appliance says
 everything in numbers, and the words come from its description file rather
 than from the cloud, so a value reads as its key rather than in the language
 Home Assistant is set to. The units are the same either way, because a
-description says what each thing is as well as how large it may be. And
-stopping a programme is the appliance's own stop command rather than emptying
+description says what each thing is as well as how large it may be; and where
+a programme puts its own tighter limits on an option it shares, those are read
+from the description too, so a number stops where the chosen programme stops
+rather than at the widest the appliance could ever allow. And stopping a
+programme is the appliance's own stop command rather than emptying
 the programme slot, which comes to the same thing but is only offered by an
 appliance that describes that command. The Wi-Fi signal strength reading is
 left switched off this way too: reached directly an appliance reports only

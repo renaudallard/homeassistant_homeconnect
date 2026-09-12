@@ -127,31 +127,56 @@ class Described:
     programs: tuple[str, ...] = ()
 
 
+def _refined(root: Entry, over: Entry) -> Entry:
+    """A root option narrowed by what a programme says about it.
+
+    A programme may cap the range or shorten the list of choices. What the
+    thing is measured in and what sort of thing it is are the root's and do
+    not move between programmes, so those are kept and only the parts the
+    programme restated are taken from it.
+    """
+    return replace(
+        root,
+        minimum=over.minimum if over.minimum is not None else root.minimum,
+        maximum=over.maximum if over.maximum is not None else root.maximum,
+        step=over.step if over.step is not None else root.step,
+        values=over.values or root.values,
+        access=over.access,
+        under=over.under,
+    )
+
+
 def describe(entries: dict[int, Entry]) -> Described:
     """Sort a description into the things the rest of this wants.
 
-    An option written inside a programme belongs to that programme. One
-    written on its own belongs to all of them, which is how a description
-    that does not bother to say says it.
+    An option written inside a programme belongs to that programme and refines
+    the root option of the same name: a tighter range, or a shorter list of
+    choices. One written on its own belongs to all of them, which is how a
+    description that does not bother to say says it. Each programme is handed
+    the root options with its own refinements laid over them.
     """
     described = Described()
     commands: list[str] = []
     programs: dict[int, str] = {}
-    options: dict[int | None, dict[str, Feature]] = {}
+    options: dict[int | None, dict[str, Entry]] = {}
     for entry in entries.values():
         kind = KINDS.get(entry.kind)
         if kind == SETTING:
             described.settings[entry.key] = _feature(entry, SETTING)
         elif kind == OPTION:
-            options.setdefault(entry.under, {})[entry.key] = _feature(entry, OPTION)
+            options.setdefault(entry.under, {})[entry.key] = entry
         elif kind == "command":
             commands.append(entry.key)
         elif entry.kind == "program" and entry.available:
             programs[entry.uid] = entry.key
     everywhere = options.get(None, {})
-    described.options = {
-        key: {**everywhere, **options.get(uid, {})} for uid, key in programs.items()
-    }
+    for uid, key in programs.items():
+        merged = {name: _feature(entry, OPTION) for name, entry in everywhere.items()}
+        for name, refinement in options.get(uid, {}).items():
+            root = everywhere.get(name)
+            narrowed = _refined(root, refinement) if root is not None else refinement
+            merged[name] = _feature(narrowed, OPTION)
+        described.options[key] = merged
     described.commands = tuple(sorted(commands))
     described.programs = tuple(sorted(programs.values()))
     return described
@@ -362,6 +387,7 @@ class Known:
                     "execution": entry.execution,
                     "content": entry.content,
                     "static": entry.static,
+                    "under": entry.under,
                 }
                 for uid, entry in self.entries.items()
             },
@@ -396,6 +422,10 @@ class Known:
                         content=one.get("content"),
                         # The fixed value, where the description gave one.
                         static=one.get("static"),
+                        # The programme a per-programme refinement sits under.
+                        # Absent on anything stored before this and on every
+                        # root thing, both of which read as under no programme.
+                        under=one.get("under"),
                     )
                     for uid, one in stored["entries"].items()
                 },

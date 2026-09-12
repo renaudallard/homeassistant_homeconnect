@@ -110,6 +110,56 @@ def test_the_way_back_is_by_key() -> None:
     assert iddf.uids_by_key(ENTRIES)["BSH.Common.Setting.ChildLock"] == 0x0102
 
 
+# A programme may restate an option it shares, narrowing the range it will
+# take. It names the option by refUID, the number the root option carries as
+# its uid, and carries no uid of its own.
+NESTED_MAPPING = b"""<?xml version="1.0" encoding="UTF-8"?>
+<featureMappingFile version="1.0">
+  <featureDescriptionList>
+    <feature refUID="0x0224">BSH.Common.Option.Duration</feature>
+    <feature refUID="0x0301">Cooking.Hob.Program.Frying</feature>
+    <feature refUID="0x0302">Cooking.Hob.Program.Simmer</feature>
+  </featureDescriptionList>
+</featureMappingFile>"""
+
+NESTED_DESCRIPTION = b"""<?xml version="1.0" encoding="UTF-8"?>
+<device version="1.0">
+  <optionList>
+    <option uid="0x0224" access="readWrite" available="true"
+            refCID="10" refDID="82" min="0" max="266400"/>
+  </optionList>
+  <programList>
+    <program uid="0x0301" available="true">
+      <option refUID="0x0224" access="readWrite" available="true"
+              min="0" max="35940"/>
+    </program>
+    <program uid="0x0302" available="true"/>
+  </programList>
+</device>"""
+
+
+def test_a_programme_keeps_its_own_limits_on_an_option_it_refines() -> None:
+    """An option written inside a programme with no uid of its own narrows
+    the root option of the same name. It is kept apart from the root and from
+    the other programmes' versions, under the programme it belongs to."""
+    entries = iddf.parse(NESTED_MAPPING, NESTED_DESCRIPTION)
+    made = (0x0301 << 16) | 0x0224
+    refinement = entries[made]
+    assert refinement.key == "BSH.Common.Option.Duration"
+    assert refinement.under == 0x0301
+    assert refinement.maximum == 35940
+    # The narrowing does not restate what the thing is; that stays the root's.
+    assert refinement.content is None
+    # The root keeps the widest range and what it is, under no programme.
+    assert entries[0x0224].maximum == 266400
+    assert entries[0x0224].content == 0x10
+    assert entries[0x0224].under is None
+    # A programme that says nothing of the option gets no refinement of it.
+    assert (0x0302 << 16) | 0x0224 not in entries
+    # The way back to the appliance points at the root, not a made-up number.
+    assert iddf.uids_by_key(entries)["BSH.Common.Option.Duration"] == 0x0224
+
+
 def test_nothing_is_read_by_where_it_sits() -> None:
     """A file that gains a section, or lists one in another order, still
     reads: what matters is the attribute each element carries."""

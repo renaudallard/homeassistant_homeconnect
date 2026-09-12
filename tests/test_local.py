@@ -157,6 +157,72 @@ def test_an_option_written_inside_a_programme_belongs_to_it() -> None:
     assert platform_for(cotton["LaundryCare.Washer.Option.Temperature"]) is NUMBER
 
 
+def test_a_programme_narrows_the_range_of_an_option_but_keeps_what_it_is() -> None:
+    """A root option carries the widest range and what it is measured in. A
+    programme may cap that range; it does not restate the measure, so the cap
+    is taken from the programme and the measure kept from the root."""
+    narrow = 0x0401
+    entries = {
+        0x0224: iddf.Entry(
+            0x0224,
+            "option",
+            "BSH.Common.Option.Duration",
+            access="readWrite",
+            minimum=0,
+            maximum=266400,
+            content=0x10,  # a length of time, measured in seconds
+        ),
+        narrow: iddf.Entry(narrow, "program", "Cooking.Hob.Program.Frying"),
+        0x0402: iddf.Entry(0x0402, "program", "Cooking.Hob.Program.Simmer"),
+        (narrow << 16) | 0x0224: iddf.Entry(
+            (narrow << 16) | 0x0224,
+            "option",
+            "BSH.Common.Option.Duration",
+            access="readWrite",
+            minimum=0,
+            maximum=35940,
+            under=narrow,
+        ),
+    }
+    options = local.describe(entries).options
+    frying = options["Cooking.Hob.Program.Frying"]["BSH.Common.Option.Duration"]
+    simmer = options["Cooking.Hob.Program.Simmer"]["BSH.Common.Option.Duration"]
+    # Frying's own cap, with the root's measure kept.
+    assert frying.maximum == 35940
+    assert frying.unit == "s"
+    assert frying.numeric
+    # Simmer did not narrow it, so it is left at the widest the root allows.
+    assert simmer.maximum == 266400
+    assert simmer.unit == "s"
+
+
+def test_a_programme_can_shorten_the_list_of_choices_for_an_option() -> None:
+    """The same narrowing applies to a choice: a programme may offer fewer of
+    the members the root option lists."""
+    warm = 0x0401
+    entries = {
+        0x0500: iddf.Entry(
+            0x0500,
+            "option",
+            "Cooking.Hob.Option.WarmingLevel",
+            access="readWrite",
+            values={1: "Low", 2: "Medium", 3: "High"},
+        ),
+        warm: iddf.Entry(warm, "program", "Cooking.Hob.Program.KeepWarm"),
+        (warm << 16) | 0x0500: iddf.Entry(
+            (warm << 16) | 0x0500,
+            "option",
+            "Cooking.Hob.Option.WarmingLevel",
+            access="readWrite",
+            values={1: "Low", 2: "Medium"},
+            under=warm,
+        ),
+    }
+    options = local.describe(entries).options
+    level = options["Cooking.Hob.Program.KeepWarm"]["Cooking.Hob.Option.WarmingLevel"]
+    assert level.values == ("Low", "Medium")
+
+
 def test_the_programme_slots_hold_a_programme_rather_than_a_value() -> None:
     entries = _with_programmes()
     found = local.sort(entries, {0x0304: 0x0300, 0x0305: 0x0301})
@@ -251,6 +317,28 @@ def test_what_a_thing_is_survives_being_written_down() -> None:
         uid: one.content for uid, one in ENTRIES.items()
     }
     assert back.entries[0x010C].content == 0x10
+
+
+def test_a_programmes_own_limits_survive_being_written_down() -> None:
+    """A refinement is kept under the programme it belongs to. Read back
+    without that, every programme would go back to the widest range."""
+    made = (0x0401 << 16) | 0x0224
+    entries = dict(ENTRIES)
+    entries[made] = iddf.Entry(
+        made,
+        "option",
+        "BSH.Common.Option.Duration",
+        access="readWrite",
+        minimum=0,
+        maximum=35940,
+        under=0x0401,
+    )
+    back = local.Known.from_stored(
+        local.Known(key="k", iv=None, entries=entries).as_stored()
+    )
+    assert back is not None
+    assert back.entries[made].under == 0x0401
+    assert back.entries[made].maximum == 35940
 
 
 def test_a_description_stored_before_this_still_reads() -> None:
