@@ -503,6 +503,9 @@ class _Resources:
         self.created: list[dict[str, str]] = []
         self.updated: list[tuple[str, dict[str, str]]] = []
 
+    async def async_load(self) -> None:
+        self.loaded = True
+
     def async_items(self) -> list[dict[str, str]]:
         return list(self.items)
 
@@ -550,4 +553,95 @@ async def test_registering_cards_without_a_dashboard_is_harmless(
     from custom_components.homeconnect import cards
 
     hass.data.pop("lovelace", None)
+    await cards._add_resources(hass, "1.0.0")
+
+
+async def test_the_cards_wait_for_the_start_when_asked_early(
+    hass: HomeAssistant,
+) -> None:
+    """Asked before the start has finished, the resource registration waits
+    for it rather than writing to a list that is not loaded yet."""
+    from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
+    from homeassistant.core import CoreState
+
+    from custom_components.homeconnect import cards
+
+    hass.data.pop("lovelace", None)
+    hass.http = AsyncMock()
+    hass.set_state(CoreState.not_running)
+    try:
+        await cards.register(hass, "1.2.3")
+        # Served at once, but the dashboard is touched only after the start.
+        hass.http.async_register_static_paths.assert_awaited_once()
+        hass.bus.async_fire(EVENT_HOMEASSISTANT_STARTED)
+        await hass.async_block_till_done()
+    finally:
+        hass.set_state(CoreState.running)
+
+
+async def test_the_cards_are_registered_with_a_storage_dashboard(
+    hass: HomeAssistant,
+) -> None:
+    """A storage dashboard keeps a resource list; every card is added to it,
+    and anything unrelated already there is stepped over."""
+    from types import SimpleNamespace
+
+    from custom_components.homeconnect import cards
+
+    resources = _Resources()
+    resources.items.append({"id": "other", "url": "/local/unrelated.js"})
+    hass.data["lovelace"] = SimpleNamespace(resources=resources)
+    await cards._add_resources(hass, "1.0.0")
+    urls = {item["url"] for item in resources.items}
+    assert "/local/unrelated.js" in urls
+    assert "/homeconnect/homeconnect-hob-card.js?v=1.0.0" in urls
+    assert len(resources.created) == len(cards.CARDS)
+
+
+async def test_cards_on_a_yaml_dashboard_are_left_to_their_owner(
+    hass: HomeAssistant,
+) -> None:
+    """A YAML dashboard's resources have no list to write to; that is noted
+    and stepped over rather than raised."""
+    from types import SimpleNamespace
+
+    from custom_components.homeconnect import cards
+
+    hass.data["lovelace"] = SimpleNamespace(resources=object())
+    await cards._add_resources(hass, "1.0.0")
+
+
+async def test_an_unloaded_resource_list_is_loaded_before_writing(
+    hass: HomeAssistant,
+) -> None:
+    """A list not yet read from disk is loaded first, so writing the cards
+    does not lose every other resource."""
+    from types import SimpleNamespace
+
+    from custom_components.homeconnect import cards
+
+    resources = _Resources()
+    resources.loaded = False
+    hass.data["lovelace"] = SimpleNamespace(resources=resources)
+    await cards._add_resources(hass, "1.0.0")
+    assert resources.loaded is True
+    assert len(resources.created) == len(cards.CARDS)
+
+
+async def test_a_dashboard_that_errors_is_logged_not_raised(
+    hass: HomeAssistant,
+) -> None:
+    """Anything unexpected from the resource list is logged and stepped over,
+    not allowed to take the setup down with it."""
+    from types import SimpleNamespace
+
+    from custom_components.homeconnect import cards
+
+    class Boom:
+        loaded = True
+
+        def async_items(self) -> list[dict[str, str]]:
+            raise RuntimeError("the list would not read")
+
+    hass.data["lovelace"] = SimpleNamespace(resources=Boom())
     await cards._add_resources(hass, "1.0.0")
