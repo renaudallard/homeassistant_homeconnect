@@ -583,22 +583,28 @@ async def test_the_cards_wait_for_the_start_when_asked_early(
 ) -> None:
     """Asked before the start has finished, the resource registration waits
     for it rather than writing to a list that is not loaded yet."""
+    from types import SimpleNamespace
+
     from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
     from homeassistant.core import CoreState
 
     from custom_components.homeconnect import cards
 
-    hass.data.pop("lovelace", None)
+    resources = _Resources()
+    hass.data["lovelace"] = SimpleNamespace(resources=resources)
     hass.http = AsyncMock()
     hass.set_state(CoreState.not_running)
     try:
         await cards.register(hass, "1.2.3")
         # Served at once, but the dashboard is touched only after the start.
         hass.http.async_register_static_paths.assert_awaited_once()
+        assert resources.created == []
         hass.bus.async_fire(EVENT_HOMEASSISTANT_STARTED)
         await hass.async_block_till_done()
+        assert len(resources.created) == len(cards.CARDS)
     finally:
         hass.set_state(CoreState.running)
+        hass.data.pop("lovelace", None)
 
 
 async def test_the_cards_are_registered_with_a_storage_dashboard(
