@@ -60,5 +60,55 @@
         "local": "Rechtstreeks naar de apparaten, op dit netwerk"
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "transport": {
+        "name": "Verbindingsweg"
+      },
+      "active_program": {
+        "name": "Actief programma"
+      },
+      "finish_at": {
+        "name": "Klaar om"
+      }
+    },
+    "binary_sensor": {
+      "connection": {
+        "name": "Verbinding"
+      }
+    },
+    "event": {
+      "program": {
+        "name": "Programma"
+      }
+    },
+    "select": {
+      "program": {
+        "name": "Programma"
+      }
+    },
+    "button": {
+      "start_program": {
+        "name": "Programma starten"
+      },
+      "stop_program": {
+        "name": "Programma stoppen"
+      }
+    },
+    "light": {
+      "light": {
+        "name": "Licht"
+      },
+      "ambient_light": {
+        "name": "Sfeerverlichting"
+      },
+      "interior_light": {
+        "name": "Binnenverlichting"
+      },
+      "exterior_light": {
+        "name": "Buitenverlichting"
+      }
+    }
   }
 }

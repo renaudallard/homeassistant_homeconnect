@@ -131,7 +131,7 @@ class ProgramSelect(HomeConnectEntity, SelectEntity):
     since anything else earns a refusal.
     """
 
-    _attr_name = "Programme"
+    _attr_translation_key = "program"
 
     def __init__(self, coordinator: HomeConnectCoordinator, haid: str) -> None:
         super().__init__(coordinator, haid)

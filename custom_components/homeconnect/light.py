@@ -108,7 +108,7 @@ class HomeConnectLight(HomeConnectEntity, LightEntity):
         super().__init__(coordinator, haid)
         self._lamp = lamp
         self._attr_unique_id = f"{haid}-{lamp.on}"
-        self._attr_name = lamp.name
+        self._attr_translation_key = lamp.translation_key
         described = coordinator.data[haid].model.settings
         self._dims = lamp.brightness is not None and lamp.brightness in described
         self._colours = lamp.colour is not None and lamp.colour in described

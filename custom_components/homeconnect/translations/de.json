@@ -60,5 +60,55 @@
         "local": "Direkt zu den Geräten, in diesem Netzwerk"
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "transport": {
+        "name": "Verbindungsweg"
+      },
+      "active_program": {
+        "name": "Aktives Programm"
+      },
+      "finish_at": {
+        "name": "Fertig um"
+      }
+    },
+    "binary_sensor": {
+      "connection": {
+        "name": "Verbindung"
+      }
+    },
+    "event": {
+      "program": {
+        "name": "Programm"
+      }
+    },
+    "select": {
+      "program": {
+        "name": "Programm"
+      }
+    },
+    "button": {
+      "start_program": {
+        "name": "Programm starten"
+      },
+      "stop_program": {
+        "name": "Programm stoppen"
+      }
+    },
+    "light": {
+      "light": {
+        "name": "Licht"
+      },
+      "ambient_light": {
+        "name": "Umgebungslicht"
+      },
+      "interior_light": {
+        "name": "Innenbeleuchtung"
+      },
+      "exterior_light": {
+        "name": "Außenbeleuchtung"
+      }
+    }
   }
 }

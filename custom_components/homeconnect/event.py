@@ -86,7 +86,7 @@ def _program_events(
 class ProgramEventEntity(HomeConnectEntity, EventEntity):
     """Fires at a one-off moment: a programme ending, a preheat or a timer."""
 
-    _attr_name = "Programme"
+    _attr_translation_key = "program"
 
     def __init__(self, coordinator: HomeConnectCoordinator, haid: str) -> None:
         super().__init__(coordinator, haid)

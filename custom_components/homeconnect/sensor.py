@@ -213,7 +213,7 @@ class TransportSensor(HomeConnectEntity, SensorEntity):
     beside it.
     """
 
-    _attr_name = "Transport"
+    _attr_translation_key = "transport"
     _attr_device_class = SensorDeviceClass.ENUM
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
@@ -234,7 +234,7 @@ class TransportSensor(HomeConnectEntity, SensorEntity):
 class ProgramSensor(HomeConnectEntity, SensorEntity):
     """What the appliance is running, if anything."""
 
-    _attr_name = "Active programme"
+    _attr_translation_key = "active_program"
 
     def __init__(self, coordinator: HomeConnectCoordinator, haid: str) -> None:
         super().__init__(coordinator, haid)
@@ -260,7 +260,7 @@ class ProgramSensor(HomeConnectEntity, SensorEntity):
 class FinishSensor(HomeConnectEntity, SensorEntity):
     """When what the appliance is doing is expected to be over."""
 
-    _attr_name = "Finish at"
+    _attr_translation_key = "finish_at"
     _attr_device_class = SensorDeviceClass.TIMESTAMP
 
     def __init__(self, coordinator: HomeConnectCoordinator, haid: str) -> None:

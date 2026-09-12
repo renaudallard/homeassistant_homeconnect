@@ -60,5 +60,55 @@
         "local": "Straight to the appliances, on this network"
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "transport": {
+        "name": "Transport"
+      },
+      "active_program": {
+        "name": "Active programme"
+      },
+      "finish_at": {
+        "name": "Finish at"
+      }
+    },
+    "binary_sensor": {
+      "connection": {
+        "name": "Connection"
+      }
+    },
+    "event": {
+      "program": {
+        "name": "Programme"
+      }
+    },
+    "select": {
+      "program": {
+        "name": "Programme"
+      }
+    },
+    "button": {
+      "start_program": {
+        "name": "Start programme"
+      },
+      "stop_program": {
+        "name": "Stop programme"
+      }
+    },
+    "light": {
+      "light": {
+        "name": "Light"
+      },
+      "ambient_light": {
+        "name": "Ambient light"
+      },
+      "interior_light": {
+        "name": "Interior light"
+      },
+      "exterior_light": {
+        "name": "Exterior light"
+      }
+    }
   }
 }

@@ -92,7 +92,7 @@ class ConnectionSensor(HomeConnectEntity, BinarySensorEntity):
     so it is the one that does not go unavailable along with it.
     """
 
-    _attr_name = "Connection"
+    _attr_translation_key = "connection"
     _attr_device_class = BinarySensorDeviceClass.CONNECTIVITY
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 

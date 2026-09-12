@@ -317,7 +317,7 @@ class Lamp:
     """
 
     on: str
-    name: str
+    translation_key: str
     brightness: str | None = None
     # What colour it is set to, which has to say custom before a colour of
     # one's own will be taken.
@@ -330,24 +330,24 @@ class Lamp:
 LAMPS: tuple[Lamp, ...] = (
     Lamp(
         on="Cooking.Common.Setting.Lighting",
-        name="Light",
+        translation_key="light",
         brightness="Cooking.Common.Setting.LightingBrightness",
     ),
     Lamp(
         on="BSH.Common.Setting.AmbientLightEnabled",
-        name="Ambient light",
+        translation_key="ambient_light",
         brightness="BSH.Common.Setting.AmbientLightBrightness",
         palette="BSH.Common.Setting.AmbientLightColor",
         colour="BSH.Common.Setting.AmbientLightCustomColor",
     ),
     Lamp(
         on="Refrigeration.Common.Setting.Light.Internal.Power",
-        name="Interior light",
+        translation_key="interior_light",
         brightness="Refrigeration.Common.Setting.Light.Internal.Brightness",
     ),
     Lamp(
         on="Refrigeration.Common.Setting.Light.External.Power",
-        name="Exterior light",
+        translation_key="exterior_light",
         brightness="Refrigeration.Common.Setting.Light.External.Brightness",
     ),
 )

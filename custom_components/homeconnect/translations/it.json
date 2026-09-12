@@ -60,5 +60,55 @@
         "local": "Direttamente agli elettrodomestici, su questa rete"
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "transport": {
+        "name": "Via di connessione"
+      },
+      "active_program": {
+        "name": "Programma attivo"
+      },
+      "finish_at": {
+        "name": "Fine alle"
+      }
+    },
+    "binary_sensor": {
+      "connection": {
+        "name": "Connessione"
+      }
+    },
+    "event": {
+      "program": {
+        "name": "Programma"
+      }
+    },
+    "select": {
+      "program": {
+        "name": "Programma"
+      }
+    },
+    "button": {
+      "start_program": {
+        "name": "Avvia programma"
+      },
+      "stop_program": {
+        "name": "Arresta programma"
+      }
+    },
+    "light": {
+      "light": {
+        "name": "Luce"
+      },
+      "ambient_light": {
+        "name": "Luce ambientale"
+      },
+      "interior_light": {
+        "name": "Luce interna"
+      },
+      "exterior_light": {
+        "name": "Luce esterna"
+      }
+    }
   }
 }
