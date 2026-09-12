@@ -317,6 +317,9 @@ def follow(
 
     @callback
     def look() -> None:
+        # An appliance taken off the account takes its entities with it. Were
+        # it paired again they would be wanted again, so it is forgotten too.
+        seen.difference_update({one for one in seen if one[0] not in coordinator.data})
         appeared = [one for one in fields(coordinator) if one not in seen]
         if not appeared:
             return

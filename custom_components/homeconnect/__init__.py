@@ -39,7 +39,7 @@ from dataclasses import dataclass
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
@@ -230,7 +230,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: HomeConnectConfigEntry) 
     entry.runtime_data = HomeConnectData(
         api=api, coordinator=coordinator, stream=stream, local=local
     )
-    _forget_what_is_gone(hass, entry, coordinator)
+    _follow_the_account(hass, entry, coordinator)
+    # And again after every look at the account, since the poll is what
+    # catches an appliance being renamed or unpaired while this is running.
+    entry.async_on_unload(
+        coordinator.async_add_listener(
+            lambda: _follow_the_account(hass, entry, coordinator)
+        )
+    )
     _forget_what_moved(hass, entry, coordinator)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     return True
@@ -266,27 +273,30 @@ async def _learn(api: HomeConnectApi, local: LocalControl) -> None:
         ) from err
 
 
-def _forget_what_is_gone(
+@callback
+def _follow_the_account(
     hass: HomeAssistant, entry: ConfigEntry, coordinator: HomeConnectCoordinator
 ) -> None:
-    """Take away the devices of appliances that are no longer on the account.
+    """Keep the devices in step with what the account says.
 
     An appliance that has been unpaired keeps its device, its entities and its
-    history until something says otherwise, and nothing else ever will.
+    history until something says otherwise, and nothing else ever will. One
+    renamed in the app is renamed here too; a name the user gave the device
+    themselves is kept apart by Home Assistant and left alone.
     """
     registry = dr.async_get(hass)
-    present = set(coordinator.data)
     for device in dr.async_entries_for_config_entry(registry, entry.entry_id):
-        gone = [
-            identifier
-            for domain, identifier in device.identifiers
-            if domain == DOMAIN and identifier not in present
-        ]
-        if gone:
-            _LOGGER.debug("%s is no longer on the account", device.name)
-            registry.async_update_device(
-                device.id, remove_config_entry_id=entry.entry_id
-            )
+        for domain, identifier in device.identifiers:
+            if domain != DOMAIN:
+                continue
+            appliance = coordinator.data.get(identifier)
+            if appliance is None:
+                _LOGGER.debug("%s is no longer on the account", device.name)
+                registry.async_update_device(
+                    device.id, remove_config_entry_id=entry.entry_id
+                )
+            elif device.name != appliance.name:
+                registry.async_update_device(device.id, name=appliance.name)
 
 
 def _forget_what_moved(

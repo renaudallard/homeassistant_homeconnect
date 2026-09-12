@@ -203,6 +203,56 @@ async def test_an_appliance_taken_off_the_account_loses_its_device(
     assert device_for(hass, made, HAID) is None
 
 
+async def test_an_appliance_unpaired_while_running_loses_its_device_on_the_next_look(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """The poll is what catches an unpairing, so the device goes on the next
+    look rather than waiting for the entry to be loaded again. Paired again,
+    the appliance gets its entities back."""
+    made = await set_up(hass, aioclient_mock, "washer")
+    coordinator = made.runtime_data.coordinator
+    assert device_for(hass, made, HAID) is not None
+    assert hass.states.get("binary_sensor.washer_connection") is not None
+
+    aioclient_mock.clear_requests()
+    serve(aioclient_mock, [fixture("oven")])
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+    assert device_for(hass, made, HAID) is None
+    assert hass.states.get("binary_sensor.washer_connection") is None
+
+    aioclient_mock.clear_requests()
+    serve(aioclient_mock, [fixture("washer")])
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+    assert device_for(hass, made, HAID) is not None
+    assert hass.states.get("binary_sensor.washer_connection") is not None
+
+
+async def test_an_appliance_renamed_in_the_app_is_renamed_here(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """The poll is also what catches a rename. A name the user gave the device
+    themselves is kept apart by Home Assistant, so only the appliance's own
+    name moves."""
+    made = await set_up(hass, aioclient_mock, "washer")
+    coordinator = made.runtime_data.coordinator
+    device = device_for(hass, made, HAID)
+    assert device is not None
+    assert device.name == fixture("washer")["appliance"]["name"]
+
+    described = copy.deepcopy(fixture("washer"))
+    described["appliance"]["name"] = "Utility room washer"
+    aioclient_mock.clear_requests()
+    serve(aioclient_mock, [described])
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    device = device_for(hass, made, HAID)
+    assert device is not None
+    assert device.name == "Utility room washer"
+
+
 async def test_dangerous_commands_are_switched_off_once_on_an_older_entry(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
 ) -> None:
