@@ -55,9 +55,10 @@ from custom_components.homeconnect.const import (
     TOKEN_PATH,
 )
 
-from .common import API, entry, fixture, serve, set_up
+from .common import API, entry, fixture, reached_locally, serve, set_up
 
 TOKEN_URL = f"{API_HOST}{TOKEN_PATH}"
+HAID = "BOSCH-WAV28MH0GB-1234567890AB"
 
 
 def answer(shown: Mapping[str, Any]) -> str:
@@ -341,7 +342,7 @@ async def test_reconfiguring_moves_an_entry_between_the_two(
     shown = await made.start_reconfigure_flow(hass)
     assert shown["step_id"] == "reconfigure"
 
-    with patch("custom_components.homeconnect.LocalControl"):
+    with reached_locally(HAID):
         again = await hass.config_entries.flow.async_configure(
             shown["flow_id"], {CONF_TRANSPORT: "local"}
         )
@@ -349,6 +350,8 @@ async def test_reconfiguring_moves_an_entry_between_the_two(
     assert again["type"] is FlowResultType.ABORT
     assert again["reason"] == "reconfigure_successful"
     assert made.data[CONF_TRANSPORT] == "local"
+    # And it came back up that way, rather than the reload failing unseen.
+    assert made.state is config_entries.ConfigEntryState.LOADED
     # The sign in is untouched by it.
     assert made.data[CONF_ACCESS_TOKEN] == "an-access-token"
 
@@ -367,9 +370,10 @@ async def test_signing_in_again_leaves_the_way_in_alone(
 
     pair(aioclient_mock)
     serve(aioclient_mock, [fixture("washer")])
-    with patch("custom_components.homeconnect.LocalControl"):
+    with reached_locally(HAID):
         await hass.config_entries.flow.async_configure(
             shown["flow_id"], {CONF_CODE: answer(shown)}
         )
         await hass.async_block_till_done()
     assert made.data[CONF_TRANSPORT] == "local"
+    assert made.state is config_entries.ConfigEntryState.LOADED

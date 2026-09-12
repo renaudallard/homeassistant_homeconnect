@@ -41,7 +41,7 @@ from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import async_fire_time_changed
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
-from custom_components.homeconnect import _forget_what_moved, local
+from custom_components.homeconnect import _forget_what_moved
 from custom_components.homeconnect.const import DOMAIN
 from custom_components.homeconnect.coordinator import (
     SCAN_INTERVAL,
@@ -51,7 +51,16 @@ from custom_components.homeconnect.coordinator import (
 )
 from custom_components.homeconnect.events import Event
 
-from .common import API, device_for, entry, fixture, serve, set_up, state_of
+from .common import (
+    API,
+    device_for,
+    entry,
+    fixture,
+    reached_locally,
+    serve,
+    set_up,
+    state_of,
+)
 
 HAID = "BOSCH-WAV28MH0GB-1234567890AB"
 
@@ -471,18 +480,7 @@ async def test_the_wifi_reading_is_switched_off_once_on_an_older_local_entry(
     assert wifi.disabled_by is None
 
     serve(aioclient_mock, [fixture("washer")])
-    with (
-        patch(
-            "custom_components.homeconnect.api.HomeConnectAccount.keys",
-            AsyncMock(return_value={HAID: {"key": "a-key"}}),
-        ),
-        patch(
-            "custom_components.homeconnect.api.HomeConnectAccount.description",
-            AsyncMock(return_value=b"a zip"),
-        ),
-        patch.object(local.Finder, "start", AsyncMock()),
-        patch.object(local.Finder, "stop", AsyncMock()),
-    ):
+    with reached_locally(HAID):
         await hass.config_entries.async_setup(made.entry_id)
         await hass.async_block_till_done()
 

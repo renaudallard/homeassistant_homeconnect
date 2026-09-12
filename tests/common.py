@@ -34,14 +34,15 @@ makes a test that passes mean something.
 
 from __future__ import annotations
 
+import contextlib
 import io
 import json
 import time
 import zipfile
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
 from pathlib import Path
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 from homeassistant.const import CONF_EMAIL
 from homeassistant.core import HomeAssistant
@@ -156,6 +157,30 @@ def serve(mock: AiohttpClientMocker, appliances: list[dict[str, Any]]) -> None:
             status=200 if selected else 404,
             json={"data": selected} if selected else {},
         )
+
+
+@contextlib.contextmanager
+def reached_locally(haid: str) -> Iterator[None]:
+    """Answer what local control asks the account for, and keep discovery quiet.
+
+    A key for the appliance, a description that will not read, which local
+    control warns about and steps over, and a finder that hears nothing: what
+    an entry set to local needs to come up in a test that is about something
+    else.
+    """
+    with (
+        patch(
+            "custom_components.homeconnect.api.HomeConnectAccount.keys",
+            AsyncMock(return_value={haid: {"key": "a-key"}}),
+        ),
+        patch(
+            "custom_components.homeconnect.api.HomeConnectAccount.description",
+            AsyncMock(return_value=b"a zip"),
+        ),
+        patch("custom_components.homeconnect.local.Finder.start", AsyncMock()),
+        patch("custom_components.homeconnect.local.Finder.stop", AsyncMock()),
+    ):
+        yield
 
 
 def entry(
