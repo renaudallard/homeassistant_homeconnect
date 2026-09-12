@@ -26,7 +26,10 @@ const OFF = new Set(["off", "inactive", "", undefined, null, "unavailable", "unk
 // and the tail of its name. Programme time is spelled both ways.
 const NAMED = {
   programme: /^select\..*_programme$/,
-  power: /^select\..*_power_state$/,
+  // A switch on an appliance whose power setting offers on and off alone,
+  // which is what a dishwasher's does, and a select on one that offers
+  // standby as well.
+  power: /^(?:select|switch)\..*_power_state$/,
   childlock: /^switch\..*_child_lock$/,
   energy: /^sensor\..*_energy_forecast$/,
   water: /^sensor\..*_water_forecast$/,
@@ -192,8 +195,8 @@ class HomeConnectApplianceCard extends HTMLElement {
     const found = this._controls(device);
     this._found = found;
     const named = Object.keys(NAMED)
-      .map((k) => (found[k] ? "1" : "0"))
-      .join("");
+      .map((k) => found[k] || "")
+      .join(",");
     const options = [...found.switches, ...found.selects, ...found.numbers].join(",");
     const signature = `${device || ""}|${named}|${options}`;
     if (signature !== this._signature) {
@@ -262,7 +265,9 @@ class HomeConnectApplianceCard extends HTMLElement {
     const quick = [];
     if (found.power)
       quick.push(
-        `<label class="field"><span class="cap">Power</span><select class="picker" data-role="power"></select></label>`
+        found.power.startsWith("switch.")
+          ? `<button class="pill" data-role="power" type="button"><ha-icon icon="mdi:power"></ha-icon><span>Power</span></button>`
+          : `<label class="field"><span class="cap">Power</span><select class="picker" data-role="power"></select></label>`
       );
     if (found.childlock)
       quick.push(
@@ -309,13 +314,16 @@ class HomeConnectApplianceCard extends HTMLElement {
         this._call(this._found.programme, "select", "select_option", { option: prog.value })
       );
     const power = root.querySelector('[data-role="power"]');
-    if (power)
+    if (power && power.tagName === "SELECT")
       power.addEventListener("change", () =>
         this._call(this._found.power, "select", "select_option", { option: power.value })
       );
-    const lock = root.querySelector('[data-role="childlock"]');
-    if (lock)
-      lock.addEventListener("click", () => this._call(this._found.childlock, "switch", "toggle"));
+    // The power, where it is a switch, and the child lock are toggled.
+    for (const role of ["power", "childlock"]) {
+      const el = root.querySelector(`[data-role="${role}"]`);
+      if (el && el.tagName === "BUTTON")
+        el.addEventListener("click", () => this._call(this._found[role], "switch", "toggle"));
+    }
     for (const pill of root.querySelectorAll("[data-switch]"))
       pill.addEventListener("click", () =>
         this._call(pill.dataset.switch, "switch", "toggle")
@@ -342,7 +350,10 @@ class HomeConnectApplianceCard extends HTMLElement {
     if (door) door.hidden = this._value(found.door) !== "on";
 
     this._fill(root.querySelector('[data-role="programme"]'), found.programme);
-    this._fill(root.querySelector('[data-role="power"]'), found.power);
+    const power = root.querySelector('[data-role="power"]');
+    if (power && power.tagName === "BUTTON")
+      power.classList.toggle("on", this._value(found.power) === "on");
+    else this._fill(power, found.power);
     const lock = root.querySelector('[data-role="childlock"]');
     if (lock) lock.classList.toggle("on", this._value(found.childlock) === "on");
 

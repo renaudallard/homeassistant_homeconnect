@@ -5,9 +5,10 @@
 // and a stop, with the door warning across the top while the door is open.
 //
 // It reads and drives the entities the integration already makes, so there is
-// nothing to wire up: the programme and power selects, the option switches,
-// the child lock, the energy and water forecasts, the remaining time and the
-// two programme buttons are found on the appliance by the names they carry.
+// nothing to wire up: the programme select, the power switch or select, the
+// option switches, the child lock, the energy and water forecasts, the
+// remaining time and the two programme buttons are found on the appliance by
+// the names they carry.
 //
 // Bundled with the homeconnect integration, which serves this file and adds it
 // as a dashboard resource, so there is no resource to add by hand.
@@ -35,7 +36,10 @@ const SIGNATURE = /^switch\..*_(half_load|intensiv_zone)$/;
 // Programme time is spelled both ways depending on where the words came from.
 const FIELDS = {
   programme: /^select\..*_programme$/,
-  power: /^select\..*_power_state$/,
+  // A switch on an appliance whose power setting offers on and off alone,
+  // which is what a dishwasher's does, and a select on one that offers
+  // standby as well.
+  power: /^(?:select|switch)\..*_power_state$/,
   childlock: /^switch\..*_child_lock$/,
   energy: /^sensor\..*_energy_forecast$/,
   water: /^sensor\..*_water_forecast$/,
@@ -146,8 +150,8 @@ class HomeConnectDishwasherCard extends HTMLElement {
     const found = this._entities(device);
     const present = OPTIONS.filter((o) => found.options[o.slug]);
     const has = ["programme", "power", "childlock", "start", "stop"]
-      .map((k) => (found[k] ? "1" : "0"))
-      .join("");
+      .map((k) => found[k] || "")
+      .join(",");
     const signature = `${device || ""}|${present.map((o) => o.slug).join(",")}|${has}`;
 
     if (signature !== this._signature) {
@@ -193,7 +197,11 @@ class HomeConnectDishwasherCard extends HTMLElement {
     const quick = [];
     if (found.power)
       quick.push(
-        `<label class="field"><span class="cap">Power</span><select class="picker" data-role="power"></select></label>`
+        found.power.startsWith("switch.")
+          ? `<button class="pill" data-role="power" type="button">
+          <ha-icon icon="mdi:power"></ha-icon><span>Power</span>
+        </button>`
+          : `<label class="field"><span class="cap">Power</span><select class="picker" data-role="power"></select></label>`
       );
     if (found.childlock)
       quick.push(
@@ -237,11 +245,14 @@ class HomeConnectDishwasherCard extends HTMLElement {
         option: this._pick("programme").value,
       })
     );
-    const lock = this.shadowRoot.querySelector('[data-role="childlock"]');
-    if (lock)
-      lock.addEventListener("click", () =>
-        this._call(this._found.childlock, "switch", "toggle")
-      );
+    // The power, where it is a switch, and the child lock are toggled.
+    for (const role of ["power", "childlock"]) {
+      const el = this._pick(role);
+      if (el && el.tagName === "BUTTON")
+        el.addEventListener("click", () =>
+          this._call(this._found[role], "switch", "toggle")
+        );
+    }
     for (const pill of this.shadowRoot.querySelectorAll(".pill[data-slug]")) {
       pill.addEventListener("click", () =>
         this._call(this._found.options[pill.dataset.slug], "switch", "toggle")
@@ -273,8 +284,11 @@ class HomeConnectDishwasherCard extends HTMLElement {
     const door = root.querySelector(".door");
     if (door) door.hidden = this._value(found.door) !== "on";
 
-    this._fill(this._pick("power"), found.power);
     this._fill(this._pick("programme"), found.programme);
+    const power = this._pick("power");
+    if (power && power.tagName === "BUTTON")
+      power.classList.toggle("on", this._value(found.power) === "on");
+    else this._fill(power, found.power);
 
     const text = this._pick("progtext");
     if (text) {
