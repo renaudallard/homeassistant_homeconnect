@@ -86,7 +86,9 @@ model nobody has tried works the same way as the one this was written against.
   range.
 - **Delayed start** — the option that sets one can only be given as a
   programme starts, so it is held here until it does and sent along with the
-  start. Set it, press start, and the machine waits.
+  start. Set it, press start, and the machine waits. It is offered as a clock,
+  the hours and minutes to wait, rather than a count of seconds; a clock stops
+  a second short of a full day, so a delay of exactly a day is held at that.
 - **Lamps as lamps** — an appliance keeps a light as two or three separate
   settings. They are gathered into one light entity with brightness and, for
   the decorative sort, colour.

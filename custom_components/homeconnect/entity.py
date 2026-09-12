@@ -54,6 +54,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from . import names
 from .capability import (
     BINARY_SENSOR,
+    DELAYED,
     GATHERED,
     OPTION,
     SENSOR,
@@ -370,7 +371,17 @@ def options(
     """
     for haid, appliance in coordinator.data.items():
         for described in _every_option(appliance):
-            if platform_for(described) == platform:
+            if described.key not in DELAYED and platform_for(described) == platform:
+                yield haid, described.key
+
+
+def delayed_options(
+    coordinator: HomeConnectCoordinator,
+) -> Iterator[tuple[str, str]]:
+    """The delayed-start options, which the time platform claims for itself."""
+    for haid, appliance in coordinator.data.items():
+        for described in _every_option(appliance):
+            if described.key in DELAYED:
                 yield haid, described.key
 
 

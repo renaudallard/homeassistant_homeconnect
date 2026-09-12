@@ -97,6 +97,37 @@ async def test_a_tally_is_a_figure_that_keeps_a_statistic(
     assert state.attributes["state_class"] == "total_increasing"
 
 
+async def test_the_delayed_start_is_a_clock_not_a_number(
+    hass: HomeAssistant, washer: MockConfigEntry
+) -> None:
+    """The delay before a programme starts is offered on a clock, and not also
+    as the seconds number it would otherwise have been."""
+    assert hass.states.get("time.washer_start_in_relative") is not None
+    assert hass.states.get("number.washer_start_in_relative") is None
+
+
+async def test_a_leftover_delayed_start_number_is_taken_out(
+    hass: HomeAssistant, washer: MockConfigEntry
+) -> None:
+    """An appliance set up when the delay was a number keeps that number in the
+    registry; the time platform takes it out so it does not sit unavailable
+    beside the clock."""
+    from custom_components.homeconnect import time as time_platform
+    from custom_components.homeconnect.const import DOMAIN
+
+    haid = "BOSCH-WAV28MH0GB-1234567890AB"
+    registry = er.async_get(hass)
+    made = registry.async_get_or_create(
+        "number",
+        DOMAIN,
+        f"{haid}-BSH.Common.Option.StartInRelative",
+        config_entry=washer,
+    )
+    assert registry.async_get(made.entity_id) is not None
+    time_platform._drop_stale_numbers(hass, washer.runtime_data.coordinator)
+    assert registry.async_get(made.entity_id) is None
+
+
 async def test_a_programme_machine_gets_a_programme_event(
     hass: HomeAssistant, washer: MockConfigEntry
 ) -> None:

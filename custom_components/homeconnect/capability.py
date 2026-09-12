@@ -360,3 +360,13 @@ GATHERED = frozenset(
     for key in (lamp.on, lamp.brightness, lamp.palette, lamp.colour)
     if key
 )
+
+# The delayed-start options, a length of time in seconds. They read far better
+# set on a clock than as a count of seconds, so the time platform claims them
+# and the platforms that would otherwise make a number leave them alone.
+DELAYED = frozenset(
+    {
+        "BSH.Common.Option.StartInRelative",
+        "BSH.Common.Option.FinishInRelative",
+    }
+)

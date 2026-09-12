@@ -144,22 +144,22 @@ async def test_an_option_that_only_goes_in_at_the_start_is_held_back(
     """The cloud takes a delayed start, answers as though it worked, and
     ignores it. So it is kept here until there is a start to send it with."""
     await hass.services.async_call(
-        "number",
+        "time",
         "set_value",
-        {"entity_id": "number.washer_start_in_relative", "value": 3600},
+        {"entity_id": "time.washer_start_in_relative", "time": "01:00:00"},
         blocking=True,
     )
     assert washer.mock_calls == []
-    assert state_of(hass, "number.washer_start_in_relative") == "3600.0"
+    assert state_of(hass, "time.washer_start_in_relative") == "01:00:00"
 
 
 async def test_starting_carries_what_was_held_back(
     hass: HomeAssistant, washer: AiohttpClientMocker
 ) -> None:
     await hass.services.async_call(
-        "number",
+        "time",
         "set_value",
-        {"entity_id": "number.washer_start_in_relative", "value": 3600},
+        {"entity_id": "time.washer_start_in_relative", "time": "01:00:00"},
         blocking=True,
     )
     washer.put(f"{AT}/programs/active", status=204)

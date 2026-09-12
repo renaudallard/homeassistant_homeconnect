@@ -76,6 +76,7 @@ PLATFORMS: list[Platform] = [
     Platform.SENSOR,
     Platform.SWITCH,
     Platform.TEXT,
+    Platform.TIME,
 ]
 
 

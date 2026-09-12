@@ -246,6 +246,20 @@ async def test_another_one_off_moment_fires_its_own_type(
     assert _event(hass).attributes["event_type"] == "preheat_finished"
 
 
+async def test_a_delayed_start_reads_as_a_clock(
+    hass: HomeAssistant, washer: HomeConnectCoordinator
+) -> None:
+    washer.apply(
+        Event(
+            "NOTIFY",
+            HAID,
+            {"items": [item("BSH.Common.Option.StartInRelative", 9000)]},
+        )
+    )
+    await hass.async_block_till_done()
+    assert state_of(hass, "time.washer_start_in_relative") == "02:30:00"
+
+
 async def test_an_appliance_going_away_takes_its_entities_with_it(
     hass: HomeAssistant, washer: HomeConnectCoordinator
 ) -> None:
