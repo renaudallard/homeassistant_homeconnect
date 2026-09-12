@@ -89,6 +89,20 @@ def leaf(key: str) -> str:
     return key.rsplit(".", 1)[-1]
 
 
+def happening(value: Any) -> bool:
+    """Whether an event's value says it is happening now.
+
+    An event is named by a present state, or now and then given as a plain
+    flag. The one value that means it has stopped is Off; one that is present,
+    or present and acknowledged at the appliance, is still happening.
+    """
+    if value is None:
+        return False
+    if isinstance(value, bool):
+        return value
+    return leaf(str(value)) != "Off"
+
+
 def number(value: Any) -> float | None:
     """A figure, if that is what it is. A flag is not one."""
     if isinstance(value, bool) or not isinstance(value, (int, float)):

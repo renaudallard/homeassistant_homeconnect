@@ -178,6 +178,61 @@ async def test_an_event_nobody_has_heard_of_becomes_an_entity(
     assert state.state == "on"
 
 
+PRESENT = "BSH.Common.EnumType.EventPresentState.Present"
+CONFIRMED = "BSH.Common.EnumType.EventPresentState.Confirmed"
+OFF = "BSH.Common.EnumType.EventPresentState.Off"
+FINISHED = "BSH.Common.Event.ProgramFinished"
+ABORTED = "BSH.Common.Event.ProgramAborted"
+
+
+async def _push_event(
+    hass: HomeAssistant, washer: HomeConnectCoordinator, key: str, value: str
+) -> None:
+    washer.apply(Event("EVENT", HAID, {"items": [item(key, value)]}))
+    await hass.async_block_till_done()
+
+
+async def test_a_programme_finishing_fires_the_programme_event(
+    hass: HomeAssistant, washer: HomeConnectCoordinator
+) -> None:
+    await _push_event(hass, washer, FINISHED, PRESENT)
+    state = hass.states.get("event.washer_programme")
+    assert state is not None
+    assert state.attributes["event_type"] == "finished"
+    # The state of an event entity is the moment it last fired.
+    assert state.state not in (None, "unknown", "unavailable")
+
+
+async def test_acknowledging_a_finish_does_not_fire_it_again(
+    hass: HomeAssistant, washer: HomeConnectCoordinator
+) -> None:
+    """Confirmed is the same finish acknowledged at the appliance, not a new
+    one, so the clock of when it last fired does not move."""
+    await _push_event(hass, washer, FINISHED, PRESENT)
+    fired = hass.states.get("event.washer_programme").state
+    await _push_event(hass, washer, FINISHED, CONFIRMED)
+    assert hass.states.get("event.washer_programme").state == fired
+
+
+async def test_a_later_finish_fires_afresh(
+    hass: HomeAssistant, washer: HomeConnectCoordinator
+) -> None:
+    await _push_event(hass, washer, FINISHED, PRESENT)
+    first = hass.states.get("event.washer_programme").state
+    await _push_event(hass, washer, FINISHED, OFF)
+    await _push_event(hass, washer, FINISHED, PRESENT)
+    assert hass.states.get("event.washer_programme").state != first
+
+
+async def test_a_programme_cut_short_fires_aborted(
+    hass: HomeAssistant, washer: HomeConnectCoordinator
+) -> None:
+    await _push_event(hass, washer, ABORTED, PRESENT)
+    assert hass.states.get("event.washer_programme").attributes["event_type"] == (
+        "aborted"
+    )
+
+
 async def test_an_appliance_going_away_takes_its_entities_with_it(
     hass: HomeAssistant, washer: HomeConnectCoordinator
 ) -> None:

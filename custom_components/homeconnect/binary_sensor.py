@@ -45,18 +45,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import names
-from .capability import STATUS, leaf
+from .capability import STATUS, happening, leaf
 from .coordinator import DOOR_STATE, HomeConnectCoordinator
 from .entity import HomeConnectEntity, KeyEntity, follow, statuses
 
 # What the door says when it is open. Locked is a kind of shut, and a machine
 # mid-cycle spends the whole wash saying it.
 OPEN = "Open"
-
-# What an event says when it is happening. An event that has been acknowledged
-# at the appliance says Confirmed and is still happening, which is why the one
-# thing tested for is the one that means it has stopped.
-GONE = "Off"
 
 
 async def async_setup_entry(
@@ -178,9 +173,7 @@ class EventSensor(HomeConnectEntity, BinarySensorEntity):
         found = appliance.events.get(self._key) if appliance is not None else None
         if found is None or found.value is None:
             return None
-        if isinstance(found.value, bool):
-            return found.value
-        return leaf(str(found.value)) != GONE
+        return happening(found.value)
 
 
 def _connection(

@@ -97,6 +97,22 @@ async def test_a_tally_is_a_figure_that_keeps_a_statistic(
     assert state.attributes["state_class"] == "total_increasing"
 
 
+async def test_a_programme_machine_gets_a_programme_event(
+    hass: HomeAssistant, washer: MockConfigEntry
+) -> None:
+    """The thing to trigger on is there before the first programme ends."""
+    state = hass.states.get("event.washer_programme")
+    assert state is not None
+    assert set(state.attributes["event_types"]) == {"finished", "aborted"}
+
+
+async def test_an_appliance_that_runs_nothing_gets_no_programme_event(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    await set_up(hass, aioclient_mock, "oven")
+    assert hass.states.get("event.oven_programme") is None
+
+
 async def test_a_status_holding_a_flag_becomes_a_binary_sensor(
     hass: HomeAssistant, washer: MockConfigEntry
 ) -> None:
