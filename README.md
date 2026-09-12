@@ -468,6 +468,7 @@ Set to reach the appliances through the cloud, that host is the whole of it:
 | `GET /api/homeappliances/{id}/events` | what it is complaining about now |
 | `GET /api/homeappliances/{id}/programs/available` | what it will run, and one call for what each takes |
 | `GET/PUT /api/homeappliances/{id}/programs/{active,selected}` | what it is doing, and what it is set to |
+| `DELETE /api/homeappliances/{id}/programs/active` | stop what it is doing |
 | `PUT /api/homeappliances/{id}/settings/{key}` | change a setting |
 | `PUT /api/homeappliances/{id}/programs/{slot}/options/{key}` | change an option |
 | `PUT /api/homeappliances/{id}/commands/{key}` | send a command |
