@@ -31,7 +31,7 @@ from __future__ import annotations
 from datetime import timedelta
 
 import pytest
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, State
 from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import async_fire_time_changed
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
@@ -192,12 +192,17 @@ async def _push_event(
     await hass.async_block_till_done()
 
 
+def _event(hass: HomeAssistant) -> State:
+    state = hass.states.get("event.washer_programme")
+    assert state is not None
+    return state
+
+
 async def test_a_programme_finishing_fires_the_programme_event(
     hass: HomeAssistant, washer: HomeConnectCoordinator
 ) -> None:
     await _push_event(hass, washer, FINISHED, PRESENT)
-    state = hass.states.get("event.washer_programme")
-    assert state is not None
+    state = _event(hass)
     assert state.attributes["event_type"] == "finished"
     # The state of an event entity is the moment it last fired.
     assert state.state not in (None, "unknown", "unavailable")
@@ -209,28 +214,26 @@ async def test_acknowledging_a_finish_does_not_fire_it_again(
     """Confirmed is the same finish acknowledged at the appliance, not a new
     one, so the clock of when it last fired does not move."""
     await _push_event(hass, washer, FINISHED, PRESENT)
-    fired = hass.states.get("event.washer_programme").state
+    fired = _event(hass).state
     await _push_event(hass, washer, FINISHED, CONFIRMED)
-    assert hass.states.get("event.washer_programme").state == fired
+    assert _event(hass).state == fired
 
 
 async def test_a_later_finish_fires_afresh(
     hass: HomeAssistant, washer: HomeConnectCoordinator
 ) -> None:
     await _push_event(hass, washer, FINISHED, PRESENT)
-    first = hass.states.get("event.washer_programme").state
+    first = _event(hass).state
     await _push_event(hass, washer, FINISHED, OFF)
     await _push_event(hass, washer, FINISHED, PRESENT)
-    assert hass.states.get("event.washer_programme").state != first
+    assert _event(hass).state != first
 
 
 async def test_a_programme_cut_short_fires_aborted(
     hass: HomeAssistant, washer: HomeConnectCoordinator
 ) -> None:
     await _push_event(hass, washer, ABORTED, PRESENT)
-    assert hass.states.get("event.washer_programme").attributes["event_type"] == (
-        "aborted"
-    )
+    assert _event(hass).attributes["event_type"] == "aborted"
 
 
 async def test_an_appliance_going_away_takes_its_entities_with_it(
