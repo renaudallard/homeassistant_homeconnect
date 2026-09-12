@@ -569,22 +569,31 @@ class LocalControl:
 
     @callback
     def _look_again(self) -> None:
-        """Open a connection to anything newly found and not yet talked to."""
+        """Open a connection to anything found and not yet talked to there.
+
+        An appliance already talked to is left alone unless it has started
+        shouting from somewhere else. The link it has would go on reconnecting
+        to where it was for good, so that one is let go of and another opened
+        where the appliance is now.
+        """
         if self._spawn is None:
             return
         for haid, known in self._known.items():
-            if haid in self._links:
-                continue
             # Where it is shouting from now, or where it was last heard
             # shouting from. An appliance shouts when it feels like it, so
             # waiting for one to shout again is waiting for nothing.
             found = self._finder.where(haid)
+            link = self._links.get(haid)
+            if link is not None and (found is None or found == known.where):
+                continue
             where = found or known.where
             if where is None:
                 continue
             if found is not None and found != known.where:
                 self._known[haid] = replace(known, where=found)
                 self._remember()
+            if link is not None:
+                self._spawn(link.stop())
             link = self._make(haid, known, where)
             self._links[haid] = link
             link.start(self._spawn)

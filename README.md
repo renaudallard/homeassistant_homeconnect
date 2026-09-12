@@ -332,7 +332,8 @@ the whole of what the cloud is asked once an appliance is reached directly.
 Local control needs each appliance to be on the same network as Home
 Assistant and announcing itself on it, which is what the discovery card is
 built on. An appliance that cannot be found that way stays unavailable until
-it turns up.
+it turns up, and one that turns up on a different address, as it does when
+its lease changes, is followed there.
 
 It also needs the account to publish a key for that appliance. Each key
 stands under the appliance it belongs to rather than in the account's list of

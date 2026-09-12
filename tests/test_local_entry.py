@@ -274,6 +274,69 @@ async def test_an_appliance_that_is_not_shouting_is_still_reached(
         assert control.talking(HAID)
 
 
+async def test_an_appliance_that_moves_is_followed(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """A lease runs out and the appliance comes back on another address. The
+    link it had would reconnect to the old one for good, so it is let go of
+    and another opened where the appliance is shouting from now."""
+    serve(aioclient_mock, [fixture("washer")])
+    made = entry(hass)
+    hass.config_entries.async_update_entry(
+        made, data={**made.data, CONF_TRANSPORT: LOCAL}
+    )
+    heard = [local.Where("10.0.0.5", 443)]
+    opened: list[local.Where] = []
+    stopped: list[Stub] = []
+
+    class Moving(Stub):
+        async def stop(self) -> None:
+            stopped.append(self)
+
+    def make(_control: Any, _haid: str, _known: Any, where: local.Where) -> Stub:
+        opened.append(where)
+        return Moving()
+
+    with (
+        patch(
+            "custom_components.homeconnect.api.HomeConnectAccount.keys",
+            AsyncMock(return_value={HAID: {"key": "a-key"}}),
+        ),
+        patch(
+            "custom_components.homeconnect.api.HomeConnectAccount.description",
+            AsyncMock(return_value=b"a zip"),
+        ),
+        patch.object(iddf, "unpack", lambda _archive: iddf.parse(MAPPING, DESCRIPTION)),
+        patch.object(
+            local, "unpack", lambda _archive: iddf.parse(MAPPING, DESCRIPTION)
+        ),
+        patch.object(local.Finder, "start", AsyncMock()),
+        patch.object(local.Finder, "stop", AsyncMock()),
+        patch.object(local.Finder, "where", lambda _self, _haid: heard[-1]),
+        patch.object(local.LocalControl, "_make", make),
+    ):
+        await hass.config_entries.async_setup(made.entry_id)
+        await hass.async_block_till_done()
+        control = made.runtime_data.local
+        assert control is not None
+        assert opened == [local.Where("10.0.0.5", 443)]
+        first = control._links[HAID]
+
+        # It shouts again from the same place: nothing to do.
+        control._look_again()
+        await hass.async_block_till_done()
+        assert len(opened) == 1
+
+        # It shouts from somewhere new: the old link goes, a new one opens
+        # there, and there is where it is looked for after a restart.
+        heard.append(local.Where("10.0.0.9", 443))
+        control._look_again()
+        await hass.async_block_till_done()
+        assert stopped == [first]
+        assert opened == [local.Where("10.0.0.5", 443), local.Where("10.0.0.9", 443)]
+        assert control._known[HAID].where == local.Where("10.0.0.9", 443)
+
+
 async def test_the_serial_stays_out_of_the_log(
     hass: HomeAssistant,
     talking: tuple[MockConfigEntry, Stub],
