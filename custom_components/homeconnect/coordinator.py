@@ -463,7 +463,10 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
             serial=str(described.get("serialnumber") or ""),
             connected=connected,
             model=model,
-            pending=dict(held.pending) if held else {},
+            # By the same reference the appliance held before, so a start-only
+            # option set while this read is under way is not lost when the
+            # appliance built here replaces the one it was set on.
+            pending=held.pending if held else {},
         )
         if self.local is not None:
             return self._read_locally(appliance, held)
@@ -508,10 +511,6 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
             appliance.program_names = held.program_names
             appliance.active = held.active
             appliance.selected = held.selected
-            # By the same reference the rest is carried by, so a start-only
-            # option set just before a poll is not lost when the poll rebuilds
-            # the appliance before the programme is started.
-            appliance.pending = held.pending
         return appliance
 
     @callback

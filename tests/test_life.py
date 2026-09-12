@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import copy
 from datetime import timedelta
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 from homeassistant.config_entries import ConfigEntryState
@@ -46,6 +47,7 @@ from custom_components.homeconnect.coordinator import (
     SCAN_INTERVAL,
     SCAN_INTERVAL_STREAMING,
     SETTLE,
+    HomeConnectCoordinator,
 )
 from custom_components.homeconnect.events import Event
 
@@ -152,6 +154,28 @@ async def test_the_poll_eases_off_once_the_cloud_is_pushing(
     coordinator.set_streaming(False)
     await hass.async_block_till_done()
     assert coordinator.update_interval == SCAN_INTERVAL
+
+
+async def test_a_delay_set_while_the_account_is_being_read_is_kept(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """A poll builds each appliance afresh from what the cloud says. A start
+    only option set while that is under way lands on the appliance being
+    replaced, and must not go with it."""
+    made = await set_up(hass, aioclient_mock, "washer")
+    coordinator: HomeConnectCoordinator = made.runtime_data.coordinator
+    real_status = coordinator.api.status
+
+    async def status_while_setting(haid: str) -> list[dict[str, Any]]:
+        await coordinator.apply_option(HAID, "BSH.Common.Option.StartInRelative", 3600)
+        return await real_status(haid)
+
+    with patch.object(coordinator.api, "status", status_while_setting):
+        await coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    assert coordinator.data[HAID].pending == {"BSH.Common.Option.StartInRelative": 3600}
+    assert state_of(hass, "time.washer_start_in_relative") == "01:00:00"
 
 
 async def test_an_appliance_taken_off_the_account_loses_its_device(
