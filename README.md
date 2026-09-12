@@ -242,6 +242,13 @@ countdown alongside.
 
     type: custom:homeconnect-hob-card
 
+<p align="center">
+  <img src="images/hob-card.png" alt="A four-zone hob as the card draws it" width="480"/>
+</p>
+
+The two zones of the flex strip on the left are both set to 3, the round zone
+at the back right is off and the one in front of it is at 7.
+
 It is a display rather than a set of controls. A hob only lets itself be driven
 while remote control is switched on at the appliance, and it confirms every
 change at its own panel, so you are already standing at the hob to set anything
