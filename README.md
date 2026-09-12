@@ -534,8 +534,10 @@ local pass is the same set of checks a push faces:
 `make check` prefers a virtualenv under `tmp/venv` when there is one, so the
 checks run against the pinned versions rather than whatever is on the path.
 
-`aiohttp` is the only runtime dependency, and Home Assistant ships it. The
-checks need `homeassistant` and `pytest-homeassistant-custom-component`.
+Everything imported at runtime ships with Home Assistant: `aiohttp`,
+`cryptography`, `zeroconf` and `voluptuous`, so the manifest lists no
+requirements of its own. The checks need `homeassistant` and
+`pytest-homeassistant-custom-component`.
 Neither is needed to run the integration. The decompiled app and the scratch
 work live in `tmp/`, which is not tracked, as is the app package itself.
 
