@@ -284,8 +284,12 @@ async def test_a_reading_that_is_a_list_says_how_many_rather_than_what(
     at the moment it finally has something to say."""
     state = hass.states.get("sensor.washer_error_codes_list")
     assert state is not None
-    assert state.state == "2"
-    assert state.attributes["value"] == {"length": 2, "list": ["E:01", "E:02"]}
+    # The codes are counted, not the two members of the object they came in.
+    assert state.state == "3"
+    assert state.attributes["value"] == {
+        "length": 3,
+        "list": ["E:01", "E:02", "E:03"],
+    }
 
 
 async def test_something_holding_words_becomes_a_text_box(

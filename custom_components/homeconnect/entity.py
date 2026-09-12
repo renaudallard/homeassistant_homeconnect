@@ -233,7 +233,7 @@ class KeyEntity(HomeConnectEntity):
             # Assistant will hold, which loses the entity outright at the
             # moment it has something to say. How many there are is the
             # reading; what they are is beside it.
-            return str(len(found.value))
+            return str(_count(found.value))
         return str(found.value)
 
     @property
@@ -246,6 +246,20 @@ class KeyEntity(HomeConnectEntity):
         # programme is what the appliance is set to and no longer.
         appliance = self.appliance
         return appliance is not None and self._key in appliance.option_keys
+
+
+def _count(value: Mapping[str, Any] | list[Any]) -> int:
+    """How many things a reading that is a list holds.
+
+    A list counts itself. One sent wrapped in an object, its members under
+    list beside a length, is counted by those members: counting the wrapper
+    would say two of everything, however many there are.
+    """
+    if isinstance(value, Mapping):
+        inside = value.get("list")
+        if isinstance(inside, list):
+            return len(inside)
+    return len(value)
 
 
 class SettableEntity(KeyEntity):

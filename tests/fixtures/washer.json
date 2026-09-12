@@ -46,10 +46,11 @@
     {
       "key": "BSH.Common.Root.ErrorCodesList",
       "value": {
-        "length": 2,
+        "length": 3,
         "list": [
           "E:01",
-          "E:02"
+          "E:02",
+          "E:03"
         ]
       }
     }
