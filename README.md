@@ -516,10 +516,18 @@ manufacturer logo appears in home-assistant/brands.
 
 ## Development
 
+    make check
+
+runs the four the CI workflow runs, and nothing the workflow does not, so a
+local pass is the same set of checks a push faces:
+
     ruff check .
     ruff format --check .
     mypy custom_components/ tests/ tools/
     pytest tests/
+
+`make check` prefers a virtualenv under `tmp/venv` when there is one, so the
+checks run against the pinned versions rather than whatever is on the path.
 
 `aiohttp` is the only runtime dependency, and Home Assistant ships it. The
 checks need `homeassistant` and `pytest-homeassistant-custom-component`.
