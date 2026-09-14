@@ -819,7 +819,7 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         """Set the programme the appliance will run next."""
         appliance = self.data[haid]
         if self.local is not None:
-            await self.local.write(haid, SELECTED_PROGRAM, program)
+            await self.local.program(haid, program, {}, start=False)
         else:
             await self.api.set_program(haid, SELECTED, program, [])
         appliance.selected = program
@@ -838,14 +838,12 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         if program is None:
             raise HomeConnectError("nothing is selected to start")
         if self.local is not None:
-            # Whatever was held back goes in first, one at a time, there being
-            # no way to start a programme and adjust it in the same breath. A
-            # snapshot is taken so a setting arriving mid-write does not change
-            # the size of what is being walked.
-            for key, value in list(appliance.pending.items()):
-                await self.local.write(haid, key, value)
+            # Whatever was held back travels with the programme, which is what
+            # the slot takes: the programme and the set of options it is to run
+            # with, in one message. A copy is taken so an option arriving
+            # mid-write does not change what is being sent.
+            await self.local.program(haid, program, dict(appliance.pending), start=True)
             appliance.pending.clear()
-            await self.local.write(haid, ACTIVE_PROGRAM, program)
             return
         options = [
             {"key": key, "value": value} for key, value in appliance.pending.items()

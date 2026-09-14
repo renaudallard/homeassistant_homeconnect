@@ -374,7 +374,17 @@ from the description too, so a number stops where the chosen programme stops
 rather than at the widest the appliance could ever allow. And stopping a
 programme is the appliance's own stop command rather than emptying
 the programme slot, which comes to the same thing but is only offered by an
-appliance that describes that command. The Wi-Fi signal strength reading is
+appliance that describes that command.
+
+A programme is not a value. An appliance keeps one programme it is running
+and one it is set to run, and reports which by number along with everything
+else it holds, but each of the two is a slot of its own that takes only the
+programme and the options it is to run with, together. Sending the same
+number the other way, as though the slot were one more thing to set, is
+acknowledged and then quietly ignored: the appliance carries on with the
+programme it already had while everything here shows the one that was asked
+for. So a programme goes on its slot, and what was held back for the start
+goes with it in the same breath rather than one option at a time. The Wi-Fi signal strength reading is
 left switched off this way too: reached directly an appliance reports only
 zero for it rather than a real figure, so switch it on from the appliance's
 page if its own reading is wanted.

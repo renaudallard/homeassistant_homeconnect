@@ -34,9 +34,10 @@ half produces for the same appliance, key for key and value for value.
 from __future__ import annotations
 
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock
 
+import pytest
 from homeassistant.core import HomeAssistant
 
 from custom_components.homeconnect import iddf, local
@@ -46,6 +47,7 @@ from custom_components.homeconnect.capability import (
     SWITCH,
     platform_for,
 )
+from custom_components.homeconnect.errors import HomeConnectError
 
 FIXTURES = Path(__file__).parent / "fixtures"
 ENTRIES = iddf.parse(
@@ -53,6 +55,8 @@ ENTRIES = iddf.parse(
     (FIXTURES / "DeviceDescription.xml").read_bytes(),
 )
 DESCRIBED = local.describe(ENTRIES)
+
+HAID = "BOSCH-WAV28MH0GB-1234567890AB"
 
 
 def test_a_setting_becomes_what_it_would_have_from_the_cloud() -> None:
@@ -495,3 +499,76 @@ def test_ipv4_is_preferred_over_an_ipv6_a_home_network_may_not_route() -> None:
     assert local._preferred(["fe80::1%eth0", "fd00::5"]) == "fd00::5"
     assert local._preferred(["fd00::5"]) == "fd00::5"
     assert local._preferred([]) is None
+
+
+class Recording:
+    """A link that remembers what was put on it and nothing else."""
+
+    def __init__(self) -> None:
+        self.written: list[tuple[int, Any]] = []
+        self.programmed: list[tuple[int, list[dict[str, Any]], bool]] = []
+
+    async def write(self, uid: int, value: Any) -> None:
+        self.written.append((uid, value))
+
+    async def program(
+        self, uid: int, options: list[dict[str, Any]], start: bool
+    ) -> None:
+        self.programmed.append((uid, options, start))
+
+
+def _reaching(link: Recording) -> local.LocalControl:
+    """Local control that knows one appliance and is talking to this link."""
+    control = local.LocalControl(
+        cast(HomeAssistant, None),
+        object(),
+        None,
+        None,
+        lambda *_a: None,
+        lambda *_a: None,
+    )
+    control._known[HAID] = local.Known(key="AAAA", iv=None, entries=_with_programmes())
+    control._links[HAID] = cast(Any, link)
+    return control
+
+
+async def test_a_programme_goes_on_its_own_port_not_into_the_value_list() -> None:
+    """A programme is not a value. An appliance acknowledges the slot's number
+    written into the value list and then ignores it, which looks from here
+    exactly like it worked, so it goes on the port the slot really is."""
+    link = Recording()
+    await _reaching(link).program(
+        HAID, "LaundryCare.Washer.Program.Cotton", {}, start=False
+    )
+    assert link.programmed == [(0x0300, [], False)]
+    assert link.written == []
+
+
+async def test_starting_a_programme_carries_its_options_in_the_same_message() -> None:
+    """A slot takes the programme and what it is to run with as one thing, so
+    what was held back for the start travels with it rather than one at a
+    time beforehand."""
+    link = Recording()
+    await _reaching(link).program(
+        HAID,
+        "LaundryCare.Washer.Program.Wool",
+        {"BSH.Common.Option.Duration": 1800},
+        start=True,
+    )
+    assert link.programmed == [(0x0301, [{"uid": 0x0303, "value": 1800}], True)]
+
+
+async def test_a_programme_the_appliance_never_described_is_refused_here() -> None:
+    """Rather than sent as a number the appliance would not recognise."""
+    link = Recording()
+    control = _reaching(link)
+    with pytest.raises(HomeConnectError, match="no programme"):
+        await control.program(HAID, "LaundryCare.Washer.Program.Silk", {}, start=False)
+    with pytest.raises(HomeConnectError, match="never heard of"):
+        await control.program(
+            HAID,
+            "LaundryCare.Washer.Program.Wool",
+            {"LaundryCare.Washer.Option.Spin": 1200},
+            start=True,
+        )
+    assert link.programmed == []

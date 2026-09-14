@@ -81,8 +81,17 @@ AUTHENTICATION = "/ci/authentication"
 VALUES = "/ro/values"
 EVERYTHING = "/ro/allMandatoryValues"
 DESCRIPTIONS = "/ro/allDescriptionChanges"
+# Where a programme is put. An appliance keeps one in each of these and
+# reports which by number among its values, but a programme is not a value:
+# each slot is a port of its own, and only a POST to the port's own resource
+# moves it. The same number written into the value list is acknowledged and
+# then quietly ignored, which from here is indistinguishable from it working.
 ACTIVE = "/ro/activeProgram"
 SELECTED = "/ro/selectedProgram"
+
+# Everything this end ever writes to, and so everything whose answer is an
+# answer to something we asked for.
+WRITTEN_TO = frozenset({VALUES, ACTIVE, SELECTED})
 
 GET = "GET"
 POST = "POST"
@@ -384,9 +393,9 @@ class HcpLink:
 
         An appliance numbers what it says of its own accord from a sequence of
         its own, which overlaps ours, so a frame only counts as an answer when
-        it answers the resource writes go to.
+        it answers one of the resources writes go to.
         """
-        if said.get("resource") != VALUES:
+        if said.get("resource") not in WRITTEN_TO:
             return None
         if said.get("action") != RESPONSE and "code" not in said:
             return None
@@ -514,9 +523,30 @@ class HcpLink:
     async def write(self, uid: int, value: Any) -> None:
         """Set one thing on the appliance, by the number it goes by."""
         sent = await self._ask(VALUES, action=POST, data={"uid": uid, "value": value})
-        self._written[sent] = f"{uid:#06x} to {value!r}"
-        # An appliance that answers nothing at all would leave a note here for
-        # every write ever made, so only the last few are kept.
+        self._remember(sent, f"{uid:#06x} to {value!r}")
+
+    async def program(
+        self, uid: int, options: list[dict[str, Any]], start: bool
+    ) -> None:
+        """Put a programme in one of the two slots, with what it runs with.
+
+        Starting one fills the active slot and choosing one for later fills
+        the selected slot; both take the programme's own number and the set of
+        options to go with it, which may be none.
+        """
+        resource = ACTIVE if start else SELECTED
+        sent = await self._ask(
+            resource, action=POST, data={"program": uid, "options": options}
+        )
+        self._remember(sent, f"{resource} to {uid:#06x}")
+
+    def _remember(self, sent: int, written: str) -> None:
+        """What a write was setting, for as long as an answer might come.
+
+        An appliance that answers nothing at all would leave a note here for
+        every write ever made, so only the last few are kept.
+        """
+        self._written[sent] = written
         while len(self._written) > REMEMBERED:
             del self._written[next(iter(self._written))]
 

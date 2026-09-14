@@ -628,20 +628,46 @@ class LocalControl:
         uid = numbers.get(key)
         if uid is None:
             raise HomeConnectError(f"this appliance has never heard of {key}")
-        if key in PROGRAM_SLOTS:
-            # These hold the number of a programme rather than a value, so
-            # what goes back is the number of the programme being asked for.
-            sent = numbers.get(str(value))
-            if sent is None:
-                raise HomeConnectError(f"this appliance has no programme {value}")
-        else:
-            sent = _as_sent(entries[uid], value)
         # By the number as well as the key, since a refusal comes back naming
         # only the number and the two have to be read together.
         _LOGGER.debug(
             "setting %s (%#06x) to %r on %s", key, uid, value, hidden_id(haid)
         )
-        await link.write(uid, sent)
+        await link.write(uid, _as_sent(entries[uid], value))
+
+    async def program(
+        self, haid: str, key: str, options: dict[str, Any], start: bool
+    ) -> None:
+        """Put a programme in one of an appliance's two slots, with its options.
+
+        A programme is not a value. It goes on a port of its own, together
+        with whatever it is to run with, and the options travel in the same
+        message rather than one at a time: an appliance takes a port and its
+        option set as one thing.
+        """
+        link = self._links.get(haid)
+        if link is None:
+            raise HomeConnectError(f"{key} cannot be run while nothing is connected")
+        entries = self.entries(haid)
+        numbers = uids_by_key(entries)
+        wanted = numbers.get(key)
+        if wanted is None:
+            raise HomeConnectError(f"this appliance has no programme {key}")
+        sent = []
+        for name, value in options.items():
+            uid = numbers.get(name)
+            if uid is None:
+                raise HomeConnectError(f"this appliance has never heard of {name}")
+            sent.append({"uid": uid, "value": _as_sent(entries[uid], value)})
+        _LOGGER.debug(
+            "%s %s (%#06x) with %d options on %s",
+            "starting" if start else "selecting",
+            key,
+            wanted,
+            len(sent),
+            hidden_id(haid),
+        )
+        await link.program(wanted, sent, start)
 
 
 def _as_sent(entry: Entry, value: Any) -> Any:

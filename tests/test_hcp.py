@@ -317,6 +317,35 @@ async def test_setting_something_goes_by_the_number_it_goes_by(
     assert written["data"] == [{"uid": 256, "value": 1}]
 
 
+async def test_a_programme_goes_on_the_port_for_the_slot_it_belongs_in(
+    appliance: tuple[Appliance, int], session: aiohttp.ClientSession
+) -> None:
+    """Choosing one for later fills the selected slot and starting one fills
+    the active slot, and each takes the programme's number together with the
+    options it runs with rather than one at a time."""
+    pretend, port = appliance
+    link = link_to(session, port)
+    running(link)
+    async with asyncio.timeout(10):
+        await pretend.ready.wait()
+        await link.program(0x2004, [], start=False)
+        await link.program(0x2000, [{"uid": 0x1407, "value": True}], start=True)
+        while len([one for one in pretend.heard if "Program" in one["resource"]]) < 2:
+            await asyncio.sleep(0.01)
+    await link.stop()
+
+    chosen, started = [one for one in pretend.heard if "Program" in one["resource"]]
+    assert chosen["resource"] == "/ro/selectedProgram"
+    assert chosen["action"] == "POST"
+    assert chosen["data"] == [{"program": 0x2004, "options": []}]
+    assert started["resource"] == "/ro/activeProgram"
+    assert started["data"] == [
+        {"program": 0x2000, "options": [{"uid": 0x1407, "value": True}]}
+    ]
+    # And never as a value, which is what an appliance takes and ignores.
+    assert not any(one["resource"] == "/ro/values" for one in pretend.heard)
+
+
 async def test_an_appliance_refusing_a_write_says_what_it_refused(
     appliance: tuple[Appliance, int],
     session: aiohttp.ClientSession,

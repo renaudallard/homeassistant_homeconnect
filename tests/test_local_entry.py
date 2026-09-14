@@ -69,6 +69,7 @@ class Stub:
     def __init__(self) -> None:
         self.talking = False
         self.written: list[tuple[int, Any]] = []
+        self.programmed: list[tuple[int, list[dict[str, Any]], bool]] = []
         self.said_so: Any = None
 
     def start(self, spawn: Any) -> None:
@@ -81,6 +82,11 @@ class Stub:
 
     async def write(self, uid: int, value: Any) -> None:
         self.written.append((uid, value))
+
+    async def program(
+        self, uid: int, options: list[dict[str, Any]], start: bool
+    ) -> None:
+        self.programmed.append((uid, options, start))
 
 
 def _standing_in(link: Stub) -> Any:
@@ -392,6 +398,23 @@ async def test_setting_something_goes_down_the_appliance_connection(
         "switch", "turn_on", {"entity_id": "switch.washer_child_lock"}, blocking=True
     )
     assert link.written == [(0x0102, True)]
+
+
+async def test_choosing_and_starting_a_programme_both_go_on_the_slot(
+    hass: HomeAssistant, talking: tuple[MockConfigEntry, Stub]
+) -> None:
+    """Not into the value list. An appliance acknowledges the slot's number
+    written there and then carries on with the programme it already had, so
+    everything above would show a programme the machine never took."""
+    made, link = talking
+    coordinator = made.runtime_data.coordinator
+
+    await coordinator.select_program(HAID, "Cooking.Hob.Program.PowerLevel")
+    assert link.programmed == [(0x0109, [], False)]
+
+    await coordinator.start_program(HAID)
+    assert link.programmed[-1] == (0x0109, [], True)
+    assert link.written == []
 
 
 async def test_what_is_being_set_is_said_by_key_as_well_as_by_number(
