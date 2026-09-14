@@ -104,6 +104,12 @@ RECONNECT_DELAY_UNEXPECTED = 30.0
 # hour was being cut off to the second.
 PING = 30.0
 
+# How many writes to keep a note of. An appliance that refuses one names only
+# the number of the message it is answering, so what was being set has to be
+# remembered here or the refusal says nothing anyone can act on. A handful is
+# plenty: the answer comes back at once or not at all.
+REMEMBERED = 16
+
 Spawn = Callable[[Coroutine[Any, Any, None]], "asyncio.Task[None]"]
 
 
@@ -265,6 +271,9 @@ class HcpLink:
         self._socket: aiohttp.ClientWebSocketResponse | None = None
         self._sid: int | None = None
         self._msgid = 0
+        # What each write we are still waiting on was setting, by the number
+        # its message went out with.
+        self._written: dict[int, str] = {}
         self._task: asyncio.Task[None] | None = None
         self._complained = False
 
@@ -370,11 +379,37 @@ class HcpLink:
         if isinstance(said, dict):
             await self._handle(said)
 
+    def _answered(self, said: dict[str, Any]) -> str | None:
+        """The write this frame is answering, where it is answering one.
+
+        An appliance numbers what it says of its own accord from a sequence of
+        its own, which overlaps ours, so a frame only counts as an answer when
+        it answers the resource writes go to.
+        """
+        if said.get("resource") != VALUES:
+            return None
+        if said.get("action") != RESPONSE and "code" not in said:
+            return None
+        answering = said.get("msgID")
+        if not isinstance(answering, int):
+            return None
+        return self._written.pop(answering, None)
+
     async def _handle(self, said: dict[str, Any]) -> None:
         resource = str(said.get("resource") or "")
         action = str(said.get("action") or "")
+        written = self._answered(said)
         if "code" in said:
-            _LOGGER.debug("%s refused %s with %s", self._host, resource, said["code"])
+            if written is not None:
+                # A refused write is the whole of why the thing asked for did
+                # not happen, so it is said plainly rather than left at debug.
+                _LOGGER.warning(
+                    "%s refused to set %s: %s", self._host, written, said["code"]
+                )
+            else:
+                _LOGGER.debug(
+                    "%s refused %s with %s", self._host, resource, said["code"]
+                )
             return
         if action == POST and resource == INITIAL:
             await self._begin(said)
@@ -395,6 +430,9 @@ class HcpLink:
         if not isinstance(first, dict):
             first = {}
         self._msgid = int(first.get("edMsgID", 1))
+        # The numbering starts again here, so a note left over from the last
+        # conversation would be handed to whichever write reuses its number.
+        self._written.clear()
         await self._reply(
             said,
             {
@@ -447,7 +485,8 @@ class HcpLink:
         version: int = 1,
         action: str = GET,
         data: Any = None,
-    ) -> None:
+    ) -> int:
+        """Say one thing, and give back the number it went out with."""
         message: dict[str, Any] = {
             "sID": self._sid,
             "msgID": self._msgid,
@@ -457,8 +496,10 @@ class HcpLink:
         }
         if data is not None:
             message["data"] = [data]
+        sent = self._msgid
         self._msgid += 1
         await self._write(message)
+        return sent
 
     async def _write(self, message: dict[str, Any]) -> None:
         socket = self._socket
@@ -472,7 +513,12 @@ class HcpLink:
 
     async def write(self, uid: int, value: Any) -> None:
         """Set one thing on the appliance, by the number it goes by."""
-        await self._ask(VALUES, action=POST, data={"uid": uid, "value": value})
+        sent = await self._ask(VALUES, action=POST, data={"uid": uid, "value": value})
+        self._written[sent] = f"{uid:#06x} to {value!r}"
+        # An appliance that answers nothing at all would leave a note here for
+        # every write ever made, so only the last few are kept.
+        while len(self._written) > REMEMBERED:
+            del self._written[next(iter(self._written))]
 
     async def refresh(self) -> None:
         """Ask again for everything it is holding."""

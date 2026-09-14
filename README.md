@@ -399,6 +399,19 @@ brand, the model and everything the appliance said about itself stay readable.
 For a model this has never seen, that download is the one thing a report cannot
 do without.
 
+When a control does not take, the log is the other half. An appliance reached
+directly can refuse a write, and says so with a number and nothing else, so
+what was refused is written out beside it:
+
+    WARNING ... 192.0.2.4 refused to set 0x1401 to True: 400
+
+That is a warning rather than a debug line, since a refused write is the whole
+of why the thing that was asked for did not happen. Turn debug on for
+`custom_components.homeconnect` and the write that was refused is there too,
+naming the key as well as the number, along with a line whenever the appliance
+changes which programme it is set to or running. Between them they say whether
+an appliance turned something down or took it and then went its own way.
+
 ## When the controls go unavailable
 
 An appliance that is not being heard from cannot be set to anything, so every

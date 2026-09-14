@@ -631,12 +631,17 @@ class LocalControl:
         if key in PROGRAM_SLOTS:
             # These hold the number of a programme rather than a value, so
             # what goes back is the number of the programme being asked for.
-            wanted = numbers.get(str(value))
-            if wanted is None:
+            sent = numbers.get(str(value))
+            if sent is None:
                 raise HomeConnectError(f"this appliance has no programme {value}")
-            await link.write(uid, wanted)
-            return
-        await link.write(uid, _as_sent(entries[uid], value))
+        else:
+            sent = _as_sent(entries[uid], value)
+        # By the number as well as the key, since a refusal comes back naming
+        # only the number and the two have to be read together.
+        _LOGGER.debug(
+            "setting %s (%#06x) to %r on %s", key, uid, value, hidden_id(haid)
+        )
+        await link.write(uid, sent)
 
 
 def _as_sent(entry: Entry, value: Any) -> Any:

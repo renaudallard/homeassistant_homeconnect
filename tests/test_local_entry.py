@@ -394,6 +394,46 @@ async def test_setting_something_goes_down_the_appliance_connection(
     assert link.written == [(0x0102, True)]
 
 
+async def test_what_is_being_set_is_said_by_key_as_well_as_by_number(
+    hass: HomeAssistant,
+    talking: tuple[MockConfigEntry, Stub],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A write goes out as a number and a refusal comes back naming only that
+    number, so both have to be in the log or the two cannot be read together."""
+    await hass.services.async_call(
+        "switch", "turn_on", {"entity_id": "switch.washer_child_lock"}, blocking=True
+    )
+    assert "setting BSH.Common.Setting.ChildLock (0x0102) to True" in caplog.text
+
+
+async def test_the_appliance_changing_which_programme_is_set_is_said(
+    hass: HomeAssistant,
+    talking: tuple[MockConfigEntry, Stub],
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """An appliance that quietly drops what it was set to, rather than taking
+    what it was told, shows up only as the slot moving back."""
+    made, _ = talking
+    coordinator = made.runtime_data.coordinator
+    caplog.clear()
+    # 0x0108 is the selected programme slot, 0x0109 the one programme there is.
+    coordinator.apply_locally(HAID, {0x0108: 0x0109})
+    await hass.async_block_till_done()
+    assert "Washer is now set to Cooking.Hob.Program.PowerLevel" in caplog.text
+
+    # Saying the same thing again is not a change and is not worth a word.
+    caplog.clear()
+    coordinator.apply_locally(HAID, {0x0108: 0x0109})
+    await hass.async_block_till_done()
+    assert "is now set to" not in caplog.text
+
+    # An emptied slot reads as one, rather than as the word None.
+    coordinator.apply_locally(HAID, {0x0108: 0})
+    await hass.async_block_till_done()
+    assert "Washer is now set to nothing" in caplog.text
+
+
 async def test_a_choice_goes_back_as_the_number_of_the_value(
     hass: HomeAssistant, talking: tuple[MockConfigEntry, Stub]
 ) -> None:

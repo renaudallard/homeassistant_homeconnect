@@ -527,10 +527,24 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         appliance.events.update(sorted_out.events)
         # Only a slot the appliance actually spoke of is moved, so a programme
         # finishing (the slot emptied) is cleared, while a delta that touched
-        # one slot does not wipe the other it never mentioned.
+        # one slot does not wipe the other it never mentioned. A slot moving
+        # is worth saying: it is how an appliance that has quietly dropped
+        # what it was set to, rather than taken what it was told, shows up.
         if sorted_out.active_said:
+            if sorted_out.active != appliance.active:
+                _LOGGER.debug(
+                    "%s is now running %s",
+                    appliance.name,
+                    sorted_out.active or "nothing",
+                )
             appliance.active = sorted_out.active
         if sorted_out.selected_said:
+            if sorted_out.selected != appliance.selected:
+                _LOGGER.debug(
+                    "%s is now set to %s",
+                    appliance.name,
+                    sorted_out.selected or "nothing",
+                )
             appliance.selected = sorted_out.selected
         self.async_set_updated_data(self.data)
 

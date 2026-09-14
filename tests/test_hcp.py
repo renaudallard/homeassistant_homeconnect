@@ -35,6 +35,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 from base64 import urlsafe_b64encode
 from collections.abc import AsyncGenerator
 from typing import Any
@@ -133,6 +134,9 @@ class Appliance:
     def __init__(self) -> None:
         self.heard: list[dict[str, Any]] = []
         self.ready = asyncio.Event()
+        # What it answers when told to set something. A real one that takes it
+        # says nothing at all, which is what none here means.
+        self.refusal: int | None = None
         self._end = TheirEnd(PSK, VECTOR)
 
     async def _say(self, socket: web.WebSocketResponse, said: dict[str, Any]) -> None:
@@ -171,6 +175,19 @@ class Appliance:
                     },
                 )
                 self.ready.set()
+            if said.get("resource") == "/ro/values" and self.refusal is not None:
+                # A refusal carries the number of the message it is answering
+                # and a code, and nothing else at all.
+                await self._say(
+                    socket,
+                    {
+                        "sID": 4242,
+                        "msgID": said["msgID"],
+                        "resource": "/ro/values",
+                        "version": 1,
+                        "code": self.refusal,
+                    },
+                )
         return socket
 
 
@@ -298,6 +315,56 @@ async def test_setting_something_goes_by_the_number_it_goes_by(
     written = next(one for one in pretend.heard if one["resource"] == "/ro/values")
     assert written["action"] == "POST"
     assert written["data"] == [{"uid": 256, "value": 1}]
+
+
+async def test_an_appliance_refusing_a_write_says_what_it_refused(
+    appliance: tuple[Appliance, int],
+    session: aiohttp.ClientSession,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A refusal names the message it is answering and nothing else, so what
+    was being set is only knowable here. Without it the log says a number was
+    refused and leaves whoever pressed the button none the wiser."""
+    pretend, port = appliance
+    pretend.refusal = 400
+    link = link_to(session, port)
+    running(link)
+    async with asyncio.timeout(10):
+        await pretend.ready.wait()
+        await link.write(0x1401, True)
+        while "refused to set" not in caplog.text:
+            await asyncio.sleep(0.01)
+    await link.stop()
+
+    assert "refused to set 0x1401 to True: 400" in caplog.text
+
+
+async def test_a_refusal_of_something_we_never_wrote_blames_no_write(
+    appliance: tuple[Appliance, int],
+    session: aiohttp.ClientSession,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """An appliance numbers what it says itself from a sequence of its own,
+    which overlaps ours. A frame of its own carrying a code must not be read
+    as the answer to a write that happens to share its number."""
+    caplog.set_level(logging.DEBUG, logger="custom_components.homeconnect.hcp")
+    pretend, port = appliance
+    link = link_to(session, port)
+    running(link)
+    async with asyncio.timeout(10):
+        await pretend.ready.wait()
+        await link.write(0x1401, True)
+        while not any(one["resource"] == "/ro/values" for one in pretend.heard):
+            await asyncio.sleep(0.01)
+        written = next(one for one in pretend.heard if one["resource"] == "/ro/values")
+        # The appliance starting a message of its own, on that same number.
+        await link._handle(
+            {"msgID": written["msgID"], "resource": "/ro/descriptionChange", "code": 5}
+        )
+    await link.stop()
+
+    assert "refused /ro/descriptionChange with 5" in caplog.text
+    assert "refused to set" not in caplog.text
 
 
 async def test_writing_to_an_appliance_that_is_not_listening_says_so(
