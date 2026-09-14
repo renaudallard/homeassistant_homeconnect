@@ -265,7 +265,9 @@ icon each, the power and the child lock to hand, and a start and a stop. What
 the run forecasts for energy and water reads on the same coloured bars the app
 uses, beside how long it will take, with a warning across the top while the
 door is open. Every control is the appliance's own entity, so whatever the
-card does the appliance does.
+card does the appliance does. An option belongs to the programme that offers
+it, so a pill greys out while a programme that has never heard of it is
+selected rather than sitting there doing nothing.
 
     type: custom:homeconnect-dishwasher-card
 

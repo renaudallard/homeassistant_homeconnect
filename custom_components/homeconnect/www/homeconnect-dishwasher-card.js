@@ -322,7 +322,13 @@ class HomeConnectDishwasherCard extends HTMLElement {
 
     for (const option of present) {
       const pill = root.querySelector(`.pill[data-slug="${option.slug}"]`);
-      if (pill) pill.classList.toggle("on", this._value(found.options[option.slug]) === "on");
+      if (!pill) continue;
+      // An option belongs to a programme and goes away with it. Home Assistant
+      // drops a call to an entity that is not there, so a pill left pressable
+      // would do nothing at all and say nothing about why.
+      const value = this._value(found.options[option.slug]);
+      pill.disabled = value === undefined || value === "unavailable";
+      pill.classList.toggle("on", value === "on");
     }
 
     const go = root.querySelector(".go");
