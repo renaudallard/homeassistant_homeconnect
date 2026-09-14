@@ -39,6 +39,7 @@ import logging
 from base64 import urlsafe_b64encode
 from collections.abc import AsyncGenerator
 from typing import Any
+from unittest.mock import patch
 from urllib.parse import urlparse
 
 import aiohttp
@@ -46,7 +47,13 @@ import pytest
 from aiohttp import web
 
 from custom_components.homeconnect.errors import HomeConnectError
-from custom_components.homeconnect.hcp import CIPHERS, HcpLink, Sealed, context
+from custom_components.homeconnect.hcp import (
+    CIPHERS,
+    REMEMBERED,
+    HcpLink,
+    Sealed,
+    context,
+)
 
 KEY = urlsafe_b64encode(bytes(range(32))).decode().rstrip("=")
 IV = urlsafe_b64encode(bytes(range(16))).decode().rstrip("=")
@@ -394,6 +401,47 @@ async def test_a_refusal_of_something_we_never_wrote_blames_no_write(
 
     assert "refused /ro/descriptionChange with 5" in caplog.text
     assert "refused to set" not in caplog.text
+
+    # Nor is a frame whose number is not a number read as answering one.
+    await link._handle({"msgID": "seventy-seven", "resource": "/ro/values", "code": 6})
+    assert "refused /ro/values with 6" in caplog.text
+    assert "refused to set" not in caplog.text
+
+
+async def test_a_write_is_noted_before_it_goes_out(
+    session: aiohttp.ClientSession,
+) -> None:
+    """An appliance on the same network answers in a few milliseconds, and the
+    reader is a task of its own, so a refusal can be in hand before the
+    sending call has come back. One arriving first must still find the note."""
+    link = HcpLink(session, "hob", KEY, IV, lambda _v: None, lambda _c: None)
+    noted: list[dict[int, str]] = []
+
+    async def watching(_message: dict[str, Any]) -> None:
+        noted.append(dict(link._written))
+
+    with patch.object(link, "_write", watching):
+        await link.write(0x1401, True)
+        await link.program(0x2004, [], start=False)
+
+    assert noted == [
+        {0: "0x1401 to True"},
+        {0: "0x1401 to True", 1: "/ro/selectedProgram to 0x2004"},
+    ]
+
+
+def test_only_the_last_few_writes_are_kept_to_name_a_refusal(
+    session: aiohttp.ClientSession,
+) -> None:
+    """An appliance that never answers would otherwise leave a note here for
+    every write ever made, and the notes are only there to name a refusal."""
+    link = HcpLink(session, "hob", KEY, IV, lambda _v: None, lambda _c: None)
+    for number in range(REMEMBERED + 5):
+        link._remember(number, f"{number:#06x} to True")
+
+    assert len(link._written) == REMEMBERED
+    # The oldest go first, so the newest write can always be named.
+    assert min(link._written) == 5
 
 
 async def test_writing_to_an_appliance_that_is_not_listening_says_so(

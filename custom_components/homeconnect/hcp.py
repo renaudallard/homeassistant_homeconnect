@@ -494,8 +494,15 @@ class HcpLink:
         version: int = 1,
         action: str = GET,
         data: Any = None,
-    ) -> int:
-        """Say one thing, and give back the number it went out with."""
+        written: str | None = None,
+    ) -> None:
+        """Say one thing, noting what it was setting where it sets anything.
+
+        The note goes in before the message goes out. An appliance on the same
+        network answers in a few milliseconds and the reader is a task of its
+        own, so a refusal can be in hand before the sending call has come
+        back, and one arriving first would find nothing to name.
+        """
         message: dict[str, Any] = {
             "sID": self._sid,
             "msgID": self._msgid,
@@ -505,10 +512,10 @@ class HcpLink:
         }
         if data is not None:
             message["data"] = [data]
-        sent = self._msgid
+        if written is not None:
+            self._remember(self._msgid, written)
         self._msgid += 1
         await self._write(message)
-        return sent
 
     async def _write(self, message: dict[str, Any]) -> None:
         socket = self._socket
@@ -522,8 +529,12 @@ class HcpLink:
 
     async def write(self, uid: int, value: Any) -> None:
         """Set one thing on the appliance, by the number it goes by."""
-        sent = await self._ask(VALUES, action=POST, data={"uid": uid, "value": value})
-        self._remember(sent, f"{uid:#06x} to {value!r}")
+        await self._ask(
+            VALUES,
+            action=POST,
+            data={"uid": uid, "value": value},
+            written=f"{uid:#06x} to {value!r}",
+        )
 
     async def program(
         self, uid: int, options: list[dict[str, Any]], start: bool
@@ -535,10 +546,12 @@ class HcpLink:
         options to go with it, which may be none.
         """
         resource = ACTIVE if start else SELECTED
-        sent = await self._ask(
-            resource, action=POST, data={"program": uid, "options": options}
+        await self._ask(
+            resource,
+            action=POST,
+            data={"program": uid, "options": options},
+            written=f"{resource} to {uid:#06x}",
         )
-        self._remember(sent, f"{resource} to {uid:#06x}")
 
     def _remember(self, sent: int, written: str) -> None:
         """What a write was setting, for as long as an answer might come.
