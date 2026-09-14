@@ -17,6 +17,10 @@ const CARD = "homeconnect-dishwasher-card";
 
 // The options the app shows as pills, in its order, each paired with the tail
 // of the switch that stands for it and a line-art icon that stands for it.
+// A dishwasher that describes the same name twice, once as an option of its
+// programmes and once as a setting of its own, ends up with two switches
+// called the same thing, and Home Assistant puts a number on the end of the
+// second. So a numbered tail is the same option.
 const OPTIONS = [
   { slug: "vario_speed_plus", label: "SpeedPerfect+", icon: "mdi:fast-forward" },
   { slug: "extra_dry", label: "Extra dry", icon: "mdi:tumble-dryer" },
@@ -24,7 +28,10 @@ const OPTIONS = [
   { slug: "half_load", label: "Half load", icon: "mdi:circle-half-full" },
   { slug: "intensiv_zone", label: "Intensive zone", icon: "mdi:target" },
   { slug: "silence_on_demand", label: "Silent", icon: "mdi:volume-off" },
-];
+].map((option) => ({
+  ...option,
+  tail: new RegExp(`_${option.slug}(?:_\\d+)?$`),
+}));
 
 // Half load and the intensive zone are a dishwasher's own, so a device with a
 // switch for either is a dishwasher and no washer or dryer is taken for one.
@@ -120,14 +127,18 @@ class HomeConnectDishwasherCard extends HTMLElement {
     const entities = (this._hass && this._hass.entities) || {};
     if (!device) return found;
     for (const entity_id of Object.keys(entities)) {
-      if (entities[entity_id].device_id !== device) continue;
+      const entity = entities[entity_id];
+      if (entity.device_id !== device) continue;
       for (const [name, pattern] of Object.entries(FIELDS)) {
         if (pattern.test(entity_id)) found[name] = entity_id;
       }
+      // What a programme is adjusted by, and never the appliance's own
+      // setting of the same name: a setting is housekeeping and carries a
+      // category, and an option of a programme never does, which is what
+      // tells the two apart where a dishwasher describes both.
+      if (!entity_id.startsWith("switch.") || entity.entity_category) continue;
       for (const option of OPTIONS) {
-        if (entity_id.startsWith("switch.") && entity_id.endsWith(`_${option.slug}`)) {
-          found.options[option.slug] = entity_id;
-        }
+        if (option.tail.test(entity_id)) found.options[option.slug] = entity_id;
       }
     }
     return found;
