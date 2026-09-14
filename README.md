@@ -269,6 +269,14 @@ card does the appliance does.
 
     type: custom:homeconnect-dishwasher-card
 
+<p align="center">
+  <img src="images/dishwasher-card.png" alt="A dishwasher as the card draws it" width="320"/>
+</p>
+
+Eco 50 is the programme here, its energy and water forecast on the bars beside
+how long the run takes, and the door is still open, so the warning sits across
+the top.
+
 The appliance card is the same idea for every other programme machine: a
 washer, a dryer, a washer-dryer, an oven, a microwave, a coffee maker or a
 wine cooler. It reads whatever the machine offers rather than a list held per
