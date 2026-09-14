@@ -558,6 +558,16 @@ async def test_starting_a_programme_carries_its_options_in_the_same_message() ->
     assert link.programmed == [(0x0301, [{"uid": 0x0303, "value": 1800}], True)]
 
 
+async def test_a_programme_cannot_be_put_on_one_that_is_not_listening() -> None:
+    """The same refusal a plain write gets, rather than a stray attribute error."""
+    control = _reaching(Recording())
+    control._links.clear()
+    with pytest.raises(HomeConnectError, match="nothing is connected"):
+        await control.program(
+            HAID, "LaundryCare.Washer.Program.Cotton", {}, start=False
+        )
+
+
 async def test_a_programme_the_appliance_never_described_is_refused_here() -> None:
     """Rather than sent as a number the appliance would not recognise."""
     link = Recording()

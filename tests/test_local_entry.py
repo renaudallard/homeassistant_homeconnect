@@ -456,6 +456,12 @@ async def test_the_appliance_changing_which_programme_is_set_is_said(
     await hass.async_block_till_done()
     assert "Washer is now set to nothing" in caplog.text
 
+    # And the slot holding what is running is said the same way.
+    caplog.clear()
+    coordinator.apply_locally(HAID, {0x0107: 0x0109})
+    await hass.async_block_till_done()
+    assert "Washer is now running Cooking.Hob.Program.PowerLevel" in caplog.text
+
 
 async def test_a_choice_goes_back_as_the_number_of_the_value(
     hass: HomeAssistant, talking: tuple[MockConfigEntry, Stub]
