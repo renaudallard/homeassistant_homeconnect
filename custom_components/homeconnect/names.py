@@ -93,6 +93,8 @@ PHRASES = {
 NAMES = {
     "BSH.Common.Root.ActiveProgram": "Active programme",
     "BSH.Common.Root.SelectedProgram": "Selected programme",
+    # The hob misspells its own state, and the key is what it says it is.
+    "Cooking.Hob.EnumType.ZoneState.ResiduelHeat": "Residual heat",
     "LaundryCare.Washer.Option.IDos1Active": "i-Dos 1",
     "LaundryCare.Washer.Option.IDos2Active": "i-Dos 2",
     "LaundryCare.Washer.Setting.IDos1BaseLevel": "i-Dos 1 base level",

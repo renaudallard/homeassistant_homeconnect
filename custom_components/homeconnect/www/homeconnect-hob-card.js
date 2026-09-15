@@ -63,6 +63,10 @@ const degrees = (value) => {
 
 const OFF = new Set(["off", "inactive", "0", "", undefined, null, "unavailable", "unknown"]);
 
+// A plate still warm from before. The appliance spells the state Residuel and
+// the text put in front of it says Residual, so both are the same plate.
+const HOT = new Set(["residualheat", "residuelheat"]);
+
 // Every device that has zone readings on it, which is every hob.
 function hobDevices(hass) {
   const entities = (hass && hass.entities) || {};
@@ -335,7 +339,7 @@ class HomeConnectHobCard extends HTMLElement {
 
     const boost = powerText.startsWith("boost");
     const level = !OFF.has(powerText) && !boost; // a power level that is set
-    const hot = state === "residuelheat";
+    const hot = HOT.has(state);
     const active = !hot && (state === "active" || op === "run" || boost || level);
 
     tile.classList.toggle("on", active && !boost);

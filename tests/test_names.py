@@ -71,6 +71,7 @@ def test_readable(key: str, expected: str) -> None:
         ("Cooking.Oven.Program.HeatingMode.HotAir", "Hot air"),
         ("BSH.Common.EnumType.OperationState.Run", "Run"),
         ("Cooking.Oven.Program.Dish.Automatic.Conv.ClayPot", "Clay pot"),
+        ("Cooking.Hob.EnumType.ZoneState.ResiduelHeat", "Residual heat"),
     ],
 )
 def test_label(key: str, expected: str) -> None:
