@@ -184,7 +184,7 @@ def reached_locally(haid: str) -> Iterator[None]:
 
 
 def entry(
-    hass: HomeAssistant, email: str | None = None, minor_version: int = 3
+    hass: HomeAssistant, email: str | None = None, minor_version: int = 4
 ) -> MockConfigEntry:
     """An account already signed in, with a token that has not expired."""
     data: dict[str, Any] = {

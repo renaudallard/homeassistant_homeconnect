@@ -148,17 +148,17 @@ class StopButton(HomeConnectButton):
 
 
 # Commands that do something disruptive or hard to undo: a factory reset, a
-# firmware operation, a channel to the maker's own support. They are built
-# like every other command, and left switched off unless asked for, so none
-# is a press away by accident. Recognised by the word in the key rather than
-# by a list of appliances, so a sibling on a machine nobody here has tried is
-# caught the same way.
-SENSITIVE = ("FactoryReset", "Software", "CustomerService")
+# firmware operation, taking the appliance off its network, a channel to the
+# maker's own support. They are built like every other command, and left
+# switched off unless asked for, so none is a press away by accident.
+# Recognised by the word in the key rather than by a list of appliances, so a
+# sibling on a machine nobody here has tried is caught the same way.
+SENSITIVE = ("FactoryReset", "Software", "CustomerService", "WiFi")
 
 
-def sensitive_command(key: str) -> bool:
+def sensitive_command(key: str, words: tuple[str, ...] = SENSITIVE) -> bool:
     """Whether a key is a command better left off until it is wanted."""
-    return ".Command." in key and any(word in key for word in SENSITIVE)
+    return ".Command." in key and any(word in key for word in words)
 
 
 class CommandButton(HomeConnectButton):

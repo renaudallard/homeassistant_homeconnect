@@ -177,7 +177,7 @@ away on the next look.
 
 A programme ending is kept in two places on purpose. The binary sensor stays on for as long as the appliance still says so, which is the right shape for a lingering complaint like a door left open. The **Programme** event fires the one instant something happens, which is what an automation triggers on cleanly, rather than having to catch a flag on the turn. It carries whichever of its moments the appliance has: a programme finishing or being cut short, an oven finishing its preheat, a timer going off.
 
-A handful of commands are built like the rest but left switched off until you ask for them: a factory reset, a firmware download or update, and the lines that open a channel to the manufacturer's support. They are one press and hard to take back, so none sits there pressable out of the box; enable the one you want from the appliance's page. An account set up before this keeps whatever it had, except that these are switched off once on the upgrade.
+A handful of commands are built like the rest but left switched off until you ask for them: a factory reset, a firmware download or update, the one that switches the appliance's Wi-Fi off, and the lines that open a channel to the manufacturer's support. They are one press and hard to take back, so none sits there pressable out of the box; enable the one you want from the appliance's page. An account set up before this keeps whatever it had, except that these are switched off once on the upgrade.
 
 An appliance that the account lists but that has never once answered raises a
 repair notice saying so, because otherwise it arrives as a single Disconnected

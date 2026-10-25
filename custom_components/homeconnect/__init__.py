@@ -35,6 +35,7 @@ unreachable after a restart.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import dataclass
 
 from homeassistant.config_entries import ConfigEntry
@@ -105,34 +106,32 @@ async def async_migrate_entry(
     3: an appliance reached directly reports no signal strength, only zero, so
     that reading is switched off while it is reached that way. One set up
     before this, on the local network, has it switched off here.
+
+    4: the command that takes an appliance off its network joins those of 2.
+    Only it is switched off here, so a reset a user switched back on after 2
+    stays on.
     """
+    from .button import sensitive_command
+    from .sensor import WIFI
+
     registry = er.async_get(hass)
     entities = er.async_entries_for_config_entry(registry, entry.entry_id)
 
+    def switch_off(wanted: Callable[[str], bool]) -> None:
+        for registered in entities:
+            if registered.disabled_by is None and wanted(registered.unique_id):
+                registry.async_update_entity(
+                    registered.entity_id,
+                    disabled_by=er.RegistryEntryDisabler.INTEGRATION,
+                )
+
     if entry.minor_version < 2:
-        from .button import sensitive_command
-
-        for registered in entities:
-            if registered.disabled_by is None and sensitive_command(
-                registered.unique_id
-            ):
-                registry.async_update_entity(
-                    registered.entity_id,
-                    disabled_by=er.RegistryEntryDisabler.INTEGRATION,
-                )
-
+        switch_off(sensitive_command)
     if entry.minor_version < 3 and entry.data.get(CONF_TRANSPORT) == LOCAL:
-        from .sensor import WIFI
-
-        for registered in entities:
-            if registered.disabled_by is None and registered.unique_id.endswith(WIFI):
-                registry.async_update_entity(
-                    registered.entity_id,
-                    disabled_by=er.RegistryEntryDisabler.INTEGRATION,
-                )
-
-    if entry.minor_version < 3:
-        hass.config_entries.async_update_entry(entry, minor_version=3)
+        switch_off(lambda unique_id: unique_id.endswith(WIFI))
+    if entry.minor_version < 4:
+        switch_off(lambda unique_id: sensitive_command(unique_id, ("WiFi",)))
+        hass.config_entries.async_update_entry(entry, minor_version=4)
     return True
 
 

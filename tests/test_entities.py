@@ -252,6 +252,16 @@ async def test_a_dangerous_command_is_built_but_left_switched_off(
     assert hass.states.get("button.washer_pause_programme") is not None
 
 
+def test_switching_the_wifi_off_is_a_dangerous_command() -> None:
+    """It takes the appliance off the network that the cloud and the local
+    connection both need. The reading of the signal is not a command and
+    stays as it was."""
+    from custom_components.homeconnect.button import sensitive_command
+
+    assert sensitive_command("BSH.Common.Command.DeactivateWiFi")
+    assert not sensitive_command("BSH.Common.Status.WiFiSignalStrength")
+
+
 async def test_starting_is_offered_and_stopping_is_not(
     hass: HomeAssistant, washer: MockConfigEntry
 ) -> None:
