@@ -49,6 +49,26 @@ model nobody has tried works the same way as the one this was written against.
 > ships with Home Assistant: the two can be installed side by side, and this
 > one asks for no developer registration.
 
+## Why not the built-in integration
+
+Home Assistant ships its own Home Connect integration. It talks only to the
+cloud, through the public developer API, and knows a fixed list of keys. This
+one builds its entities from the appliance's own description, and can leave
+the cloud out entirely.
+
+On a Bosch SMU6ECS12E dishwasher, the appliance describes 19 settings, 15
+statuses, 22 events, 15 options and 9 commands. The built-in integration has
+entities for 2 of those settings, 3 of the statuses, 4 of the events, 10 of
+the options and none of the commands. Reached directly, this integration
+creates 49 entities for it before the first reading arrives, and adds the
+status readings as the appliance reports them.
+
+The developer API allows 1000 requests per account and day. Past that the
+account is blocked for the rest of the period, and reports against the
+built-in integration show blocks of up to 86,399 seconds. Reached directly,
+this integration asks the cloud only for the list of appliances, every 30
+minutes: 48 requests a day, whatever the number of appliances.
+
 ## Highlights
 
 - **Built from what the appliance says** — a command becomes a button, a
