@@ -103,7 +103,7 @@ async def test_signing_in_makes_an_entry(
         shown["flow_id"], {CONF_CODE: answer(shown)}
     )
     assert made["type"] is FlowResultType.CREATE_ENTRY
-    assert made["title"] == "Home Connect"
+    assert made["title"] == "Home Connect NG"
     assert made["data"][CONF_ACCESS_TOKEN] == "an-access-token"
     assert made["data"][CONF_REFRESH_TOKEN] == "a-refresh-token"
 

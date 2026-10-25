@@ -274,7 +274,7 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
             data[CONF_TRANSPORT] = entry.data.get(CONF_TRANSPORT, CLOUD)
             return self.async_update_reload_and_abort(entry, data=data)
         self._abort_if_unique_id_configured()
-        return self.async_create_entry(title="Home Connect", data=data)
+        return self.async_create_entry(title="Home Connect NG", data=data)
 
 
 def _describe(found: ZeroconfServiceInfo) -> str:

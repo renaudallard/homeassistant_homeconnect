@@ -196,7 +196,7 @@ def entry(
         data[CONF_EMAIL] = email
     made = MockConfigEntry(
         domain=DOMAIN,
-        title="Home Connect",
+        title="Home Connect NG",
         unique_id="account-under-test",
         data=data,
         minor_version=minor_version,

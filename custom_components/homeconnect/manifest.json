@@ -1,6 +1,6 @@
 {
   "domain": "homeconnect",
-  "name": "Home Connect",
+  "name": "Home Connect NG",
   "after_dependencies": [
     "frontend",
     "http"
