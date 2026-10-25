@@ -128,6 +128,10 @@ class HomeConnectApi:
         # in a header on every answer, which is better than guessing at the
         # account service later.
         self._env: str | None = None
+        # When the cloud last said it would take nothing more, the monotonic
+        # time it said to wait until. Asking again before then is refused all
+        # the same, and a run of refusals earns a block of its own.
+        self._quiet_until = 0.0
 
     @property
     def region(self) -> str | None:
@@ -204,6 +208,12 @@ class HomeConnectApi:
         retry: bool = True,
     ) -> tuple[int, Any]:
         """Make one call, renewing the token once if it is refused as stale."""
+        waiting = self._quiet_until - time.monotonic()
+        if waiting > 0:
+            raise HomeConnectTooManyRequests(
+                f"{redact_url(path)} held back for {waiting:.0f} more seconds",
+                waiting,
+            )
         token = await self._access_token()
         url = f"{API_HOST}{API_PATH}{path}"
         headers = await self.headers()
@@ -222,9 +232,11 @@ class HomeConnectApi:
             return await self._call(method, path, json_body=json_body, retry=False)
         if status == 429:
             after = answered.get("retry-after")
+            wait = float(after) if after and after.isdigit() else None
+            if wait is not None:
+                self._quiet_until = time.monotonic() + wait
             raise HomeConnectTooManyRequests(
-                f"{redact_url(url)} asked us to slow down",
-                float(after) if after and after.isdigit() else None,
+                f"{redact_url(url)} asked us to slow down", wait
             )
         if status in (401, 403):
             raise HomeConnectAuthError(

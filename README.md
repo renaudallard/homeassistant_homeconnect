@@ -94,6 +94,8 @@ minutes: 48 requests a day, whatever the number of appliances.
   describe. Reached directly, an appliance costs nothing after the first look
   but the account listing, read every half hour to catch one being paired or
   renamed, since the appliance's own state comes over its own connection.
+  When the cloud refuses a call and says how long to wait, nothing is sent
+  to it until that time is up.
 - **The words the appliance uses** — the cloud names each programme and each
   value it offers, in whatever language Home Assistant is set to, and that is
   what gets shown. Where it has not, the key says plainly enough what it is.
