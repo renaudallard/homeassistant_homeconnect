@@ -95,11 +95,12 @@ model nobody has tried works the same way as the one this was written against.
 
 ## Installing
 
-Add this repository to [HACS](https://hacs.xyz) as a custom repository of
-category **Integration** and install it from there, or copy
-`custom_components/homeconnect` into the `custom_components` directory of your
-Home Assistant configuration by hand. Either way, restart, then add **Home
-Connect NG** from *Settings → Devices & services*.
+Search for **Home Connect NG** in [HACS](https://hacs.xyz) and install it from
+there. If it does not show up yet, add this repository as a custom repository
+of category **Integration**, or copy `custom_components/homeconnect` into the
+`custom_components` directory of your Home Assistant configuration by hand.
+Either way, restart, then add **Home Connect NG** from *Settings → Devices &
+services*.
 
 An appliance announces itself on the local network as `_homeconnect._tcp`, so
 Home Assistant will usually offer the integration on its own, naming whichever
