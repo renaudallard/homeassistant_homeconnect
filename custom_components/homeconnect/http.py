@@ -206,9 +206,12 @@ async def request(
             answered = {key.lower(): value for key, value in response.headers.items()}
             _LOGGER.debug("  <- %s %s", status, redact(dict(answered)))
     except (aiohttp.ClientError, TimeoutError) as err:
-        _LOGGER.debug("  <- did not answer: %s", err)
+        # A connection timeout names the whole address it was going to, so
+        # the reason is hidden the same way as the address.
+        reason = redact_url(str(err))
+        _LOGGER.debug("  <- did not answer: %s", reason)
         raise HomeConnectConnectionError(
-            f"{redact_url(url)} is unreachable: {err}"
+            f"{redact_url(url)} is unreachable: {reason}"
         ) from err
 
     _LOGGER.debug("  <- body %s", _readable(body))

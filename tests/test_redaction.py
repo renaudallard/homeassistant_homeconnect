@@ -28,12 +28,31 @@
 
 from __future__ import annotations
 
+import logging
+
+import aiohttp
+import pytest
+from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
+
+from custom_components.homeconnect import http
+from custom_components.homeconnect.api import HomeConnectAccount
+from custom_components.homeconnect.errors import HomeConnectConnectionError
 from custom_components.homeconnect.http import (
     failure,
     hidden_id,
     redact,
     redact_url,
 )
+
+from .test_account import EU, NA, api_for, key_of, session  # noqa: F401
+
+SERIAL = "1234567890AB"
+HAID = f"BOSCH-WAV28MH0GB-{SERIAL}"
+
+
+def timed_out(url: str) -> aiohttp.ClientError:
+    """What aiohttp raises when the connection does not open in time."""
+    return aiohttp.ConnectionTimeoutError(f"Connection timeout to host {url}")
 
 
 def test_a_token_is_replaced_by_a_note_of_its_length() -> None:
@@ -147,3 +166,37 @@ def test_the_serial_number_is_hidden_along_with_the_identifier() -> None:
     # What the appliance is stays readable, that being what a report is about.
     assert listed["vib"] == "EX651HEC1E"
     assert listed["type"] == "Hob"
+
+
+async def test_a_connection_that_timed_out_does_not_name_the_machine(
+    aioclient_mock: AiohttpClientMocker,
+    session: aiohttp.ClientSession,  # noqa: F811
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """aiohttp writes the whole address into the reason, so hiding the serial
+    in the address alone left it in the clear one word later, in the log and
+    in the error a warning is made from."""
+    caplog.set_level(logging.DEBUG, logger="custom_components.homeconnect")
+    url = f"https://api.home-connect.com/api/homeappliances/{HAID}/status"
+    aioclient_mock.get(url, exc=timed_out(url))
+    with pytest.raises(HomeConnectConnectionError) as failed:
+        await http.request(session, "GET", url)
+    assert SERIAL not in str(failed.value)
+    assert SERIAL not in caplog.text
+    assert "Connection timeout" in caplog.text
+
+
+async def test_the_account_service_timing_out_does_not_name_the_machine(
+    aioclient_mock: AiohttpClientMocker,
+    session: aiohttp.ClientSession,  # noqa: F811
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Both regions are tried for a key, and both the address being tried and
+    the reason it failed are logged."""
+    caplog.set_level(logging.DEBUG, logger="custom_components.homeconnect")
+    for host in (EU, NA):
+        url = f"{host}{key_of(HAID)}"
+        aioclient_mock.get(url, exc=timed_out(url))
+    assert await HomeConnectAccount(api_for(session)).keys([HAID]) == {}
+    assert SERIAL not in caplog.text
+    assert "Connection timeout" in caplog.text

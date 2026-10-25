@@ -432,7 +432,7 @@ class HomeConnectApi:
                 status = answer.status
         except (aiohttp.ClientError, TimeoutError) as err:
             raise HomeConnectConnectionError(
-                f"{redact_url(url)} is unreachable: {err}"
+                f"{redact_url(url)} is unreachable: {redact_url(str(err))}"
             ) from err
         _LOGGER.debug("GET %s <- %s, %d bytes", redact_url(url), status, len(body))
         if status in (401, 403):
@@ -490,12 +490,16 @@ class HomeConnectAccount:
             except HomeConnectAuthError:
                 raise
             except HomeConnectError as err:
-                _LOGGER.debug("%s did not answer for %s: %s", host, path, err)
+                _LOGGER.debug(
+                    "%s did not answer for %s: %s", host, redact_url(path), err
+                )
                 last = err
                 continue
             self._host = host
             return found
-        raise last or HomeConnectConnectionError(f"nothing answered for {path}")
+        raise last or HomeConnectConnectionError(
+            f"nothing answered for {redact_url(path)}"
+        )
 
     async def keys(self, haids: list[str]) -> dict[str, dict[str, str]]:
         """The key each appliance is reached directly with, by appliance.

@@ -333,7 +333,7 @@ def _forget_what_moved(
         if settled is not None and registered.domain != settled:
             _LOGGER.debug(
                 "%s is a %s now, so the %s it was is taken away",
-                registered.unique_id.split("-", 1)[-1],
+                registered.entity_id,
                 settled,
                 registered.domain,
             )

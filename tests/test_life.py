@@ -29,10 +29,12 @@
 from __future__ import annotations
 
 import copy
+import logging
 from datetime import timedelta
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
+import pytest
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
@@ -330,11 +332,15 @@ async def test_the_wifi_command_is_switched_off_once_and_alone(
 
 
 async def test_a_key_that_moved_platform_loses_the_entity_it_was(
-    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    caplog: pytest.LogCaptureFixture,
 ) -> None:
     """Reading a description better moves some keys to another platform. The
     entity made under the old reading would otherwise sit in the registry for
-    good, unavailable and beyond reach, beside the one that replaced it."""
+    good, unavailable and beyond reach, beside the one that replaced it. What
+    the log says went is the entity, not the id with the serial in it."""
+    caplog.set_level(logging.DEBUG, logger="custom_components.homeconnect")
     made = await set_up(hass, aioclient_mock, "washer")
     registry = er.async_get(hass)
     live = registry.async_get("switch.washer_child_lock")
@@ -358,6 +364,8 @@ async def test_a_key_that_moved_platform_loses_the_entity_it_was(
     assert registry.async_get(left.entity_id) is None
     # And the one that belongs there is untouched.
     assert registry.async_get("switch.washer_child_lock") is not None
+    assert f"{left.entity_id} is a switch now" in caplog.text
+    assert HAID.rsplit("-", 1)[-1] not in caplog.text
 
 
 async def test_a_lamp_keeps_its_light(
