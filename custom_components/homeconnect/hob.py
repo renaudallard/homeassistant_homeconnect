@@ -125,14 +125,12 @@ def _for_device(hass: HomeAssistant, device_id: str) -> list[dict[str, Any]]:
     haid = next((who for kind, who in device.identifiers if kind == DOMAIN), None)
     if haid is None:
         return []
-    for entry_id in device.config_entries:
-        entry = hass.config_entries.async_get_entry(entry_id)
-        coordinator = getattr(getattr(entry, "runtime_data", None), "coordinator", None)
-        local = getattr(coordinator, "local", None)
-        if local is None:
-            continue
-        return layout(local.entries(haid))
-    return []
+    entry = hass.config_entries.async_get_entry(device.config_entry_id)
+    coordinator = getattr(getattr(entry, "runtime_data", None), "coordinator", None)
+    local = getattr(coordinator, "local", None)
+    if local is None:
+        return []
+    return layout(local.entries(haid))
 
 
 @websocket_api.websocket_command(  # type: ignore[attr-defined]
