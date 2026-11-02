@@ -69,8 +69,9 @@ from .http import failure, hidden_id, redact_url
 
 _LOGGER = logging.getLogger(__name__)
 
-# A description is a zip of a few hundred kilobytes, which is longer than an
-# ordinary call but not longer than a wait anybody would sit through.
+# A description is a zip of two XML files, about 145 kB of them for a hob,
+# so it is given longer than an ordinary call but not longer than a wait
+# anybody would sit through.
 FETCH = aiohttp.ClientTimeout(total=60.0, connect=10.0)
 
 TokenListener = Callable[[Tokens], Awaitable[None]]
