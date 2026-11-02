@@ -39,8 +39,9 @@ from custom_components.homeconnect.diagnostics import (
     async_get_device_diagnostics,
 )
 from custom_components.homeconnect.errors import HomeConnectError
+from custom_components.homeconnect.iddf import files
 
-from .common import device_for, set_up
+from .common import device_for, noting_the_loop, set_up
 
 HAID = "BOSCH-WAV28MH0GB-1234567890AB"
 
@@ -74,6 +75,19 @@ async def test_the_report_carries_the_description_as_it_was_sent(
     assert set(described) == {"FeatureMapping.xml", "DeviceDescription.xml"}
     assert "BSH.Common.Setting.PowerState" in described["FeatureMapping.xml"]
     assert "settingList" in described["DeviceDescription.xml"]
+
+
+async def test_the_description_is_unzipped_off_the_event_loop(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    entry = await set_up(hass, aioclient_mock, "washer")
+    on_loop: list[bool] = []
+    with patch(
+        "custom_components.homeconnect.diagnostics.files",
+        noting_the_loop(files, on_loop),
+    ):
+        await async_get_config_entry_diagnostics(hass, entry)
+    assert on_loop == [False]
 
 
 async def test_a_description_that_cannot_be_had_does_not_lose_the_report(

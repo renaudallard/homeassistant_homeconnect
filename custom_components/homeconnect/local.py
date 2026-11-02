@@ -509,7 +509,10 @@ class LocalControl:
                 _LOGGER.warning("the account holds no key for %s", hidden_id(haid))
                 continue
             try:
-                entries = unpack(await self._account.description(haid))
+                archive = await self._account.description(haid)
+                # Unzipping and parsing is a few tens of milliseconds of
+                # work on a small machine, too long to hold the loop for.
+                entries = await self._hass.async_add_executor_job(unpack, archive)
             except HomeConnectError as err:
                 # One appliance whose description will not read is one
                 # appliance. Letting it stop here would take local control of

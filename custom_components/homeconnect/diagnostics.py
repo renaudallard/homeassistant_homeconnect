@@ -113,7 +113,7 @@ def _appliance(
 
 
 async def _description(
-    entry: HomeConnectConfigEntry, haid: str
+    hass: HomeAssistant, entry: HomeConnectConfigEntry, haid: str
 ) -> dict[str, Any] | None:
     """One appliance's own description, fetched for the report.
 
@@ -122,7 +122,8 @@ async def _description(
     """
     account = HomeConnectAccount(entry.runtime_data.api)
     try:
-        sent = files(await account.description(haid))
+        archive = await account.description(haid)
+        sent = await hass.async_add_executor_job(files, archive)
     except HomeConnectError as err:
         return {"error": str(err)}
     # A description is written about one machine and can name it. Whatever
@@ -166,7 +167,7 @@ async def async_get_config_entry_diagnostics(
     return {
         **_entry(entry),
         "appliances": [
-            _appliance(appliance, await _description(entry, haid))
+            _appliance(appliance, await _description(hass, entry, haid))
             for haid, appliance in coordinator.data.items()
         ],
     }
@@ -183,7 +184,7 @@ async def async_get_device_diagnostics(
     return {
         **_entry(entry),
         "appliances": [
-            _appliance(appliance, await _description(entry, haid))
+            _appliance(appliance, await _description(hass, entry, haid))
             for haid, appliance in coordinator.data.items()
             if haid in wanted
         ],

@@ -35,7 +35,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any, cast
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from homeassistant.core import HomeAssistant
@@ -48,6 +48,8 @@ from custom_components.homeconnect.capability import (
     platform_for,
 )
 from custom_components.homeconnect.errors import HomeConnectError
+
+from .common import described_as, noting_the_loop
 
 FIXTURES = Path(__file__).parent / "fixtures"
 ENTRIES = iddf.parse(
@@ -467,6 +469,26 @@ async def test_a_new_appliance_without_a_key_does_not_stop_the_known_ones() -> N
     account.keys.assert_awaited_once_with(["BOSCH-FRIDGE-2"])
     assert control.knows("BOSCH-HOB-1")
     assert not control.knows("BOSCH-FRIDGE-2")
+
+
+async def test_a_description_is_read_off_the_event_loop(hass: HomeAssistant) -> None:
+    """Unzipping and parsing a description takes tens of milliseconds on a
+    Raspberry Pi, all of which the loop would otherwise stand still for."""
+    account = MagicMock()
+    account.keys = AsyncMock(return_value={"BOSCH-HOB-1": {"key": "AAAA"}})
+    account.description = AsyncMock(return_value=described_as("BOSCH-HOB-1"))
+    store = MagicMock()
+    store.async_save = AsyncMock()
+    control = local.LocalControl(
+        hass, object(), account, store, lambda *_a: None, lambda *_a: None
+    )
+    on_loop: list[bool] = []
+
+    with patch.object(local, "unpack", noting_the_loop(iddf.unpack, on_loop)):
+        await control.learn(["BOSCH-HOB-1"])
+
+    assert on_loop == [False]
+    assert control.knows("BOSCH-HOB-1")
 
 
 def test_the_identity_is_carried_into_every_link() -> None:

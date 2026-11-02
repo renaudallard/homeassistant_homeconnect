@@ -34,12 +34,13 @@ makes a test that passes mean something.
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import io
 import json
 import time
 import zipfile
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock, patch
@@ -114,6 +115,23 @@ def described_as(haid: str) -> bytes:
             (FIXTURES / "DeviceDescription.xml").read_bytes(),
         )
     return made.getvalue()
+
+
+def noting_the_loop(
+    work: Callable[..., Any], on_loop: list[bool]
+) -> Callable[..., Any]:
+    """Work that writes down whether the event loop was what ran it."""
+
+    def noted(*args: Any) -> Any:
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            on_loop.append(False)
+        else:
+            on_loop.append(True)
+        return work(*args)
+
+    return noted
 
 
 def serve(mock: AiohttpClientMocker, appliances: list[dict[str, Any]]) -> None:
