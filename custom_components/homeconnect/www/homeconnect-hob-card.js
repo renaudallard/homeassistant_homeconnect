@@ -6,8 +6,8 @@
 // position, size and shape of every zone into its description, and the
 // integration hands those to the card over the websocket, so a four-ring hob
 // with a flex strip down one side is drawn as that and not as a tidy grid.
-// Reached over the cloud there is no such geometry, and the zones fall back to
-// a grid, which is the most an appliance that will not say can be drawn.
+// Where the integration cannot get the description, the zones fall back to a
+// grid, which is the most an appliance that will not say can be drawn.
 //
 // Each plate reads its own state: off, cooking, or still warm from before. A
 // hob confirms every change at its own panel and only lets itself be driven
@@ -116,8 +116,9 @@ class HomeConnectHobCard extends HTMLElement {
     return devices.length === 1 ? devices[0] : undefined;
   }
 
-  // Ask the integration where this hob's zones sit, once per hob. The answer
-  // is empty over the cloud, which is the sign to fall back to a grid.
+  // Ask the integration where this hob's zones sit, once per hob. An empty
+  // answer, when the description could not be had, is the sign to fall back
+  // to a grid.
   _askLayout() {
     const device = this._device();
     if (!device || this._layoutFor === device) return;

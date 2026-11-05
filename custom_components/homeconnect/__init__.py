@@ -34,9 +34,11 @@ unreachable after a restart.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
@@ -89,6 +91,11 @@ class HomeConnectData:
     coordinator: HomeConnectCoordinator
     stream: HomeConnectStream | None
     local: LocalControl | None
+    # Where each hob reached over the cloud has its zones, read from its
+    # description the first time a card asks, and the lock that makes two
+    # cards asking at once share the one fetch.
+    hob_layouts: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    hob_lock: asyncio.Lock = field(default_factory=asyncio.Lock)
 
 
 type HomeConnectConfigEntry = ConfigEntry[HomeConnectData]

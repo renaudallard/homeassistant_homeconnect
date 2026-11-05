@@ -340,11 +340,14 @@ One honest limit on the hob card. The picture is drawn, not photographed:
 there is no cooktop image to be had, from the app or anywhere, so this is a
 rendering rather than a likeness of your exact model. Where the zones sit is
 not made up, though. A hob describes the position, size and shape of each of
-its zones, and reached directly it is drawn in that arrangement, a flex strip
-down one side and round zones on the other laid out as they really are.
-Reached over the cloud, where that geometry is not to hand, the zones fall back
-to a tidy grid. Each card reads the same entities any appliance of its kind
-exposes, so it works without knowing which model it is looking at. The
+its zones, and it is drawn in that arrangement, a flex strip down one side and
+round zones on the other laid out as they really are. Reached directly, the
+description is already kept. Over the cloud it is fetched from the account the
+first time a hob card is opened, and kept until the entry is reloaded or Home
+Assistant restarts, since the cloud readings give no place for a joined flex
+zone. Should that fetch fail, the zones fall back to a tidy grid until the
+card is next opened. Each card reads the same entities any appliance of its
+kind exposes, so it works without knowing which model it is looking at. The
 programme picker and the start and stop buttons are found by their translation
 key rather than their entity id, since Home Assistant builds a new entity's id
 in its own language: `select.lavastoviglie_programma` on an Italian system.

@@ -33,9 +33,11 @@ the cooktop has no way to read those on its own, so it asks over the websocket
 and this answers, one hob at a time, with the geometry read straight from what
 the appliance said about itself.
 
-It is local only. The geometry rides on the appliance's own description, which
-is parsed and kept when an appliance is reached directly; over the cloud there
-is no such table, and the card falls back to laying the zones out in a grid.
+The geometry rides on the appliance's own description. Reached directly, that
+is parsed and kept already. Over the cloud the readings carry the place of a
+zone only while it is a zone on its own: a flex zone made of two arrives
+without one. So a hob reached that way has its description fetched from the
+account the first time a card asks, and kept until the entry is reloaded.
 """
 
 from __future__ import annotations
@@ -43,18 +45,23 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
 from homeassistant.components import websocket_api
 from homeassistant.components.websocket_api import (  # type: ignore[attr-defined]
     ActiveConnection,
 )
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 
+from .api import HomeConnectAccount
 from .const import DOMAIN
-from .iddf import Entry
+from .errors import HomeConnectError
+from .iddf import Entry, unpack
+
+if TYPE_CHECKING:
+    from . import HomeConnectData
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -65,6 +72,10 @@ _REGISTERED = f"{DOMAIN}_hob_websocket"
 _ZONE = re.compile(
     r"Cooking\.Hob\.Status\.Zone\.(\d+)\.(Position|LengthX|LengthY|Shape)$"
 )
+
+# What every reading about a zone starts with, which is what makes an
+# appliance a hob as far as the card is concerned.
+_ZONES = "Cooking.Hob.Status.Zone."
 
 # The shape a hob calls zero is a plain round one; the rest are drawn as a
 # rounded rectangle, which is what the long flex zones are.
@@ -117,7 +128,36 @@ def layout(entries: dict[int, Entry]) -> list[dict[str, Any]]:
     return drawn
 
 
-def _for_device(hass: HomeAssistant, device_id: str) -> list[dict[str, Any]]:
+def _drawn(archive: bytes) -> list[dict[str, Any]]:
+    """The zones out of a description archive, as layout() places them."""
+    return layout(unpack(archive))
+
+
+async def _from_account(
+    hass: HomeAssistant, data: HomeConnectData, haid: str
+) -> list[dict[str, Any]]:
+    """The zones of a hob reached over the cloud, from its description.
+
+    Asked for once and kept. A fetch that fails is not kept, so the card
+    gets a grid this time and the next one to ask tries again.
+    """
+    appliance = data.coordinator.data.get(haid)
+    if appliance is None or not any(key.startswith(_ZONES) for key in appliance.status):
+        return []
+    async with data.hob_lock:
+        drawn = data.hob_layouts.get(haid)
+        if drawn is None:
+            try:
+                archive = await HomeConnectAccount(data.api).description(haid)
+                drawn = await hass.async_add_executor_job(_drawn, archive)
+            except HomeConnectError as err:
+                _LOGGER.debug("no zone layout for the hob: %s", err)
+                return []
+            data.hob_layouts[haid] = drawn
+    return drawn
+
+
+async def _for_device(hass: HomeAssistant, device_id: str) -> list[dict[str, Any]]:
     """The zone geometry of the appliance behind one device, if it has any."""
     device = dr.async_get(hass).async_get(device_id)
     if device is None:
@@ -126,11 +166,12 @@ def _for_device(hass: HomeAssistant, device_id: str) -> list[dict[str, Any]]:
     if haid is None:
         return []
     entry = hass.config_entries.async_get_entry(device.config_entry_id)
-    coordinator = getattr(getattr(entry, "runtime_data", None), "coordinator", None)
-    local = getattr(coordinator, "local", None)
-    if local is None:
+    data: HomeConnectData | None = getattr(entry, "runtime_data", None)
+    if data is None:
         return []
-    return layout(local.entries(haid))
+    if data.local is not None:
+        return layout(data.local.entries(haid))
+    return await _from_account(hass, data, haid)
 
 
 @websocket_api.websocket_command(  # type: ignore[attr-defined]
@@ -139,14 +180,15 @@ def _for_device(hass: HomeAssistant, device_id: str) -> list[dict[str, Any]]:
         vol.Required("device_id"): str,
     }
 )
-@callback
-def _hob_layout(
+@websocket_api.async_response  # type: ignore[attr-defined]
+async def _hob_layout(
     hass: HomeAssistant,
     connection: ActiveConnection,
     msg: dict[str, Any],
 ) -> None:
     """Answer the card with where one hob's zones sit."""
-    connection.send_result(msg["id"], {"zones": _for_device(hass, msg["device_id"])})
+    zones = await _for_device(hass, msg["device_id"])
+    connection.send_result(msg["id"], {"zones": zones})
 
 
 def register(hass: HomeAssistant) -> None:
