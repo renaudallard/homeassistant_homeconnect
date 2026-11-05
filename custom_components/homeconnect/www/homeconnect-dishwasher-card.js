@@ -8,7 +8,7 @@
 // nothing to wire up: the programme select, the power switch or select, the
 // option switches, the child lock, the energy and water forecasts, the
 // remaining time and the two programme buttons are found on the appliance by
-// the names they carry.
+// their translation key or the names they carry.
 //
 // Bundled with the homeconnect integration, which serves this file and adds it
 // as a dashboard resource, so there is no resource to add by hand.
@@ -37,12 +37,21 @@ const OPTIONS = [
 // switch for either is a dishwasher and no washer or dryer is taken for one.
 const SIGNATURE = /^switch\..*_(half_load|intensiv_zone)$/;
 
-// The one-of-a-kind readings and controls, each pinned to the kind of entity
-// it is as well as the tail of its name, so a sensor about the selected
-// programme is not mistaken for the programme select that drives it.
-// Programme time is spelled both ways depending on where the words came from.
+// The programme select and the two programme buttons are named by the
+// integration, and Home Assistant translates those names and builds a new
+// entity's id from them: select.lavastoviglie_programma in Italian. So they
+// are found by their translation key, which stays the same in every language.
+const KEYED = {
+  programme: ["select", "program"],
+  start: ["button", "start_program"],
+  stop: ["button", "stop_program"],
+};
+
+// The other one-of-a-kind readings and controls take their names from the
+// appliance's keys, which are not translated, each pinned to the kind of
+// entity it is as well as the tail of its name. Programme time is spelled
+// both ways depending on where the words came from.
 const FIELDS = {
-  programme: /^select\..*_programme$/,
   // A switch on an appliance whose power setting offers on and off alone,
   // which is what a dishwasher's does, and a select on one that offers
   // standby as well.
@@ -52,9 +61,18 @@ const FIELDS = {
   water: /^sensor\..*_water_forecast$/,
   remaining: /^sensor\..*_remaining_program(?:me)?_time$/,
   door: /^binary_sensor\..*_door_state$/,
-  start: /^button\..*_start_program(?:me)?$/,
-  stop: /^button\..*_stop_program(?:me)?$/,
 };
+
+// Which of those an entity is, if any.
+function role(entity_id, entity) {
+  for (const [name, [domain, key]] of Object.entries(KEYED)) {
+    if (entity.translation_key === key && entity_id.startsWith(`${domain}.`)) return name;
+  }
+  for (const [name, pattern] of Object.entries(FIELDS)) {
+    if (pattern.test(entity_id)) return name;
+  }
+  return null;
+}
 
 // How many bits a forecast bar is drawn in, the way the app draws it.
 const SEGMENTS = 5;
@@ -129,9 +147,8 @@ class HomeConnectDishwasherCard extends HTMLElement {
     for (const entity_id of Object.keys(entities)) {
       const entity = entities[entity_id];
       if (entity.device_id !== device) continue;
-      for (const [name, pattern] of Object.entries(FIELDS)) {
-        if (pattern.test(entity_id)) found[name] = entity_id;
-      }
+      const name = role(entity_id, entity);
+      if (name) found[name] = entity_id;
       // What a programme is adjusted by, and never the appliance's own
       // setting of the same name: a setting is housekeeping and carries a
       // category, and an option of a programme never does, which is what

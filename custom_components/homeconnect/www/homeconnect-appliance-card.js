@@ -22,10 +22,20 @@ const SEGMENTS = 5;
 
 const OFF = new Set(["off", "inactive", "", undefined, null, "unavailable", "unknown"]);
 
-// The one-off readings and controls, each pinned to the kind of entity it is
-// and the tail of its name. Programme time is spelled both ways.
+// The programme select and the two programme buttons are named by the
+// integration, and Home Assistant translates those names and builds a new
+// entity's id from them: select.forno_programma in Italian. So they are found
+// by their translation key, which stays the same in every language.
+const KEYED = {
+  programme: ["select", "program"],
+  start: ["button", "start_program"],
+  stop: ["button", "stop_program"],
+};
+
+// The other one-off readings and controls take their names from the
+// appliance's keys, which are not translated, each pinned to the kind of
+// entity it is and the tail of its name. Programme time is spelled both ways.
 const NAMED = {
-  programme: /^select\..*_programme$/,
   // A switch on an appliance whose power setting offers on and off alone,
   // which is what a dishwasher's does, and a select on one that offers
   // standby as well.
@@ -35,9 +45,18 @@ const NAMED = {
   water: /^sensor\..*_water_forecast$/,
   remaining: /^sensor\..*_remaining_program(?:me)?_time$/,
   door: /^binary_sensor\..*_door_state$/,
-  start: /^button\..*_start_program(?:me)?$/,
-  stop: /^button\..*_stop_program(?:me)?$/,
 };
+
+// Which of those an entity is, if any.
+function role(id, entity) {
+  for (const [name, [domain, key]] of Object.entries(KEYED)) {
+    if (entity.translation_key === key && id.startsWith(`${domain}.`)) return name;
+  }
+  for (const [name, pattern] of Object.entries(NAMED)) {
+    if (pattern.test(id)) return name;
+  }
+  return null;
+}
 
 // An icon for an option, chosen by what its name is about, the way the app
 // gives each option a glyph. A tune knob stands in for anything unnamed.
@@ -86,7 +105,7 @@ function isAppliance(entities, device) {
   for (const id of Object.keys(entities)) {
     const entity = entities[id];
     if (entity.device_id !== device || entity.platform !== "homeconnect") continue;
-    if (NAMED.programme.test(id)) programme = true;
+    if (role(id, entity) === "programme") programme = true;
     if (/_zone_\d+_/.test(id) || /_(half_load|intensiv_zone)$/.test(id)) special = true;
   }
   return programme && !special;
@@ -98,7 +117,7 @@ function applianceDevices(hass) {
   for (const id of Object.keys(entities)) {
     const entity = entities[id];
     if (entity.platform !== "homeconnect" || !entity.device_id) continue;
-    if (!devices.has(entity.device_id) && NAMED.programme.test(id)) {
+    if (!devices.has(entity.device_id) && role(id, entity) === "programme") {
       devices.add(entity.device_id);
     }
   }
@@ -147,14 +166,9 @@ class HomeConnectApplianceCard extends HTMLElement {
     for (const id of Object.keys(entities)) {
       const entity = entities[id];
       if (entity.device_id !== device || entity.platform !== "homeconnect") continue;
-      let claimed = false;
-      for (const [name, pattern] of Object.entries(NAMED)) {
-        if (pattern.test(id)) {
-          found[name] = id;
-          claimed = true;
-        }
-      }
-      if (claimed || entity.entity_category) continue;
+      const name = role(id, entity);
+      if (name) found[name] = id;
+      if (name || entity.entity_category) continue;
       if (id.startsWith("switch.")) found.switches.push(id);
       else if (id.startsWith("select.")) found.selects.push(id);
       else if (id.startsWith("number.")) found.numbers.push(id);
@@ -194,7 +208,7 @@ class HomeConnectApplianceCard extends HTMLElement {
     const device = this._device();
     const found = this._controls(device);
     this._found = found;
-    const named = Object.keys(NAMED)
+    const named = [...Object.keys(KEYED), ...Object.keys(NAMED)]
       .map((k) => found[k] || "")
       .join(",");
     const options = [...found.switches, ...found.selects, ...found.numbers].join(",");

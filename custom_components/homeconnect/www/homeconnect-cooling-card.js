@@ -35,7 +35,9 @@ function coolingDevices(hass) {
     const entity = entities[id];
     if (entity.platform !== "homeconnect" || !entity.device_id) continue;
     const mark = (seen[entity.device_id] ||= { prog: false, zone: false, control: false });
-    if (/^select\..*_programme$/.test(id)) mark.prog = true;
+    // Found by its translation key: its entity id follows the language Home
+    // Assistant is set to, select.forno_programma in Italian.
+    if (id.startsWith("select.") && entity.translation_key === "program") mark.prog = true;
     if (/_zone_\d+_/.test(id)) mark.zone = true;
     const controllable = id.startsWith("number.") || id.startsWith("switch.");
     if (controllable && entity.entity_category !== "diagnostic") mark.control = true;
