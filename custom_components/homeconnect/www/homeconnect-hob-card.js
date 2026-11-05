@@ -154,13 +154,25 @@ class HomeConnectHobCard extends HTMLElement {
   // Whether the hob is offering this zone at all. One it calls NotSelectable is
   // a joinable zone standing idle, there to be shown only once it is in use.
   _selectable(fields) {
-    return plain(this._value(fields.state)) !== "notselectable";
+    return plain(this._key(fields.state)) !== "notselectable";
   }
 
   _value(entity_id) {
     if (!entity_id) return undefined;
     const state = this._hass.states[entity_id];
     return state ? state.state : undefined;
+  }
+
+  // What a reading holds as the appliance names it. Over the cloud the state
+  // is a label in the user's own language, "Accesa" for an active zone or
+  // "7.0" for power level 70, which says nothing a card can test. The key it
+  // stands for is kept beside it, so that is what is read where there is one.
+  _key(entity_id) {
+    if (!entity_id) return undefined;
+    const state = this._hass.states[entity_id];
+    if (!state) return undefined;
+    const key = state.attributes && state.attributes.value;
+    return typeof key === "string" ? key : state.state;
   }
 
   // Where to draw each zone. The hob's own geometry when it gave any and it
@@ -332,9 +344,9 @@ class HomeConnectHobCard extends HTMLElement {
     // The plate says what it is doing in its own state: off, actively cooking,
     // or still warm from before. Where it gives no state, its power level and
     // operation state stand in, so a plain hob still reads right.
-    const state = plain(this._value(fields.state));
-    const op = plain(this._value(fields.operation_state));
-    const power = leaf(this._value(fields.power_level));
+    const state = plain(this._key(fields.state));
+    const op = plain(this._key(fields.operation_state));
+    const power = leaf(this._key(fields.power_level));
     const powerText = String(power ?? "").toLowerCase();
 
     const boost = powerText.startsWith("boost");
@@ -357,7 +369,7 @@ class HomeConnectHobCard extends HTMLElement {
     if (hot) big = "H";
     else if (!active) big = "Off";
     else if (boost) big = "b";
-    else if (level) big = this._level(power);
+    else if (level) big = this._level(power, this._value(fields.power_level));
     else if (target) big = `${target}°`;
     else if (temp) big = `${temp}°`;
     else big = "·";
@@ -376,10 +388,10 @@ class HomeConnectHobCard extends HTMLElement {
   }
 
   // A power level as the hob shows it. The number arrives in tenths, so 50 is
-  // the hob's 5 and 45 its 4.5; a named step like keep-warm reads as it is.
-  _level(power) {
+  // the hob's 5 and 45 its 4.5; a named step like keep-warm reads as its label.
+  _level(power, label) {
     const tenths = Number(power);
-    if (Number.isNaN(tenths)) return String(power);
+    if (Number.isNaN(tenths)) return String(label ?? power);
     const shown = tenths / 10;
     return Number.isInteger(shown) ? String(shown) : shown.toFixed(1);
   }

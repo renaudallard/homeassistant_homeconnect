@@ -261,7 +261,9 @@ The hob card draws a cooking table: the dark glass surface with each zone
 painted on it. Each plate reads its own state and shows it: off, the power
 level it is set to, a frying target in degrees with the live pan temperature
 beneath it, or an H while it is still warm from an earlier use, with any
-countdown alongside.
+countdown alongside. It goes by the appliance's own word for each reading, the
+`value` attribute, so it reads a zone the same whatever language Home
+Assistant is set to.
 
     type: custom:homeconnect-hob-card
 
