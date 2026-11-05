@@ -265,6 +265,12 @@ def parse(mapping_xml: bytes, description_xml: bytes) -> dict[int, Entry]:
     return entries
 
 
+# What a broken archive is reported as. zipfile's own words are left out, as
+# some of them name the file they tripped over, which is named after the
+# appliance's identifier.
+_UNREADABLE = "the description is not an archive that can be read"
+
+
 def unpack(archive: bytes) -> dict[int, Entry]:
     """The table, out of the zip the cloud hands over."""
     try:
@@ -275,13 +281,15 @@ def unpack(archive: bytes) -> dict[int, Entry]:
                 (one for one in names if one.endswith(DESCRIPTION)), None
             )
             if mapping is None or description is None:
+                # Not saying what it does hold: every file in it is named
+                # after the appliance's identifier.
                 raise HomeConnectError(
-                    f"the description archive holds {names} and not the two "
-                    "files an appliance is described by"
+                    f"the description archive holds {len(names)} files and not "
+                    "the two files an appliance is described by"
                 )
             return parse(bundle.read(mapping), bundle.read(description))
     except zipfile.BadZipFile as err:
-        raise HomeConnectError(f"the description is not an archive: {err}") from err
+        raise HomeConnectError(_UNREADABLE) from err
 
 
 def files(archive: bytes) -> dict[str, str]:
@@ -303,7 +311,7 @@ def files(archive: bytes) -> dict[str, str]:
                 if name.endswith(kind)
             }
     except zipfile.BadZipFile as err:
-        raise HomeConnectError(f"the description is not an archive: {err}") from err
+        raise HomeConnectError(_UNREADABLE) from err
 
 
 def keys_by_uid(entries: dict[int, Entry]) -> dict[int, str]:

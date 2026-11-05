@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import io
 import zipfile
+from collections.abc import Callable
 from pathlib import Path
 
 import pytest
@@ -201,10 +202,39 @@ def test_the_archive_is_opened_by_what_the_members_are_called() -> None:
     assert iddf.unpack(archive).keys() == ENTRIES.keys()
 
 
-def test_an_archive_missing_a_half_says_which() -> None:
-    archive = _archive(**{"only_FeatureMapping.xml": MAPPING})
-    with pytest.raises(HomeConnectError, match="the two files"):
+# An identifier the way an archive's members are named after one.
+NAMED = "SIEMENS-EX651HEC1E-68A40E000001"
+
+
+def test_an_archive_missing_a_half_says_so_without_naming_what_it_holds() -> None:
+    archive = _archive(**{f"{NAMED}_FeatureMapping.xml": MAPPING})
+    with pytest.raises(HomeConnectError, match="the two files") as raised:
         iddf.unpack(archive)
+    assert NAMED not in str(raised.value)
+
+
+@pytest.mark.parametrize("read", [iddf.unpack, iddf.files])
+def test_a_damaged_archive_does_not_repeat_the_name_zipfile_gives(
+    read: Callable[[bytes], object],
+) -> None:
+    """zipfile names the member whose checksum fails, and every member is
+    named after the appliance. What is logged or put in a report must not
+    carry it."""
+    archive = bytearray(
+        _archive(
+            **{
+                f"{NAMED}_FeatureMapping.xml": MAPPING,
+                f"{NAMED}_DeviceDescription.xml": DESCRIPTION,
+            }
+        )
+    )
+    # Stored rather than compressed, so the text sits in the archive as it
+    # is, and changing one letter of it is a checksum that no longer matches.
+    at = bytes(archive).index(b"<?xml")
+    archive[at + 2] ^= 0x20
+    with pytest.raises(HomeConnectError, match="not an archive") as raised:
+        read(bytes(archive))
+    assert NAMED not in str(raised.value)
 
 
 def test_something_that_is_not_an_archive_says_so() -> None:
