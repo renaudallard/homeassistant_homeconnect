@@ -32,6 +32,8 @@ the reading of it rather than the writing of the fixture.
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 import pytest
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
@@ -39,7 +41,7 @@ from homeassistant.helpers import entity_registry as er
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
-from .common import device_for, set_up, state_of
+from .common import device_for, entry, fixture, serve, set_up, state_of
 
 WASHER = "sensor.washer_operation_state"
 
@@ -357,3 +359,75 @@ async def test_switching_an_appliance_on_is_never_filed_as_configuration(
     power = registry.async_get("switch.washer_power_state")
     assert power is not None
     assert power.entity_category is None
+
+
+ENERGY = "BSH.Common.Option.EnergyForecast"
+REMAINING = "BSH.Common.Option.RemainingProgramTime"
+
+
+@pytest.fixture
+async def undescribed(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> MockConfigEntry:
+    """A washer whose programme reports options its description leaves out.
+
+    A dishwasher over the cloud does this with its forecasts and the time
+    left: the programme carries them, what it can be adjusted by does not.
+    """
+    washer = fixture("washer")
+    for described in washer["program_options"].values():
+        described["options"] = [
+            one for one in described["options"] if one["key"] != REMAINING
+        ]
+    washer["selected"]["options"].append({"key": ENERGY, "value": 60, "unit": "%"})
+    washer["selected"]["options"].append(
+        {"key": "Dishcare.Dishwasher.Option.Undescribed", "value": True}
+    )
+    serve(aioclient_mock, [washer])
+    made = entry(hass)
+    with patch("custom_components.homeconnect.HomeConnectStream.start"):
+        await hass.config_entries.async_setup(made.entry_id)
+        await hass.async_block_till_done()
+    return made
+
+
+async def test_an_option_no_programme_describes_is_still_a_reading(
+    hass: HomeAssistant, undescribed: MockConfigEntry
+) -> None:
+    energy = hass.states.get("sensor.washer_energy_forecast")
+    assert energy is not None
+    assert energy.state == "60"
+    assert energy.attributes["unit_of_measurement"] == "%"
+    left = hass.states.get("sensor.washer_remaining_programme_time")
+    assert left is not None
+    assert left.state == "7200"
+    assert left.attributes["device_class"] == "duration"
+    # Not housekeeping: it is what the programme is doing.
+    found = er.async_get(hass).async_get("sensor.washer_energy_forecast")
+    assert found is not None and found.entity_category is None
+
+
+async def test_an_undescribed_flag_makes_nothing(
+    hass: HomeAssistant, undescribed: MockConfigEntry
+) -> None:
+    """A flag nothing describes could be a switch or a reading, and which it
+    is cannot be told, so it waits for a description."""
+    registry = er.async_get(hass)
+    assert not [
+        one.entity_id
+        for one in er.async_entries_for_config_entry(registry, undescribed.entry_id)
+        if one.unique_id.endswith("Option.Undescribed")
+    ]
+
+
+async def test_an_undescribed_option_goes_with_the_programme_reporting_it(
+    hass: HomeAssistant, undescribed: MockConfigEntry
+) -> None:
+    coordinator = undescribed.runtime_data.coordinator
+    appliance = coordinator.data["BOSCH-WAV28MH0GB-1234567890AB"]
+    appliance.options.pop(ENERGY)
+    coordinator.async_update_listeners()
+    await hass.async_block_till_done()
+    assert state_of(hass, "sensor.washer_energy_forecast") == "unavailable"
+    # A described option is unaffected by what the programme reports.
+    assert state_of(hass, "select.washer_spin_speed") == "1200 rpm"

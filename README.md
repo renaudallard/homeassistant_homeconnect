@@ -227,7 +227,11 @@ Four details worth knowing, because they look like faults and are not:
 - **The programme decides what can be adjusted.** A cotton wash takes a
   temperature and a spin speed that a wool wash will not, so the options that
   belong to another programme go unavailable rather than disappearing. They
-  come back when that programme is chosen again.
+  come back when that programme is chosen again. Some appliances report
+  readings with the programme that its description leaves out: a dishwasher
+  over the cloud does it with its energy and water forecasts and the time
+  left. Those become sensors all the same, there while the programme reports
+  them.
 - **A refusal says why.** An appliance that will not do as it is told names the
   reason, and that reason is what appears in Home Assistant rather than a bare
   failure, because it is the only thing that says what to go and do about it.

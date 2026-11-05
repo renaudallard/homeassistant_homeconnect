@@ -243,9 +243,14 @@ class KeyEntity(HomeConnectEntity):
         if self._kind != OPTION:
             return True
         # An option belongs to a programme, so it is there for as long as that
-        # programme is what the appliance is set to and no longer.
+        # programme is what the appliance is set to and no longer. One no
+        # programme describes is there while the programme reports it.
         appliance = self.appliance
-        return appliance is not None and self._key in appliance.option_keys
+        if appliance is None:
+            return False
+        if self._key in appliance.option_keys:
+            return True
+        return self.described is None and self._key in appliance.options
 
 
 def _count(value: Mapping[str, Any] | list[Any]) -> int:
@@ -390,6 +395,27 @@ def options(
         for described in _every_option(appliance):
             if described.key not in DELAYED and platform_for(described) == platform:
                 yield haid, described.key
+        if platform == SENSOR:
+            yield from ((haid, key) for key in _undescribed(appliance))
+
+
+def _undescribed(appliance: Appliance) -> Iterator[str]:
+    """Options the programme reports that no programme has described.
+
+    A dishwasher reports its energy and water forecasts and the time left
+    with the programme it is running, and leaves them out of what that
+    programme says it can be adjusted by. Nothing can set them, so they are
+    readings. A flag, or one holding nothing yet, is left until something
+    describes it.
+    """
+    for key, found in appliance.options.items():
+        if (
+            key not in DELAYED
+            and found.value is not None
+            and not isinstance(found.value, bool)
+            and appliance.any_option(key) is None
+        ):
+            yield key
 
 
 def delayed_options(
