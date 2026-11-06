@@ -96,7 +96,10 @@ minutes: 48 requests a day, whatever the number of appliances.
   but the account listing, read every half hour to catch one being paired or
   renamed, since the appliance's own state comes over its own connection.
   When the cloud refuses a call and says how long to wait, nothing is sent
-  to it until that time is up.
+  to it until that time is up. Updating from 0.1.33 or older reads each model
+  once more: local mode used to keep what it learnt under the same name as
+  the cloud's, which a later move to the cloud would have taken as already
+  read.
 - **The words the appliance uses** — the cloud names each programme and each
   value it offers, in whatever language Home Assistant is set to, and that is
   what gets shown. Where it has not, the key says plainly enough what it is.

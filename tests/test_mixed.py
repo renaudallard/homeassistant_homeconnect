@@ -351,3 +351,34 @@ async def test_one_reached_directly_being_unpaired_is_still_heard(
         coordinator.apply(Event("DEPAIRED", WASHER, {}))
         await hass.async_block_till_done()
     refreshed.assert_awaited_once()
+
+
+async def test_what_local_mode_described_is_not_what_the_cloud_uses(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    hass_storage: dict[str, Any],
+) -> None:
+    """Before local descriptions had a key of their own, local mode kept
+    them under the plain model number, and moving to the cloud took them as
+    already asked. A store from then is dropped once, and asked again."""
+    serve(aioclient_mock, [fixture("washer")])
+    made = entry(hass)
+    name = f"{DOMAIN}.{made.entry_id}.models"
+    hass_storage[name] = {
+        "version": STORE_VERSION,
+        "minor_version": 1,
+        "key": name,
+        "data": {
+            "WAV28MH0GB/01": {
+                "settings": {},
+                "commands": ["BSH.Common.Command.AbortProgram"],
+                "options": {},
+                "described": True,
+            }
+        },
+    }
+    await hass.config_entries.async_setup(made.entry_id)
+    await hass.async_block_till_done()
+    model = made.runtime_data.coordinator.data[WASHER].model
+    assert "BSH.Common.Command.PauseProgram" in model.commands
+    assert "BSH.Common.Command.AbortProgram" not in model.commands

@@ -73,8 +73,16 @@ class ModelStore(Store[dict[str, Any]]):
 
 
 def model_store(hass: HomeAssistant, entry: ConfigEntry) -> ModelStore:
-    """Where an account's model descriptions are kept between starts."""
-    return ModelStore(hass, STORE_VERSION, f"{DOMAIN}.{entry.entry_id}.models")
+    """Where an account's model descriptions are kept between starts.
+
+    Its minor version 2 is the one that keeps a model read locally under its
+    own name. Local mode used to keep it under the plain model number, where
+    the cloud would take it as already asked, so a store from before is
+    dropped once. The local store is left alone, keys and all.
+    """
+    return ModelStore(
+        hass, STORE_VERSION, f"{DOMAIN}.{entry.entry_id}.models", minor_version=2
+    )
 
 
 def local_store(hass: HomeAssistant, entry: ConfigEntry) -> ModelStore:
