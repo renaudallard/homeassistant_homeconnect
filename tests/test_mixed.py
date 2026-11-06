@@ -338,3 +338,16 @@ async def test_the_report_says_which_way_each_appliance_is_reached(
     report = await async_get_config_entry_diagnostics(hass, mixed)
     reached = {one["type"]: one["reached"] for one in report["appliances"]}
     assert reached == {"Washer": "local", "Oven": "cloud"}
+
+
+async def test_one_reached_directly_being_unpaired_is_still_heard(
+    hass: HomeAssistant, mixed: MockConfigEntry
+) -> None:
+    """Its own connection cannot say it has been taken off the account, so
+    that one the cloud's stream is listened to for."""
+    coordinator = mixed.runtime_data.coordinator
+    refreshed = AsyncMock()
+    with patch.object(coordinator, "async_request_refresh", refreshed):
+        coordinator.apply(Event("DEPAIRED", WASHER, {}))
+        await hass.async_block_till_done()
+    refreshed.assert_awaited_once()

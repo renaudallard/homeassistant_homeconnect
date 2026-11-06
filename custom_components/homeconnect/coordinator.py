@@ -689,9 +689,9 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
                 # Either way the listing is what settles it.
                 self.hass.async_create_task(self.async_request_refresh())
             return
-        if self.reached_locally(event.haid):
-            # Its own connection says all of this first, and the cloud's
-            # laggier account of it would only undo what that said.
+        if self.reached_locally(event.haid) and event.name != "DEPAIRED":
+            # Its own connection says the rest first, and the cloud's laggier
+            # account would only undo it. Being unpaired it cannot say.
             return
         if event.name == "CONNECTED":
             appliance.connected = True
