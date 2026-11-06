@@ -439,11 +439,17 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         appliance declining to talk to the cloud at all. Only one that has
         never once answered is worth raising: a machine that used to work and
         is switched off today is not something to repair.
+
+        Only one reached through the cloud: one reached directly never talks
+        to the cloud here, and one local control could not learn has a
+        repair of its own saying why.
         """
         silent = {
             haid
             for haid, appliance in appliances.items()
-            if not appliance.connected and not appliance.model.described
+            if not appliance.connected
+            and not appliance.model.described
+            and not self.reached_locally(haid)
         }
         for haid in self._complained_about - silent:
             ir.async_delete_issue(self.hass, DOMAIN, _NEVER_ANSWERED.format(haid))

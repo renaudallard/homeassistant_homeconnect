@@ -205,6 +205,8 @@ async def test_set_to_local_the_appliance_without_a_key_is_the_only_one_affected
     issues = ir.async_get(hass)
     assert issues.async_get_issue(DOMAIN, f"local_unreachable_{OVEN}") is not None
     assert issues.async_get_issue(DOMAIN, f"local_unreachable_{WASHER}") is None
+    # Not also told to get it talking to the cloud, which it never would here.
+    assert issues.async_get_issue(DOMAIN, f"never_answered_{OVEN}") is None
     assert made.runtime_data.local is not None
     assert made.runtime_data.local.knows(WASHER)
 
