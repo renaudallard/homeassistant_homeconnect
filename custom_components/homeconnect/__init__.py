@@ -64,7 +64,7 @@ from .const import (
     LOCAL,
     MIXED,
 )
-from .coordinator import HomeConnectCoordinator, local_store
+from .coordinator import NEVER_ANSWERED, HomeConnectCoordinator, local_store
 from .errors import HomeConnectAuthError, HomeConnectError
 from .events import HomeConnectStream
 from .local import LocalControl
@@ -391,3 +391,20 @@ async def async_unload_entry(
 ) -> bool:
     """Unload an account."""
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+
+async def async_remove_entry(
+    hass: HomeAssistant, entry: HomeConnectConfigEntry
+) -> None:
+    """Take the account's repairs away with it.
+
+    Each is about one of its appliances, and with the account gone nothing
+    would ever raise or clear it again. Its devices are still there to say
+    which appliances those were.
+    """
+    devices = dr.async_entries_for_config_entry(dr.async_get(hass), entry.entry_id)
+    for device in devices:
+        for kind, haid in device.identifiers:
+            if kind == DOMAIN:
+                ir.async_delete_issue(hass, DOMAIN, f"{_UNREACHABLE}{haid}")
+                ir.async_delete_issue(hass, DOMAIN, NEVER_ANSWERED.format(haid))

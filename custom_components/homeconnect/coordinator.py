@@ -106,7 +106,7 @@ UNSETTLING = frozenset(
 SETTLE = 3.0
 
 # What one appliance's complaint is filed under.
-_NEVER_ANSWERED = "never_answered_{}"
+NEVER_ANSWERED = "never_answered_{}"
 
 SCAN_INTERVAL = timedelta(minutes=1)
 # Once the cloud is really pushing, polling is only there to catch what a
@@ -458,12 +458,12 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
             and not self.reached_locally(haid)
         }
         for haid in self._complained_about - silent:
-            ir.async_delete_issue(self.hass, DOMAIN, _NEVER_ANSWERED.format(haid))
+            ir.async_delete_issue(self.hass, DOMAIN, NEVER_ANSWERED.format(haid))
         for haid in silent:
             ir.async_create_issue(
                 self.hass,
                 DOMAIN,
-                _NEVER_ANSWERED.format(haid),
+                NEVER_ANSWERED.format(haid),
                 is_fixable=False,
                 severity=ir.IssueSeverity.WARNING,
                 translation_key="never_answered",

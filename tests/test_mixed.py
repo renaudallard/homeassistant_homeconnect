@@ -275,3 +275,26 @@ async def test_the_cloud_going_down_takes_only_its_appliances_with_it(
     await coordinator.async_refresh()
     await hass.async_block_till_done()
     assert state_of(hass, "sensor.oven_operation_state") != "unavailable"
+
+
+async def test_removing_the_account_takes_its_repairs_away(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    hass_storage: dict[str, Any],
+) -> None:
+    made = await _set_up(hass, aioclient_mock, hass_storage, LOCAL)
+    ir.async_create_issue(
+        hass,
+        DOMAIN,
+        f"never_answered_{WASHER}",
+        is_fixable=False,
+        severity=ir.IssueSeverity.WARNING,
+        translation_key="never_answered",
+    )
+    issues = ir.async_get(hass)
+    assert issues.async_get_issue(DOMAIN, f"local_unreachable_{OVEN}") is not None
+
+    await hass.config_entries.async_remove(made.entry_id)
+    await hass.async_block_till_done()
+
+    assert not [issue for domain, issue in issues.issues if domain == DOMAIN]
