@@ -51,7 +51,7 @@ from homeassistant.helpers import device_registry as dr
 from . import HomeConnectConfigEntry
 from .api import HomeConnectAccount
 from .capability import Feature, platform_for
-from .const import DOMAIN
+from .const import CLOUD, DOMAIN, LOCAL
 from .coordinator import Appliance
 from .errors import HomeConnectError
 from .http import hidden_id, redact
@@ -75,10 +75,13 @@ def _readings(readings: dict[str, Any]) -> dict[str, Any]:
 
 
 def _appliance(
-    appliance: Appliance, described: dict[str, Any] | None = None
+    appliance: Appliance, described: dict[str, Any] | None, locally: bool
 ) -> dict[str, Any]:
     """Everything worth knowing about one machine."""
     return {
+        # Which way it is reached, which in mixed differs between appliances
+        # and is the first thing to know about one that misbehaves.
+        "reached": LOCAL if locally else CLOUD,
         # The description as it was sent, which is the only thing that tells
         # something the appliance never mentioned from something dropped on
         # the way in. Asked for here rather than kept, since it is wanted
@@ -167,7 +170,11 @@ async def async_get_config_entry_diagnostics(
     return {
         **_entry(entry),
         "appliances": [
-            _appliance(appliance, await _description(hass, entry, haid))
+            _appliance(
+                appliance,
+                await _description(hass, entry, haid),
+                coordinator.reached_locally(haid),
+            )
             for haid, appliance in coordinator.data.items()
         ],
     }
@@ -184,7 +191,11 @@ async def async_get_device_diagnostics(
     return {
         **_entry(entry),
         "appliances": [
-            _appliance(appliance, await _description(hass, entry, haid))
+            _appliance(
+                appliance,
+                await _description(hass, entry, haid),
+                coordinator.reached_locally(haid),
+            )
             for haid, appliance in coordinator.data.items()
             if haid in wanted
         ],

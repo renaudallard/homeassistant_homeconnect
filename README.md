@@ -454,8 +454,9 @@ page if its own reading is wanted.
 
 The device page offers to download diagnostics, and that is the one to send:
 it carries the whole of what that appliance said about itself, what it can do,
-what it is doing, how often the account is being asked, and the appliance's
-own description file as the cloud sent it. That last one matters more than it
+what it is doing, whether it is reached through the cloud or directly, how
+often the account is being asked, and the appliance's own description file as
+the cloud sent it. That last one matters more than it
 sounds: what the rest of the report shows is what this integration made of
 the description, and only the description itself says whether something
 missing was never there or was dropped on the way in. The integration

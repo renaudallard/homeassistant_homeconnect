@@ -326,3 +326,15 @@ async def test_an_appliance_without_a_key_is_only_a_warning_where_it_is_lost(
         for record in caplog.records
         if record.name.endswith(".local") and record.levelname == "WARNING"
     ]
+
+
+async def test_the_report_says_which_way_each_appliance_is_reached(
+    hass: HomeAssistant, mixed: MockConfigEntry
+) -> None:
+    from custom_components.homeconnect.diagnostics import (
+        async_get_config_entry_diagnostics,
+    )
+
+    report = await async_get_config_entry_diagnostics(hass, mixed)
+    reached = {one["type"]: one["reached"] for one in report["appliances"]}
+    assert reached == {"Washer": "local", "Oven": "cloud"}
