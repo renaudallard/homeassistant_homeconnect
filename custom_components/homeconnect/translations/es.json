@@ -10,7 +10,7 @@
         },
         "data_description": {
           "code": "La dirección completa, no solo una parte. Solo sirve una vez y solo durante unos minutos.",
-          "transport": "A través de la nube de Home Connect, o directamente a los aparatos en tu propia red. Iniciar sesión es necesario en ambos casos: la cuenta es el único lugar donde se guarda la clave de un aparato."
+          "transport": "A través de la nube de Home Connect, directamente a los aparatos en tu propia red, o directamente a los que se pueda y a través de la nube para el resto. Iniciar sesión es necesario en todos los casos: la cuenta es el único lugar donde se guarda la clave de un aparato."
         }
       },
       "reauth_confirm": {
@@ -30,7 +30,7 @@
           "transport": "Cómo llegar a los aparatos"
         },
         "data_description": {
-          "transport": "El control local requiere que cada aparato esté en la misma red que Home Assistant y que se anuncie en ella."
+          "transport": "El control local requiere que cada aparato esté en la misma red que Home Assistant y que se anuncie en ella. Eligiendo «donde sea posible», un aparato al que no se puede llegar directamente pasa por la nube."
         }
       }
     },
@@ -54,14 +54,15 @@
     },
     "local_unreachable": {
       "title": "{name} no es accesible directamente",
-      "description": "Home Assistant no pudo obtener de tu cuenta de Home Connect lo que necesita para hablar con este aparato en tu red: {reason}.\n\nTus otros aparatos no se ven afectados. Recargar la integración lo vuelve a intentar."
+      "description": "Home Assistant no pudo obtener de tu cuenta de Home Connect lo que necesita para hablar con este aparato en tu red: {reason}.\n\nTus otros aparatos no se ven afectados. Recargar la integración lo vuelve a intentar. Para llegar a este a través de la nube mientras los demás siguen en local, vuelve a configurar la entrada con «donde sea posible»."
     }
   },
   "selector": {
     "transport": {
       "options": {
         "cloud": "A través de la nube de Home Connect",
-        "local": "Directamente a los aparatos, en esta red"
+        "local": "Directamente a los aparatos, en esta red",
+        "mixed": "Directamente a los aparatos donde sea posible, a través de la nube para el resto"
       }
     }
   },

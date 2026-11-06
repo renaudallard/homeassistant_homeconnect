@@ -10,7 +10,7 @@
         },
         "data_description": {
           "code": "L'intero indirizzo, non solo una parte. È valido una sola volta e solo per pochi minuti.",
-          "transport": "Tramite il cloud Home Connect, o direttamente agli elettrodomestici sulla tua rete. L'accesso è necessario in entrambi i casi: l'account è l'unico posto in cui è conservata la chiave di un elettrodomestico."
+          "transport": "Tramite il cloud Home Connect, direttamente agli elettrodomestici sulla tua rete, oppure direttamente a quelli raggiungibili così e tramite il cloud per gli altri. L'accesso è necessario in ogni caso: l'account è l'unico posto in cui è conservata la chiave di un elettrodomestico."
         }
       },
       "reauth_confirm": {
@@ -30,7 +30,7 @@
           "transport": "Come raggiungere gli elettrodomestici"
         },
         "data_description": {
-          "transport": "Il controllo locale richiede che ogni elettrodomestico sia sulla stessa rete di Home Assistant e che si annunci su di essa."
+          "transport": "Il controllo locale richiede che ogni elettrodomestico sia sulla stessa rete di Home Assistant e che si annunci su di essa. Scegliendo \"dove possibile\", un elettrodomestico non raggiungibile direttamente passa invece dal cloud."
         }
       }
     },
@@ -54,14 +54,15 @@
     },
     "local_unreachable": {
       "title": "{name} non è raggiungibile direttamente",
-      "description": "Home Assistant non è riuscito a ottenere dal tuo account Home Connect ciò che serve per comunicare con questo elettrodomestico sulla tua rete: {reason}.\n\nGli altri elettrodomestici non ne risentono. Ricaricare l'integrazione riprova."
+      "description": "Home Assistant non è riuscito a ottenere dal tuo account Home Connect ciò che serve per comunicare con questo elettrodomestico sulla tua rete: {reason}.\n\nGli altri elettrodomestici non ne risentono. Ricaricare l'integrazione riprova. Per raggiungere questo tramite il cloud mentre gli altri restano locali, riconfigura la voce su \"dove possibile\"."
     }
   },
   "selector": {
     "transport": {
       "options": {
         "cloud": "Tramite il cloud Home Connect",
-        "local": "Direttamente agli elettrodomestici, su questa rete"
+        "local": "Direttamente agli elettrodomestici, su questa rete",
+        "mixed": "Direttamente agli elettrodomestici dove possibile, tramite il cloud per gli altri"
       }
     }
   },

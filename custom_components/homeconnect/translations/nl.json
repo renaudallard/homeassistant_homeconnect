@@ -10,7 +10,7 @@
         },
         "data_description": {
           "code": "Het volledige adres, niet slechts een deel. Het is maar één keer en slechts enkele minuten geldig.",
-          "transport": "Via de Home Connect-cloud, of rechtstreeks naar de apparaten op je eigen netwerk. Aanmelden is hoe dan ook nodig: het account is de enige plek waar de sleutel van een apparaat wordt bewaard."
+          "transport": "Via de Home Connect-cloud, rechtstreeks naar de apparaten op je eigen netwerk, of rechtstreeks naar de apparaten waar dat kan en via de cloud voor de rest. Aanmelden is hoe dan ook nodig: het account is de enige plek waar de sleutel van een apparaat wordt bewaard."
         }
       },
       "reauth_confirm": {
@@ -30,7 +30,7 @@
           "transport": "Hoe de apparaten te bereiken"
         },
         "data_description": {
-          "transport": "Lokale besturing vereist dat elk apparaat op hetzelfde netwerk als Home Assistant zit en zich daarop aankondigt."
+          "transport": "Lokale besturing vereist dat elk apparaat op hetzelfde netwerk als Home Assistant zit en zich daarop aankondigt. Met \"waar het kan\" gaat een apparaat dat niet rechtstreeks bereikbaar is in plaats daarvan via de cloud."
         }
       }
     },
@@ -54,14 +54,15 @@
     },
     "local_unreachable": {
       "title": "{name} is niet rechtstreeks bereikbaar",
-      "description": "Home Assistant kon van je Home Connect-account niet krijgen wat nodig is om met dit apparaat op je netwerk te praten: {reason}.\n\nJe andere apparaten hebben er geen last van. De integratie herladen probeert het opnieuw."
+      "description": "Home Assistant kon van je Home Connect-account niet krijgen wat nodig is om met dit apparaat op je netwerk te praten: {reason}.\n\nJe andere apparaten hebben er geen last van. De integratie herladen probeert het opnieuw. Om dit apparaat via de cloud te bereiken terwijl de andere lokaal blijven, configureer de vermelding opnieuw op \"waar het kan\"."
     }
   },
   "selector": {
     "transport": {
       "options": {
         "cloud": "Via de Home Connect-cloud",
-        "local": "Rechtstreeks naar de apparaten, op dit netwerk"
+        "local": "Rechtstreeks naar de apparaten, op dit netwerk",
+        "mixed": "Rechtstreeks naar de apparaten waar het kan, via de cloud voor de rest"
       }
     }
   },

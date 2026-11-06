@@ -1,0 +1,166 @@
+# BSD 2-Clause License
+#
+# Copyright (c) 2026, Renaud Allard <renaud@allard.it>
+# All rights reserved.
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions are met:
+#
+# 1. Redistributions of source code must retain the above copyright notice, this
+#    list of conditions and the following disclaimer.
+#
+# 2. Redistributions in binary form must reproduce the above copyright notice,
+#    this list of conditions and the following disclaimer in the documentation
+#    and/or other materials provided with the distribution.
+#
+# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+# AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+# SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+# CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+# OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+"""An account reached directly where it can be and through the cloud otherwise.
+
+The washer has a key on the account and the oven has none. Set to mixed, the
+washer is talked to directly and the oven through the cloud; set to local, the
+oven is the one appliance left out, and only it says so.
+"""
+
+from __future__ import annotations
+
+from unittest.mock import AsyncMock, patch
+
+import pytest
+from homeassistant.config_entries import ConfigEntryState
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import issue_registry as ir
+from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
+
+from custom_components.homeconnect import local
+from custom_components.homeconnect.const import CONF_TRANSPORT, DOMAIN, LOCAL, MIXED
+from custom_components.homeconnect.events import Event
+
+from .common import described_as, entry, fixture, serve, state_of
+
+WASHER = "BOSCH-WAV28MH0GB-1234567890AB"
+OVEN = "SIEMENS-HB678GBS6B-FEDCBA987654"
+DOOR = "BSH.Common.Status.DoorState"
+
+
+async def _set_up(
+    hass: HomeAssistant, mock: AiohttpClientMocker, transport: str
+) -> MockConfigEntry:
+    serve(mock, [fixture("washer"), fixture("oven")])
+    made = entry(hass)
+    hass.config_entries.async_update_entry(
+        made, data={**made.data, CONF_TRANSPORT: transport}
+    )
+    with (
+        patch(
+            "custom_components.homeconnect.api.HomeConnectAccount.keys",
+            AsyncMock(return_value={WASHER: {"key": "a-key"}}),
+        ),
+        patch(
+            "custom_components.homeconnect.api.HomeConnectAccount.description",
+            AsyncMock(return_value=described_as(WASHER)),
+        ),
+        patch.object(local.Finder, "start", AsyncMock()),
+        patch.object(local.Finder, "stop", AsyncMock()),
+        patch("custom_components.homeconnect.HomeConnectStream.start"),
+    ):
+        await hass.config_entries.async_setup(made.entry_id)
+        await hass.async_block_till_done()
+    return made
+
+
+@pytest.fixture
+async def mixed(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> MockConfigEntry:
+    return await _set_up(hass, aioclient_mock, MIXED)
+
+
+async def test_each_appliance_says_which_way_it_is_reached(
+    hass: HomeAssistant, mixed: MockConfigEntry
+) -> None:
+    assert mixed.state is ConfigEntryState.LOADED
+    assert state_of(hass, "sensor.washer_transport") == "local"
+    assert state_of(hass, "sensor.oven_transport") == "cloud"
+    # Read through the cloud, the oven has what the cloud says about it.
+    assert state_of(hass, "sensor.oven_operation_state") != "unavailable"
+
+
+async def test_an_appliance_reached_through_the_cloud_is_nothing_to_repair(
+    hass: HomeAssistant, mixed: MockConfigEntry
+) -> None:
+    issues = ir.async_get(hass)
+    assert issues.async_get_issue(DOMAIN, f"local_unreachable_{OVEN}") is None
+
+
+async def test_both_ways_run_side_by_side(
+    hass: HomeAssistant, mixed: MockConfigEntry
+) -> None:
+    assert mixed.runtime_data.local is not None
+    assert mixed.runtime_data.stream is not None
+
+
+async def test_a_change_goes_the_way_its_appliance_is_reached(
+    hass: HomeAssistant, mixed: MockConfigEntry
+) -> None:
+    coordinator = mixed.runtime_data.coordinator
+    written = AsyncMock()
+    sent = AsyncMock()
+    with (
+        patch.object(mixed.runtime_data.local, "write", written),
+        patch.object(coordinator.api, "set_setting", sent),
+    ):
+        await coordinator.apply_setting(WASHER, "BSH.Common.Setting.ChildLock", True)
+        await coordinator.apply_setting(OVEN, "BSH.Common.Setting.ChildLock", True)
+    written.assert_awaited_once_with(WASHER, "BSH.Common.Setting.ChildLock", True)
+    sent.assert_awaited_once_with(OVEN, "BSH.Common.Setting.ChildLock", True)
+
+
+async def test_the_cloud_stream_only_speaks_for_the_cloud_appliances(
+    hass: HomeAssistant, mixed: MockConfigEntry
+) -> None:
+    """The washer's own connection says it first, and the cloud's later
+    account would undo it."""
+    coordinator = mixed.runtime_data.coordinator
+    opened = {"key": DOOR, "value": "BSH.Common.EnumType.DoorState.Open"}
+    for haid in (WASHER, OVEN):
+        coordinator.apply(Event("STATUS", haid, {"items": [opened]}))
+    assert DOOR not in coordinator.data[WASHER].status
+    assert coordinator.data[OVEN].status[DOOR].value == opened["value"]
+
+
+async def test_two_of_one_model_reached_both_ways_keep_their_own_description(
+    hass: HomeAssistant, mixed: MockConfigEntry
+) -> None:
+    """What was learnt for one reached directly is not what the cloud says
+    about the same model, so neither overwrites the other."""
+    coordinator = mixed.runtime_data.coordinator
+    described = {"enumber": "SAME/01"}
+    cloud = coordinator._model(OVEN, described, False)
+    direct = coordinator._model(WASHER, described, True)
+    assert cloud is not direct
+    assert coordinator._model(OVEN, described, False) is cloud
+
+
+async def test_set_to_local_the_appliance_without_a_key_is_the_only_one_affected(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    made = await _set_up(hass, aioclient_mock, LOCAL)
+    assert made.state is ConfigEntryState.LOADED
+    assert made.runtime_data.stream is None
+    assert state_of(hass, "sensor.oven_transport") == "local"
+    issues = ir.async_get(hass)
+    assert issues.async_get_issue(DOMAIN, f"local_unreachable_{OVEN}") is not None
+    assert issues.async_get_issue(DOMAIN, f"local_unreachable_{WASHER}") is None
+    assert made.runtime_data.local is not None
+    assert made.runtime_data.local.knows(WASHER)

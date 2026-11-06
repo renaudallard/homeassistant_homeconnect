@@ -169,7 +169,7 @@ async def _for_device(hass: HomeAssistant, device_id: str) -> list[dict[str, Any
     data: HomeConnectData | None = getattr(entry, "runtime_data", None)
     if data is None:
         return []
-    if data.local is not None:
+    if data.local is not None and data.coordinator.reached_locally(haid):
         return layout(data.local.entries(haid))
     return await _from_account(hass, data, haid)
 

@@ -258,7 +258,9 @@ async def test_a_hob_reached_directly_is_laid_out_from_what_local_kept(
 ) -> None:
     """Local control already holds the description, so nothing is fetched."""
     made, device = await _a_cloud_hob(hass, aioclient_mock)
-    made.runtime_data.local = SimpleNamespace(entries=lambda _haid: FLEX)
+    control = SimpleNamespace(entries=lambda _haid: FLEX, knows=lambda _haid: True)
+    made.runtime_data.local = control
+    made.runtime_data.coordinator.local = control
     fetched = AsyncMock(return_value=b"a zip")
     with patch(DESCRIPTION, fetched):
         zones = await hob._for_device(hass, device.id)

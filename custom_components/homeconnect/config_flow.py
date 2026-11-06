@@ -79,6 +79,7 @@ from .const import (
     CONF_TRANSPORT,
     DOMAIN,
     LOCAL,
+    MIXED,
 )
 from .errors import HomeConnectAuthError, HomeConnectError
 
@@ -93,7 +94,7 @@ MODEL = "vib"
 
 WAYS = SelectSelector(
     SelectSelectorConfig(
-        options=[CLOUD, LOCAL],
+        options=[CLOUD, LOCAL, MIXED],
         mode=SelectSelectorMode.LIST,
         translation_key=CONF_TRANSPORT,
     )

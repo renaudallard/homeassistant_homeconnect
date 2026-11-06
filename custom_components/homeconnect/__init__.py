@@ -62,6 +62,7 @@ from .const import (
     CONF_TRANSPORT,
     DOMAIN,
     LOCAL,
+    MIXED,
 )
 from .coordinator import HomeConnectCoordinator, local_store
 from .errors import HomeConnectAuthError, HomeConnectError
@@ -179,9 +180,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: HomeConnectConfigEntry) 
     await coordinator.async_load_models()
 
     local: LocalControl | None = None
+    transport = entry.data.get(CONF_TRANSPORT)
     # The appliances local control could not learn, with why.
     failed: dict[str, str] = {}
-    if entry.data.get(CONF_TRANSPORT) == LOCAL:
+    if transport in (LOCAL, MIXED):
         # An appliance allows one direct connection per identity, so this
         # install says who it is: the name every Home Connect client uses,
         # with a few bytes of this install's own id after it. Two Home
@@ -205,13 +207,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: HomeConnectConfigEntry) 
     # The first refresh reads what every appliance is and what it is doing,
     # and proves the stored tokens still work while it is at it.
     await coordinator.async_config_entry_first_refresh()
-    _say_what_failed(hass, coordinator, failed)
+    # Mixed reaches those through the cloud instead, which is nothing to
+    # repair.
+    _say_what_failed(hass, coordinator, failed if transport == LOCAL else {})
 
     stream: HomeConnectStream | None = None
-    if local is None:
+    if transport != LOCAL:
         # The stream is how the cloud pushes changes. An appliance talked to
-        # directly pushes them down its own connection, so there is nothing
-        # for a second one to carry.
+        # directly pushes them down its own connection, so with every one of
+        # them reached that way there is nothing for a second one to carry.
         stream = HomeConnectStream(
             session,
             lambda: api.headers("text/event-stream"),
@@ -225,7 +229,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: HomeConnectConfigEntry) 
             )
         )
         entry.async_on_unload(stream.stop)
-    else:
+    if local is not None:
         await local.start(
             lambda talking: entry.async_create_background_task(
                 hass, talking, "Home Connect appliance"

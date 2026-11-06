@@ -150,7 +150,7 @@ class HomeConnectSensor(KeyEntity, SensorEntity):
         self, coordinator: HomeConnectCoordinator, haid: str, key: str, kind: str
     ) -> None:
         super().__init__(coordinator, haid, key, kind)
-        if key == WIFI and coordinator.local is not None:
+        if key == WIFI and coordinator.reached_locally(haid):
             self._attr_entity_registry_enabled_default = False
         self._counting = _counts(key)
         self._measure = measure_for(key, self._unit_of())
@@ -228,7 +228,7 @@ class TransportSensor(HomeConnectEntity, SensorEntity):
 
     @property
     def native_value(self) -> str:
-        return LOCAL if self.coordinator.local is not None else CLOUD
+        return LOCAL if self.coordinator.reached_locally(self._haid) else CLOUD
 
 
 class ProgramSensor(HomeConnectEntity, SensorEntity):

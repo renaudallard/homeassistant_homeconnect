@@ -56,7 +56,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from .api import ACTIVE, SELECTED, HomeConnectApi
 from .capability import OPTION, SETTING, Feature, Reading, feature, reading
-from .const import CONF_TRANSPORT, DOMAIN, LOCAL
+from .const import CONF_TRANSPORT, DOMAIN, LOCAL, MIXED
 from .errors import (
     HomeConnectAuthError,
     HomeConnectError,
@@ -301,9 +301,10 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         # paired, renamed or unpaired, which is rare: the long interval is
         # plenty and the fast one would spend the quota it was meant to save.
         # Through the cloud without the stream the fast one is right, and with
-        # the stream it lengthens itself once the stream is up.
-        reached_locally = entry.data.get(CONF_TRANSPORT) == LOCAL
-        rarely = SCAN_INTERVAL_STREAMING if reached_locally else SCAN_INTERVAL
+        # the stream it lengthens itself once the stream is up. Mixed has
+        # appliances on the cloud, so it is asked as often as the cloud is.
+        transport = entry.data.get(CONF_TRANSPORT)
+        rarely = SCAN_INTERVAL_STREAMING if transport == LOCAL else SCAN_INTERVAL
         super().__init__(
             hass,
             _LOGGER,
@@ -316,6 +317,9 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         # account is still what says which appliances exist and what they are
         # called: only the reading and the setting change.
         self.local = local
+        # Whether an appliance local control could not learn goes through the
+        # cloud rather than staying unavailable.
+        self._mixed = transport == MIXED
         self._store = model_store(hass, entry)
         # By model, since two appliances of the same model can do the same
         # things and reading it twice is two sets of calls for one answer.
@@ -329,6 +333,22 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         # Appliances we have said something about, so that what is said can
         # be taken back when it stops being true.
         self._complained_about: set[str] = set()
+
+    def reached_locally(self, haid: str) -> bool:
+        """Whether this appliance is read and set over the local network.
+
+        Set to local, every appliance is, and one that could not be learnt
+        stays unavailable. Set to mixed, only the ones learnt are, and the
+        rest go through the cloud. Which is which is settled when the entry
+        sets up, not by whether an appliance is answering at the moment.
+        """
+        if self.local is None:
+            return False
+        return not self._mixed or self.local.knows(haid)
+
+    def _local_for(self, haid: str) -> LocalControl | None:
+        """Local control, if it is what reaches this appliance."""
+        return self.local if self.reached_locally(haid) else None
 
     async def async_load_models(self) -> None:
         """Read back what was learnt about these models last time."""
@@ -450,7 +470,8 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         """
         held = (self.data or {}).get(haid)
         connected = bool(described.get("connected"))
-        model = self._model(haid, described)
+        locally = self.reached_locally(haid)
+        model = self._model(haid, described, locally)
         appliance = Appliance(
             id=haid,
             name=str(described.get("name") or haid),
@@ -470,7 +491,7 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
             # appliance built here replaces the one it was set on.
             pending=held.pending if held else {},
         )
-        if self.local is not None:
+        if locally:
             return self._read_locally(appliance, held)
         if not connected:
             if held is not None:
@@ -603,14 +624,18 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         appliance.model.options[program] = _features(described, OPTION)
 
     @callback
-    def _model(self, haid: str, described: dict[str, Any]) -> Model:
+    def _model(self, haid: str, described: dict[str, Any], locally: bool) -> Model:
         """Which description this appliance shares, made if it is new.
 
         Two appliances of the same model answer the same way, and what they
         answer does not change, so they share one description and it is filled
-        in once. An appliance with no model number stands for itself.
+        in once. An appliance with no model number stands for itself. One
+        reached directly is described by what was learnt for it rather than
+        by the cloud, so it never shares with one the cloud describes.
         """
         name = str(described.get("enumber") or haid)
+        if locally:
+            name = f"local:{name}"
         model = self._models.get(name)
         if model is None:
             model = Model()
@@ -650,6 +675,10 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
                 # An appliance we have never seen, or one that has just gone.
                 # Either way the listing is what settles it.
                 self.hass.async_create_task(self.async_request_refresh())
+            return
+        if self.reached_locally(event.haid):
+            # Its own connection says all of this first, and the cloud's
+            # laggier account of it would only undo what that said.
             return
         if event.name == "CONNECTED":
             appliance.connected = True
@@ -778,8 +807,8 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         there showing what it was before. So what was asked for is written in
         straight away and the stream corrects it if the appliance disagreed.
         """
-        if self.local is not None:
-            await self.local.write(haid, key, value)
+        if (local := self._local_for(haid)) is not None:
+            await local.write(haid, key, value)
         else:
             await self.api.set_setting(haid, key, value)
         self.data[haid].settings[key] = _asked_for(
@@ -789,8 +818,8 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
 
     async def send_command(self, haid: str, key: str) -> None:
         """Tell the appliance to do something once."""
-        if self.local is not None:
-            await self.local.write(haid, key, True)
+        if (local := self._local_for(haid)) is not None:
+            await local.write(haid, key, True)
             return
         await self.api.send_command(haid, key)
         self._look_again(haid)
@@ -808,8 +837,8 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
             appliance.pending[key] = value
             self.async_set_updated_data(self.data)
             return
-        if self.local is not None:
-            await self.local.write(haid, key, value)
+        if (local := self._local_for(haid)) is not None:
+            await local.write(haid, key, value)
         else:
             await self.api.set_option(
                 haid, ACTIVE if appliance.running else SELECTED, key, value
@@ -820,8 +849,9 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
     async def select_program(self, haid: str, program: str) -> None:
         """Set the programme the appliance will run next."""
         appliance = self.data[haid]
-        if self.local is not None:
-            await self.local.program(haid, program, {}, start=False)
+        local = self._local_for(haid)
+        if local is not None:
+            await local.program(haid, program, {}, start=False)
         else:
             await self.api.set_program(haid, SELECTED, program, [])
         appliance.selected = program
@@ -830,7 +860,7 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         # Only the cloud is looked at again: an appliance reached directly
         # pushes the change back itself, and a look would spend cloud quota and
         # overwrite the local view with the cloud's laggier one.
-        if self.local is None:
+        if local is None:
             self._look_again(haid)
 
     async def start_program(self, haid: str) -> None:
@@ -839,12 +869,12 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         program = appliance.selected
         if program is None:
             raise HomeConnectError("nothing is selected to start")
-        if self.local is not None:
+        if (local := self._local_for(haid)) is not None:
             # Whatever was held back travels with the programme, which is what
             # the slot takes: the programme and the set of options it is to run
             # with, in one message. A copy is taken so an option arriving
             # mid-write does not change what is being sent.
-            await self.local.program(haid, program, dict(appliance.pending), start=True)
+            await local.program(haid, program, dict(appliance.pending), start=True)
             appliance.pending.clear()
             return
         options = [
@@ -861,8 +891,8 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         a programme is the command for stopping one, which an appliance that
         runs programmes describes along with the rest.
         """
-        if self.local is not None:
-            await self.local.write(haid, ABORT, True)
+        if (local := self._local_for(haid)) is not None:
+            await local.write(haid, ABORT, True)
             return
         await self.api.stop_program(haid)
         self._look_again(haid)

@@ -10,7 +10,7 @@
         },
         "data_description": {
           "code": "The whole address, not just part of it. It is only good once and only for a few minutes.",
-          "transport": "Through the Home Connect cloud, or straight to the appliances on your own network. Signing in is needed either way: the account is the only place the key to an appliance is kept."
+          "transport": "Through the Home Connect cloud, straight to the appliances on your own network, or straight to the ones that can be reached that way and through the cloud for the rest. Signing in is needed in every case: the account is the only place the key to an appliance is kept."
         }
       },
       "reauth_confirm": {
@@ -30,7 +30,7 @@
           "transport": "How to reach the appliances"
         },
         "data_description": {
-          "transport": "Local control needs each appliance to be on the same network as Home Assistant and to be announcing itself on it."
+          "transport": "Local control needs each appliance to be on the same network as Home Assistant and to be announcing itself on it. Choosing \"where possible\" sends an appliance that can't be reached directly through the cloud instead."
         }
       }
     },
@@ -54,14 +54,15 @@
     },
     "local_unreachable": {
       "title": "{name} can't be reached directly",
-      "description": "Home Assistant could not get what it needs from your Home Connect account to talk to this appliance on your network: {reason}.\n\nYour other appliances are not affected. Reloading the integration tries again."
+      "description": "Home Assistant could not get what it needs from your Home Connect account to talk to this appliance on your network: {reason}.\n\nYour other appliances are not affected. Reloading the integration tries again. To reach this one through the cloud while the others stay local, reconfigure the entry to \"where possible\"."
     }
   },
   "selector": {
     "transport": {
       "options": {
         "cloud": "Through the Home Connect cloud",
-        "local": "Straight to the appliances, on this network"
+        "local": "Straight to the appliances, on this network",
+        "mixed": "Straight to the appliances where possible, the cloud for the rest"
       }
     }
   },

@@ -116,6 +116,9 @@ DESCRIPTION_PATH = "/api/iddf/v1/iddf/{}"
 CONF_TRANSPORT = "transport"
 CLOUD = "cloud"
 LOCAL = "local"
+# Straight to every appliance that can be reached that way, and through the
+# cloud for the rest.
+MIXED = "mixed"
 
 CONF_ACCESS_TOKEN = "access_token"
 CONF_REFRESH_TOKEN = "refresh_token"

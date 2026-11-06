@@ -10,7 +10,7 @@
         },
         "data_description": {
           "code": "Die vollständige Adresse, nicht nur einen Teil davon. Sie ist nur einmal und nur für wenige Minuten gültig.",
-          "transport": "Über die Home-Connect-Cloud oder direkt zu den Geräten im eigenen Netzwerk. Die Anmeldung ist in beiden Fällen nötig: Das Konto ist der einzige Ort, an dem der Schlüssel eines Geräts aufbewahrt wird."
+          "transport": "Über die Home-Connect-Cloud, direkt zu den Geräten im eigenen Netzwerk, oder direkt zu denen, die so erreichbar sind, und über die Cloud zu den übrigen. Die Anmeldung ist in jedem Fall nötig: Das Konto ist der einzige Ort, an dem der Schlüssel eines Geräts aufbewahrt wird."
         }
       },
       "reauth_confirm": {
@@ -30,7 +30,7 @@
           "transport": "Wie die Geräte erreicht werden"
         },
         "data_description": {
-          "transport": "Die lokale Steuerung erfordert, dass jedes Gerät im selben Netzwerk wie Home Assistant ist und sich darin ankündigt."
+          "transport": "Die lokale Steuerung erfordert, dass jedes Gerät im selben Netzwerk wie Home Assistant ist und sich darin ankündigt. Mit „wo möglich“ läuft ein Gerät, das nicht direkt erreichbar ist, stattdessen über die Cloud."
         }
       }
     },
@@ -54,14 +54,15 @@
     },
     "local_unreachable": {
       "title": "{name} ist nicht direkt erreichbar",
-      "description": "Home Assistant konnte von deinem Home-Connect-Konto nicht bekommen, was es braucht, um mit diesem Gerät in deinem Netzwerk zu sprechen: {reason}.\n\nDeine anderen Geräte sind davon nicht betroffen. Ein Neuladen der Integration versucht es erneut."
+      "description": "Home Assistant konnte von deinem Home-Connect-Konto nicht bekommen, was es braucht, um mit diesem Gerät in deinem Netzwerk zu sprechen: {reason}.\n\nDeine anderen Geräte sind davon nicht betroffen. Ein Neuladen der Integration versucht es erneut. Um dieses über die Cloud zu erreichen, während die anderen lokal bleiben, konfiguriere den Eintrag auf „wo möglich“ um."
     }
   },
   "selector": {
     "transport": {
       "options": {
         "cloud": "Über die Home-Connect-Cloud",
-        "local": "Direkt zu den Geräten, in diesem Netzwerk"
+        "local": "Direkt zu den Geräten, in diesem Netzwerk",
+        "mixed": "Direkt zu den Geräten, wo möglich, sonst über die Cloud"
       }
     }
   },

@@ -79,9 +79,10 @@ minutes: 48 requests a day, whatever the number of appliances.
   it is in, and nothing at all while its door is open or remote control has
   not been armed at the machine itself.
 - **Cloud or local** — reach the appliances through the Home Connect cloud,
-  or straight over your own network with no cloud in the loop at all. Chosen
-  when the account is set up and changed afterwards by reconfiguring it, with
-  the same entities either way.
+  or straight over your own network with no cloud in the loop at all, or
+  straight to the ones that can be reached that way and through the cloud for
+  the rest. Chosen when the account is set up and changed afterwards by
+  reconfiguring it, with the same entities either way.
 - **Live, not polled** — through the cloud, one Server-Sent Events connection
   carries the whole account, so a cycle finishing shows up when it happens.
   Polling carries on behind it at half-hourly intervals to catch whatever a
@@ -200,7 +201,8 @@ unavailable, since there is nothing to set on an appliance that cannot be
 reached.
 
 Beside it is a **Transport** sensor, reading `cloud` or `local`, which says
-which way the entry reaches that appliance. It answers a different question
+which way the entry reaches that appliance, so an account set to mixed shows
+on each device page which of the two that appliance got. It answers a different question
 from the one beside it: the transport is how the appliance would be reached,
 the connection is whether it is answering.
 
@@ -366,6 +368,18 @@ the time, since the hob marks whichever are not in use as not selectable.
 An appliance answers on the network it is already on, and will do it with no
 cloud involved. **Reconfigure** the entry to move it between the two; nothing
 else changes and there is no need to sign in again.
+
+There are three choices. Through the cloud reaches every appliance that way.
+Straight to the appliances reaches every one directly, and never sends one
+through the cloud: one that can't be learnt stays unavailable with a repair
+saying why, and the others work as usual. Straight to the appliances where
+possible reaches the ones that could be learnt directly and the rest through
+the cloud, for an account with one appliance that has no key for local
+control. Which way each appliance went is settled when the entry sets up, not
+by whether it happens to be answering, so one that has a key and drops off
+the network stays unavailable rather than switching over; reloading the
+integration settles it again. Mixed runs the cloud's event stream for the
+appliances on the cloud and ignores what it says about the others.
 
 Signing in is needed either way, and once either way. The account is the only
 place two things are kept, and neither is on the network: the key an appliance

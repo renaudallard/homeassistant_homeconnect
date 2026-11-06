@@ -10,7 +10,7 @@
         },
         "data_description": {
           "code": "L'adresse entière, pas seulement une partie. Elle n'est valable qu'une fois et seulement quelques minutes.",
-          "transport": "Par le cloud Home Connect, ou directement vers les appareils sur votre propre réseau. La connexion au compte est nécessaire dans les deux cas : le compte est le seul endroit où la clé d'un appareil est conservée."
+          "transport": "Par le cloud Home Connect, directement vers les appareils sur votre propre réseau, ou directement vers ceux qui le permettent et par le cloud pour les autres. La connexion au compte est nécessaire dans tous les cas : le compte est le seul endroit où la clé d'un appareil est conservée."
         }
       },
       "reauth_confirm": {
@@ -30,7 +30,7 @@
           "transport": "Comment atteindre les appareils"
         },
         "data_description": {
-          "transport": "Le contrôle local exige que chaque appareil soit sur le même réseau que Home Assistant et qu'il s'y annonce."
+          "transport": "Le contrôle local exige que chaque appareil soit sur le même réseau que Home Assistant et qu'il s'y annonce. En choisissant « si possible », un appareil injoignable directement passe plutôt par le cloud."
         }
       }
     },
@@ -54,14 +54,15 @@
     },
     "local_unreachable": {
       "title": "{name} n'est pas joignable directement",
-      "description": "Home Assistant n'a pas pu obtenir de votre compte Home Connect ce qu'il faut pour parler à cet appareil sur votre réseau : {reason}.\n\nVos autres appareils ne sont pas concernés. Recharger l'intégration réessaie."
+      "description": "Home Assistant n'a pas pu obtenir de votre compte Home Connect ce qu'il faut pour parler à cet appareil sur votre réseau : {reason}.\n\nVos autres appareils ne sont pas concernés. Recharger l'intégration réessaie. Pour joindre celui-ci par le cloud tandis que les autres restent en local, reconfigurez l'entrée sur « si possible »."
     }
   },
   "selector": {
     "transport": {
       "options": {
         "cloud": "Par le cloud Home Connect",
-        "local": "Directement vers les appareils, sur ce réseau"
+        "local": "Directement vers les appareils, sur ce réseau",
+        "mixed": "Directement vers les appareils si possible, par le cloud pour les autres"
       }
     }
   },
