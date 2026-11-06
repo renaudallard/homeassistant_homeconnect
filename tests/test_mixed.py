@@ -26,13 +26,15 @@
 
 """An account reached directly where it can be and through the cloud otherwise.
 
-The washer has a key on the account and the oven has none. Set to mixed, the
-washer is talked to directly and the oven through the cloud; set to local, the
-oven is the one appliance left out, and only it says so.
+The washer has a key on the account and has been found on the network before;
+the oven has no key. Set to mixed, the washer is talked to directly and the
+oven through the cloud; set to local, the oven is the one appliance left out,
+and only it says so.
 """
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -42,8 +44,9 @@ from homeassistant.helpers import issue_registry as ir
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
-from custom_components.homeconnect import local
+from custom_components.homeconnect import iddf, local
 from custom_components.homeconnect.const import CONF_TRANSPORT, DOMAIN, LOCAL, MIXED
+from custom_components.homeconnect.coordinator import STORE_VERSION
 from custom_components.homeconnect.events import Event
 
 from .common import described_as, entry, fixture, serve, state_of
@@ -53,14 +56,49 @@ OVEN = "SIEMENS-HB678GBS6B-FEDCBA987654"
 DOOR = "BSH.Common.Status.DoorState"
 
 
+# Where the washer was found on the network.
+SEEN = local.Where("192.0.2.4", 443)
+
+
+class Quiet:
+    """A link to an appliance that never answers, and never tries to."""
+
+    talking = False
+
+    def start(self, _spawn: Any) -> None:
+        return None
+
+    async def stop(self) -> None:
+        return None
+
+
 async def _set_up(
-    hass: HomeAssistant, mock: AiohttpClientMocker, transport: str
+    hass: HomeAssistant,
+    mock: AiohttpClientMocker,
+    storage: dict[str, Any],
+    transport: str,
+    placed: bool = True,
 ) -> MockConfigEntry:
     serve(mock, [fixture("washer"), fixture("oven")])
     made = entry(hass)
     hass.config_entries.async_update_entry(
         made, data={**made.data, CONF_TRANSPORT: transport}
     )
+    if placed:
+        # Learnt on an earlier start, and found on the network then.
+        known = local.Known(
+            key="a-key",
+            iv=None,
+            entries=iddf.unpack(described_as(WASHER)),
+            where=SEEN,
+        )
+        name = f"{DOMAIN}.{made.entry_id}.local"
+        storage[name] = {
+            "version": STORE_VERSION,
+            "minor_version": 1,
+            "key": name,
+            "data": {WASHER: known.as_stored()},
+        }
     with (
         patch(
             "custom_components.homeconnect.api.HomeConnectAccount.keys",
@@ -72,6 +110,7 @@ async def _set_up(
         ),
         patch.object(local.Finder, "start", AsyncMock()),
         patch.object(local.Finder, "stop", AsyncMock()),
+        patch.object(local.LocalControl, "_make", lambda *_a: Quiet()),
         patch("custom_components.homeconnect.HomeConnectStream.start"),
     ):
         await hass.config_entries.async_setup(made.entry_id)
@@ -81,9 +120,11 @@ async def _set_up(
 
 @pytest.fixture
 async def mixed(
-    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    hass_storage: dict[str, Any],
 ) -> MockConfigEntry:
-    return await _set_up(hass, aioclient_mock, MIXED)
+    return await _set_up(hass, aioclient_mock, hass_storage, MIXED)
 
 
 async def test_each_appliance_says_which_way_it_is_reached(
@@ -153,9 +194,11 @@ async def test_two_of_one_model_reached_both_ways_keep_their_own_description(
 
 
 async def test_set_to_local_the_appliance_without_a_key_is_the_only_one_affected(
-    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    hass_storage: dict[str, Any],
 ) -> None:
-    made = await _set_up(hass, aioclient_mock, LOCAL)
+    made = await _set_up(hass, aioclient_mock, hass_storage, LOCAL)
     assert made.state is ConfigEntryState.LOADED
     assert made.runtime_data.stream is None
     assert state_of(hass, "sensor.oven_transport") == "local"
@@ -164,3 +207,47 @@ async def test_set_to_local_the_appliance_without_a_key_is_the_only_one_affected
     assert issues.async_get_issue(DOMAIN, f"local_unreachable_{WASHER}") is None
     assert made.runtime_data.local is not None
     assert made.runtime_data.local.knows(WASHER)
+
+
+async def test_one_never_found_on_the_network_stays_on_the_cloud(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    hass_storage: dict[str, Any],
+) -> None:
+    """A key says nothing about whether the appliance can be reached from
+    here, and the cloud can reach it meanwhile."""
+    await _set_up(hass, aioclient_mock, hass_storage, MIXED, placed=False)
+    assert state_of(hass, "sensor.washer_transport") == "cloud"
+    assert state_of(hass, "sensor.washer_operation_state") != "unavailable"
+
+
+async def test_turning_up_on_the_network_takes_it_over(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    hass_storage: dict[str, Any],
+) -> None:
+    """Where it is gets written down before setting up again, or it would
+    be on the cloud again afterwards and found again, over and over."""
+    made = await _set_up(hass, aioclient_mock, hass_storage, MIXED, placed=False)
+    control = made.runtime_data.local
+    reloaded = []
+    with (
+        patch.object(
+            control._finder, "where", lambda haid: SEEN if haid == WASHER else None
+        ),
+        patch.object(
+            hass.config_entries,
+            "async_schedule_reload",
+            lambda entry_id: reloaded.append(entry_id),
+        ),
+    ):
+        control._look_again()
+        await hass.async_block_till_done()
+        # Heard again before the reload, it is not announced twice.
+        control._look_again()
+        await hass.async_block_till_done()
+    assert reloaded == [made.entry_id]
+    stored = hass_storage[f"{DOMAIN}.{made.entry_id}.local"]["data"][WASHER]
+    assert stored["host"] == SEEN.host
+    # And until then the cloud still has it.
+    assert state_of(hass, "sensor.washer_transport") == "cloud"

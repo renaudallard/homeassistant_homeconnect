@@ -202,6 +202,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: HomeConnectConfigEntry) 
         )
         await local.load()
         failed = await _learn(api, local)
+        if transport == MIXED:
+            # One turning up on the network is taken over by setting up
+            # again, so nothing is ever fed by both ways at once.
+            local.keep_to_the_placed(
+                lambda _haid: hass.config_entries.async_schedule_reload(entry.entry_id)
+            )
         coordinator.local = local
 
     # The first refresh reads what every appliance is and what it is doing,

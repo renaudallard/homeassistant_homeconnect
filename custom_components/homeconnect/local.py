@@ -472,6 +472,11 @@ class LocalControl:
         self._links: dict[str, Any] = {}
         self._finder = Finder(hass, self._look_again)
         self._spawn: Callable[[Any], Any] | None = None
+        # Set to mixed, the appliances talked to directly, settled at setup.
+        # Nothing set talks to every one learnt.
+        self._only: set[str] | None = None
+        self._on_found: Callable[[str], None] | None = None
+        self._announced: set[str] = set()
 
     async def load(self) -> None:
         """Read back what was learnt about these appliances last time."""
@@ -544,6 +549,24 @@ class LocalControl:
     def knows(self, haid: str) -> bool:
         return haid in self._known
 
+    def keep_to_the_placed(self, on_found: Callable[[str], None]) -> None:
+        """Talk only to the appliances found on the network before.
+
+        A learnt appliance that has never been found may not be reachable
+        from here at all: a container without the host's network, or another
+        network altogether. The cloud reaches it meanwhile. When it does turn
+        up, where it is gets written down and on_found is told, which is the
+        entry's cue to set up again and take it over.
+        """
+        self._only = {
+            haid for haid, known in self._known.items() if known.where is not None
+        }
+        self._on_found = on_found
+
+    def reaches(self, haid: str) -> bool:
+        """Whether this appliance is the one talked to directly."""
+        return haid in self._known and (self._only is None or haid in self._only)
+
     def entries(self, haid: str) -> dict[int, Entry]:
         known = self._known.get(haid)
         return known.entries if known else {}
@@ -586,6 +609,14 @@ class LocalControl:
             # shouting from. An appliance shouts when it feels like it, so
             # waiting for one to shout again is waiting for nothing.
             found = self._finder.where(haid)
+            if self._only is not None and haid not in self._only:
+                # On the cloud for now, so not talked to here. Turning up is
+                # what it was waiting for, once.
+                if found is not None and haid not in self._announced:
+                    self._announced.add(haid)
+                    self._known[haid] = replace(known, where=found)
+                    self._spawn(self._found(haid))
+                continue
             link = self._links.get(haid)
             if link is not None and (found is None or found == known.where):
                 continue
@@ -606,6 +637,18 @@ class LocalControl:
                 where.host,
                 "where it is shouting from" if found else "where it last was",
             )
+
+    async def _found(self, haid: str) -> None:
+        """Say that an appliance on the cloud has turned up on the network.
+
+        Where it is is written straight away rather than in a while: setting
+        up again reads it back, and an address still waiting to be written
+        would leave it on the cloud, to be found again, over and over.
+        """
+        await self._store.async_save(self._stored())
+        _LOGGER.debug("found %s on the network", hidden_id(haid))
+        if self._on_found is not None:
+            self._on_found(haid)
 
     def _make(self, haid: str, known: Known, where: Where) -> Any:
         from .hcp import HcpLink

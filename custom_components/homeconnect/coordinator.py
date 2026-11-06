@@ -317,7 +317,7 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         # account is still what says which appliances exist and what they are
         # called: only the reading and the setting change.
         self.local = local
-        # Whether an appliance local control could not learn goes through the
+        # Whether an appliance local control does not reach goes through the
         # cloud rather than staying unavailable.
         self._mixed = transport == MIXED
         self._store = model_store(hass, entry)
@@ -338,13 +338,14 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
         """Whether this appliance is read and set over the local network.
 
         Set to local, every appliance is, and one that could not be learnt
-        stays unavailable. Set to mixed, only the ones learnt are, and the
-        rest go through the cloud. Which is which is settled when the entry
-        sets up, not by whether an appliance is answering at the moment.
+        stays unavailable. Set to mixed, only the ones learnt and found on
+        the network before are, and the rest go through the cloud. Which is
+        which is settled when the entry sets up, not by whether an appliance
+        is answering at the moment.
         """
         if self.local is None:
             return False
-        return not self._mixed or self.local.knows(haid)
+        return not self._mixed or self.local.reaches(haid)
 
     def _local_for(self, haid: str) -> LocalControl | None:
         """Local control, if it is what reaches this appliance."""

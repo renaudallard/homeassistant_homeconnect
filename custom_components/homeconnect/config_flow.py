@@ -105,8 +105,8 @@ PASTED = vol.Schema(
         vol.Required(CONF_CODE): TextSelector(
             TextSelectorConfig(type=TextSelectorType.URL)
         ),
-        # Mixed is the default: it reaches directly whatever can be and
-        # loses nothing that cannot.
+        # Mixed is the default: it reaches directly whatever can be found on
+        # the network and leaves the rest on the cloud.
         vol.Required(CONF_TRANSPORT, default=MIXED): WAYS,
     }
 )

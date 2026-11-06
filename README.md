@@ -373,14 +373,16 @@ There are three choices. Through the cloud reaches every appliance that way.
 Straight to the appliances reaches every one directly, and never sends one
 through the cloud: one that can't be learnt stays unavailable with a repair
 saying why, and the others work as usual. Straight to the appliances where
-possible reaches the ones that could be learnt directly and the rest through
-the cloud, for an account with one appliance that has no key for local
-control. That last one is what a new account starts on. Which way each
-appliance went is settled when the entry sets up, not by whether it happens to
-be answering, so one that has a key and drops off the network stays
-unavailable rather than switching over; reloading the integration settles it
-again. Mixed runs the cloud's event stream for the appliances on the cloud and
-ignores what it says about the others.
+possible reaches directly the ones that have been learnt and found on the
+network, and the rest through the cloud, so an appliance with no key for local
+control, or one Home Assistant can't see on the network, keeps working. That
+last one is what a new account starts on. An appliance on the cloud that turns
+up on the network is taken over by the integration setting itself up again, so
+no appliance is ever fed both ways at once. Otherwise which way each appliance
+went is settled when the entry sets up, not by whether it happens to be
+answering: one reached directly that drops off the network stays unavailable
+rather than switching over. Mixed runs the cloud's event stream for the
+appliances on the cloud and ignores what it says about the others.
 
 Signing in is needed either way, and once either way. The account is the only
 place two things are kept, and neither is on the network: the key an appliance
