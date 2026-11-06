@@ -495,7 +495,8 @@ class LocalControl:
 
         Nothing here stops the rest. An appliance that cannot be learnt is one
         appliance: it is handed back with the reason, and every other one,
-        learnt now or before, is reached as usual.
+        learnt now or before, is reached as usual. How loudly to say so is
+        the caller's to decide, since mixed expects some of them.
         """
         wanted = [haid for haid in haids if haid not in self._known]
         if not wanted:
@@ -507,13 +508,13 @@ class LocalControl:
             # The account service turning the token down is every appliance
             # still to learn, but not the ones already learnt, whose keys are
             # kept here and need nothing more from it.
-            _LOGGER.warning("could not ask the account for keys: %s", err)
+            _LOGGER.debug("could not ask the account for keys: %s", err)
             return dict.fromkeys(wanted, str(err))
         _LOGGER.debug("the account named %d appliances with a key", len(keys))
         for haid in wanted:
             secured = keys.get(haid)
             if secured is None:
-                _LOGGER.warning("the account holds no key for %s", hidden_id(haid))
+                _LOGGER.debug("the account holds no key for %s", hidden_id(haid))
                 failed[haid] = "the account holds no key for it"
                 continue
             try:
@@ -522,7 +523,7 @@ class LocalControl:
                 # work on a small machine, too long to hold the loop for.
                 entries = await self._hass.async_add_executor_job(unpack, archive)
             except HomeConnectError as err:
-                _LOGGER.warning(
+                _LOGGER.debug(
                     "could not learn %s for local control: %s", hidden_id(haid), err
                 )
                 failed[haid] = str(err)

@@ -67,6 +67,7 @@ from .const import (
 from .coordinator import NEVER_ANSWERED, HomeConnectCoordinator, local_store
 from .errors import HomeConnectAuthError, HomeConnectError
 from .events import HomeConnectStream
+from .http import hidden_id
 from .local import LocalControl
 
 _LOGGER = logging.getLogger(__name__)
@@ -202,6 +203,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: HomeConnectConfigEntry) 
         )
         await local.load()
         failed = await _learn(api, local)
+        for haid, reason in failed.items():
+            # Set to local, it is out of reach. Set to mixed, it is on the
+            # cloud, which is what mixed is for.
+            _LOGGER.log(
+                logging.WARNING if transport == LOCAL else logging.INFO,
+                "%s is not reached directly: %s",
+                hidden_id(haid),
+                reason,
+            )
         if transport == MIXED:
             # One turning up on the network is taken over by setting up
             # again, so nothing is ever fed by both ways at once.

@@ -34,6 +34,7 @@ and only it says so.
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
@@ -298,3 +299,30 @@ async def test_removing_the_account_takes_its_repairs_away(
     await hass.async_block_till_done()
 
     assert not [issue for domain, issue in issues.issues if domain == DOMAIN]
+
+
+@pytest.mark.parametrize(("transport", "level"), [(LOCAL, "WARNING"), (MIXED, "INFO")])
+async def test_an_appliance_without_a_key_is_only_a_warning_where_it_is_lost(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    hass_storage: dict[str, Any],
+    caplog: pytest.LogCaptureFixture,
+    transport: str,
+    level: str,
+) -> None:
+    """Set to mixed, the oven being on the cloud is what was asked for, and
+    a warning at every start would be a warning about nothing."""
+    caplog.set_level(logging.DEBUG, logger="custom_components.homeconnect")
+    await _set_up(hass, aioclient_mock, hass_storage, transport)
+    said = [
+        record.levelname
+        for record in caplog.records
+        if "is not reached directly" in record.getMessage()
+    ]
+    assert said == [level]
+    # Learning itself says it only quietly, leaving how loudly to the setup.
+    assert not [
+        record
+        for record in caplog.records
+        if record.name.endswith(".local") and record.levelname == "WARNING"
+    ]
