@@ -105,7 +105,9 @@ PASTED = vol.Schema(
         vol.Required(CONF_CODE): TextSelector(
             TextSelectorConfig(type=TextSelectorType.URL)
         ),
-        vol.Required(CONF_TRANSPORT, default=CLOUD): WAYS,
+        # Mixed is the default: it reaches directly whatever can be and
+        # loses nothing that cannot.
+        vol.Required(CONF_TRANSPORT, default=MIXED): WAYS,
     }
 )
 
@@ -133,7 +135,7 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
         # anything to them.
         self._verifier = auth.verifier()
         self._state = secrets.token_urlsafe(16)
-        self._transport = CLOUD
+        self._transport = MIXED
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -209,7 +211,7 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
-            self._transport = str(user_input.get(CONF_TRANSPORT) or CLOUD)
+            self._transport = str(user_input.get(CONF_TRANSPORT) or MIXED)
             try:
                 tokens = await self._exchange(user_input[CONF_CODE])
             except HomeConnectAuthError as err:

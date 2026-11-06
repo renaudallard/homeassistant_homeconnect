@@ -320,17 +320,19 @@ async def test_which_way_to_reach_them_is_asked_at_setup(
     assert made["data"][CONF_TRANSPORT] == "cloud"
 
 
-async def test_the_cloud_is_what_it_falls_back_to(
+async def test_mixed_is_what_it_falls_back_to(
     hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
 ) -> None:
-    """It is the way that works without the appliances being reachable."""
+    """It reaches directly whatever can be and loses nothing that cannot."""
     shown = await browser_step(hass)
     pair(aioclient_mock)
     serve(aioclient_mock, [fixture("washer")])
-    made = await hass.config_entries.flow.async_configure(
-        shown["flow_id"], {CONF_CODE: answer(shown)}
-    )
-    assert made["data"][CONF_TRANSPORT] == "cloud"
+    with reached_locally(HAID):
+        made = await hass.config_entries.flow.async_configure(
+            shown["flow_id"], {CONF_CODE: answer(shown)}
+        )
+        await hass.async_block_till_done()
+    assert made["data"][CONF_TRANSPORT] == "mixed"
 
 
 async def test_reconfiguring_moves_an_entry_between_the_two(
