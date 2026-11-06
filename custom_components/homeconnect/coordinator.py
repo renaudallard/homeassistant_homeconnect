@@ -387,6 +387,12 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
             # over one refused call would be worse than missing that.
             if self.local is not None and self.data:
                 _LOGGER.debug("the account could not be read: %s", err)
+                # Mixed has appliances on the cloud, and those are as far
+                # out of reach as it is. What they said last is kept, but not
+                # shown as though they were still saying it.
+                for haid, appliance in self.data.items():
+                    if not self.reached_locally(haid):
+                        appliance.connected = False
                 return self.data
             raise UpdateFailed(str(err)) from err
 

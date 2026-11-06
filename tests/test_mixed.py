@@ -47,6 +47,7 @@ from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClien
 from custom_components.homeconnect import iddf, local
 from custom_components.homeconnect.const import CONF_TRANSPORT, DOMAIN, LOCAL, MIXED
 from custom_components.homeconnect.coordinator import STORE_VERSION
+from custom_components.homeconnect.errors import HomeConnectConnectionError
 from custom_components.homeconnect.events import Event
 
 from .common import described_as, entry, fixture, serve, state_of
@@ -253,3 +254,24 @@ async def test_turning_up_on_the_network_takes_it_over(
     assert stored["host"] == SEEN.host
     # And until then the cloud still has it.
     assert state_of(hass, "sensor.washer_transport") == "cloud"
+
+
+async def test_the_cloud_going_down_takes_only_its_appliances_with_it(
+    hass: HomeAssistant, mixed: MockConfigEntry
+) -> None:
+    """What a cloud appliance said last is not shown as current while the
+    cloud cannot be read, and the entry does not fail over it."""
+    coordinator = mixed.runtime_data.coordinator
+    assert state_of(hass, "sensor.oven_operation_state") != "unavailable"
+    down = AsyncMock(side_effect=HomeConnectConnectionError("unreachable"))
+    with patch.object(coordinator.api, "appliances", down):
+        await coordinator.async_refresh()
+        await hass.async_block_till_done()
+    assert coordinator.last_update_success
+    assert state_of(hass, "sensor.oven_operation_state") == "unavailable"
+    assert state_of(hass, "sensor.washer_transport") == "local"
+
+    # Back up, it is back.
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+    assert state_of(hass, "sensor.oven_operation_state") != "unavailable"
