@@ -51,7 +51,6 @@ from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.event import async_call_later
-from homeassistant.helpers.storage import Store
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import ACTIVE, SELECTED, HomeConnectApi
@@ -64,19 +63,9 @@ from .errors import (
 )
 from .events import Event
 from .local import LocalControl, sort
+from .store import model_store
 
 _LOGGER = logging.getLogger(__name__)
-
-# Bump when what is kept between restarts would no longer be understood.
-# Anything written under another version is thrown away rather than migrated,
-# so the next start reads it again instead of trusting it.
-# Bumped whenever the description parser starts keeping something it did not
-# before, so a description written by an older one is thrown away and asked
-# for again rather than used half-read. 2: the two programme slots (0.0.18)
-# and what each thing is (0.0.19), neither of which an older store holds.
-# 4: each programme's own limits on its options, which an older store read
-# past and so kept only the widest.
-STORE_VERSION = 4
 
 # Where an appliance says what it is doing and whether it is on. A change to
 # either moves what it will accept, which is not something the stream
@@ -112,39 +101,6 @@ SCAN_INTERVAL = timedelta(minutes=1)
 # Once the cloud is really pushing, polling is only there to catch what a
 # dropped connection missed.
 SCAN_INTERVAL_STREAMING = timedelta(minutes=30)
-
-
-class ModelStore(Store[dict[str, Any]]):
-    """What each model of appliance can do, kept between starts.
-
-    Nothing in here is worth migrating. Anything written under a version that
-    read it differently is thrown away and asked for again, which costs a
-    handful of calls once and is the whole point of the version above.
-    """
-
-    async def _async_migrate_func(
-        self,
-        old_major_version: int,
-        old_minor_version: int,
-        old_data: dict[str, Any],
-    ) -> dict[str, Any]:
-        """Keep nothing, so that everything is read afresh."""
-        return {}
-
-
-def model_store(hass: HomeAssistant, entry: ConfigEntry) -> ModelStore:
-    """Where an account's model descriptions are kept between starts."""
-    return ModelStore(hass, STORE_VERSION, f"{DOMAIN}.{entry.entry_id}.models")
-
-
-def local_store(hass: HomeAssistant, entry: ConfigEntry) -> ModelStore:
-    """Where what an appliance needs to be talked to directly is kept.
-
-    Its key, which never changes, and its own description of itself, which
-    changes only when the appliance's software does. Both cost a call to the
-    account and neither is worth asking for twice.
-    """
-    return ModelStore(hass, STORE_VERSION, f"{DOMAIN}.{entry.entry_id}.local")
 
 
 @dataclass

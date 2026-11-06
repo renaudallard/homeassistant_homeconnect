@@ -64,11 +64,12 @@ from .const import (
     LOCAL,
     MIXED,
 )
-from .coordinator import NEVER_ANSWERED, HomeConnectCoordinator, local_store
+from .coordinator import NEVER_ANSWERED, HomeConnectCoordinator
 from .errors import HomeConnectAuthError, HomeConnectError
 from .events import HomeConnectStream
 from .http import hidden_id
 from .local import LocalControl
+from .store import local_store
 
 _LOGGER = logging.getLogger(__name__)
 

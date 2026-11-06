@@ -48,9 +48,9 @@ from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClien
 
 from custom_components.homeconnect import iddf, local
 from custom_components.homeconnect.const import CONF_TRANSPORT, DOMAIN, LOCAL
-from custom_components.homeconnect.coordinator import STORE_VERSION
 from custom_components.homeconnect.errors import HomeConnectAuthError, HomeConnectError
 from custom_components.homeconnect.iddf import uids_by_key
+from custom_components.homeconnect.store import STORE_VERSION
 
 from .common import described_as, entry, fixture, serve, state_of
 
