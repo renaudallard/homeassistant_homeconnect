@@ -62,6 +62,7 @@ from .errors import (
     HomeConnectTooManyRequests,
 )
 from .events import Event
+from .http import issue_id
 from .local import LocalControl, sort
 from .store import model_store
 
@@ -94,8 +95,8 @@ UNSETTLING = frozenset(
 # of a cycle looks like, costs one look rather than six.
 SETTLE = 3.0
 
-# What one appliance's complaint is filed under.
-NEVER_ANSWERED = "never_answered_{}"
+# What one appliance's complaint is filed under, with a digest of its id.
+NEVER_ANSWERED = "never_answered"
 
 SCAN_INTERVAL = timedelta(minutes=1)
 # Once the cloud is really pushing, polling is only there to catch what a
@@ -414,12 +415,12 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
             and not self.reached_locally(haid)
         }
         for haid in self._complained_about - silent:
-            ir.async_delete_issue(self.hass, DOMAIN, NEVER_ANSWERED.format(haid))
+            ir.async_delete_issue(self.hass, DOMAIN, issue_id(NEVER_ANSWERED, haid))
         for haid in silent:
             ir.async_create_issue(
                 self.hass,
                 DOMAIN,
-                NEVER_ANSWERED.format(haid),
+                issue_id(NEVER_ANSWERED, haid),
                 is_fixable=False,
                 severity=ir.IssueSeverity.WARNING,
                 translation_key="never_answered",

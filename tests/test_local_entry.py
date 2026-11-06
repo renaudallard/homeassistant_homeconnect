@@ -49,6 +49,7 @@ from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClien
 from custom_components.homeconnect import iddf, local
 from custom_components.homeconnect.const import CONF_TRANSPORT, DOMAIN, LOCAL
 from custom_components.homeconnect.errors import HomeConnectAuthError, HomeConnectError
+from custom_components.homeconnect.http import issue_id
 from custom_components.homeconnect.iddf import uids_by_key
 from custom_components.homeconnect.store import STORE_VERSION
 
@@ -534,7 +535,9 @@ async def test_the_account_service_refusing_is_not_a_reason_to_sign_in_again(
     # Nor does it stop the entry: what could not be learnt is said against
     # the appliance it was about.
     assert made.state is ConfigEntryState.LOADED
-    issue = ir.async_get(hass).async_get_issue(DOMAIN, f"local_unreachable_{HAID}")
+    issue = ir.async_get(hass).async_get_issue(
+        DOMAIN, issue_id("local_unreachable", HAID)
+    )
     assert issue is not None
     assert "403" in (issue.translation_placeholders or {})["reason"]
 
@@ -649,7 +652,9 @@ async def test_an_account_that_publishes_no_key_says_why(
         await hass.async_block_till_done()
 
     assert made.state is ConfigEntryState.LOADED
-    issue = ir.async_get(hass).async_get_issue(DOMAIN, f"local_unreachable_{HAID}")
+    issue = ir.async_get(hass).async_get_issue(
+        DOMAIN, issue_id("local_unreachable", HAID)
+    )
     assert issue is not None
     assert issue.translation_key == "local_unreachable"
     placeholders = issue.translation_placeholders or {}
@@ -675,7 +680,8 @@ async def test_an_account_that_publishes_no_key_says_why(
     assert made.runtime_data.local is not None
     assert made.runtime_data.local.knows(HAID)
     assert (
-        ir.async_get(hass).async_get_issue(DOMAIN, f"local_unreachable_{HAID}") is None
+        ir.async_get(hass).async_get_issue(DOMAIN, issue_id("local_unreachable", HAID))
+        is None
     )
 
 
@@ -713,7 +719,9 @@ async def test_a_key_that_does_not_read_is_that_appliance_alone(
     assert control is not None
     assert not control.knows(HAID)
     described.assert_not_awaited()
-    issue = ir.async_get(hass).async_get_issue(DOMAIN, f"local_unreachable_{HAID}")
+    issue = ir.async_get(hass).async_get_issue(
+        DOMAIN, issue_id("local_unreachable", HAID)
+    )
     assert issue is not None
     assert "does not read" in (issue.translation_placeholders or {})["reason"]
 

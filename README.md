@@ -470,6 +470,8 @@ machine.
 Both are redacted the same way the logs are, so tokens and the serial number
 that names one particular machine are replaced by a note of their length. The
 brand, the model and everything the appliance said about itself stay readable.
+Home Assistant adds the integration's repairs to the download as they are, so
+a repair is filed under a digest of the appliance id rather than the id itself.
 
 For a model this has never seen, that download is the one thing a report cannot
 do without.

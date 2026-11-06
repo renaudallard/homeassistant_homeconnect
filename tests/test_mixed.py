@@ -49,6 +49,7 @@ from custom_components.homeconnect import iddf, local
 from custom_components.homeconnect.const import CONF_TRANSPORT, DOMAIN, LOCAL, MIXED
 from custom_components.homeconnect.errors import HomeConnectConnectionError
 from custom_components.homeconnect.events import Event
+from custom_components.homeconnect.http import issue_id
 from custom_components.homeconnect.store import STORE_VERSION
 
 from .common import described_as, entry, fixture, serve, state_of
@@ -143,7 +144,7 @@ async def test_an_appliance_reached_through_the_cloud_is_nothing_to_repair(
     hass: HomeAssistant, mixed: MockConfigEntry
 ) -> None:
     issues = ir.async_get(hass)
-    assert issues.async_get_issue(DOMAIN, f"local_unreachable_{OVEN}") is None
+    assert issues.async_get_issue(DOMAIN, issue_id("local_unreachable", OVEN)) is None
 
 
 async def test_both_ways_run_side_by_side(
@@ -205,10 +206,12 @@ async def test_set_to_local_the_appliance_without_a_key_is_the_only_one_affected
     assert made.runtime_data.stream is None
     assert state_of(hass, "sensor.oven_transport") == "local"
     issues = ir.async_get(hass)
-    assert issues.async_get_issue(DOMAIN, f"local_unreachable_{OVEN}") is not None
-    assert issues.async_get_issue(DOMAIN, f"local_unreachable_{WASHER}") is None
+    assert (
+        issues.async_get_issue(DOMAIN, issue_id("local_unreachable", OVEN)) is not None
+    )
+    assert issues.async_get_issue(DOMAIN, issue_id("local_unreachable", WASHER)) is None
     # Not also told to get it talking to the cloud, which it never would here.
-    assert issues.async_get_issue(DOMAIN, f"never_answered_{OVEN}") is None
+    assert issues.async_get_issue(DOMAIN, issue_id("never_answered", OVEN)) is None
     assert made.runtime_data.local is not None
     assert made.runtime_data.local.knows(WASHER)
 
@@ -287,13 +290,15 @@ async def test_removing_the_account_takes_its_repairs_away(
     ir.async_create_issue(
         hass,
         DOMAIN,
-        f"never_answered_{WASHER}",
+        issue_id("never_answered", WASHER),
         is_fixable=False,
         severity=ir.IssueSeverity.WARNING,
         translation_key="never_answered",
     )
     issues = ir.async_get(hass)
-    assert issues.async_get_issue(DOMAIN, f"local_unreachable_{OVEN}") is not None
+    assert (
+        issues.async_get_issue(DOMAIN, issue_id("local_unreachable", OVEN)) is not None
+    )
 
     await hass.config_entries.async_remove(made.entry_id)
     await hass.async_block_till_done()
@@ -382,3 +387,40 @@ async def test_what_local_mode_described_is_not_what_the_cloud_uses(
     model = made.runtime_data.coordinator.data[WASHER].model
     assert "BSH.Common.Command.PauseProgram" in model.commands
     assert "BSH.Common.Command.AbortProgram" not in model.commands
+
+
+async def test_a_repair_does_not_name_the_appliance(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    hass_storage: dict[str, Any],
+) -> None:
+    """Every repair goes into a diagnostics download as it is, id and all,
+    and the appliance id is kept out of everything else there."""
+    await _set_up(hass, aioclient_mock, hass_storage, LOCAL)
+    ours = [issue for (domain, issue) in ir.async_get(hass).issues if domain == DOMAIN]
+    assert ours
+    for issue in ours:
+        assert OVEN not in issue
+        assert OVEN.split("-")[-1] not in issue
+
+
+async def test_a_repair_filed_under_the_appliance_id_is_taken_away(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    hass_storage: dict[str, Any],
+) -> None:
+    """Older releases named their repairs after the appliance, and nothing
+    files one under that name any more to clear it."""
+    for kind in ("never_answered", "local_unreachable"):
+        ir.async_create_issue(
+            hass,
+            DOMAIN,
+            f"{kind}_{OVEN}",
+            is_fixable=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key=kind,
+        )
+    await _set_up(hass, aioclient_mock, hass_storage, MIXED)
+    issues = ir.async_get(hass)
+    assert issues.async_get_issue(DOMAIN, f"never_answered_{OVEN}") is None
+    assert issues.async_get_issue(DOMAIN, f"local_unreachable_{OVEN}") is None

@@ -52,6 +52,7 @@ from custom_components.homeconnect.coordinator import (
     HomeConnectCoordinator,
 )
 from custom_components.homeconnect.events import Event
+from custom_components.homeconnect.http import issue_id
 
 from .common import (
     API,
@@ -485,7 +486,7 @@ async def test_an_appliance_that_was_off_is_described_when_it_answers(
 
 
 def complaint(hass: HomeAssistant, haid: str) -> ir.IssueEntry | None:
-    return ir.async_get(hass).async_get_issue(DOMAIN, f"never_answered_{haid}")
+    return ir.async_get(hass).async_get_issue(DOMAIN, issue_id("never_answered", haid))
 
 
 async def test_an_appliance_that_never_answers_is_explained(

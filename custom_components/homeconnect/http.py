@@ -37,6 +37,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+from hashlib import sha256
 from typing import Any
 
 import aiohttp
@@ -128,6 +129,16 @@ def hidden_id(haid: str) -> str:
     if len(parts) < 3:
         return "<appliance hidden>"
     return "-".join([*parts[:2], "<serial hidden>"])
+
+
+def issue_id(kind: str, haid: str) -> str:
+    """What a repair about one appliance is filed under.
+
+    Home Assistant puts every repair into a diagnostics download, id and all,
+    so the id cannot carry the appliance's own. A digest of it is as stable
+    and names nobody's appliance.
+    """
+    return f"{kind}_{sha256(haid.encode()).hexdigest()[:12]}"
 
 
 def redact_url(url: str) -> str:

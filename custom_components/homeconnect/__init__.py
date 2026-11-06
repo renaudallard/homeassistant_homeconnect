@@ -67,7 +67,7 @@ from .const import (
 from .coordinator import NEVER_ANSWERED, HomeConnectCoordinator
 from .errors import HomeConnectAuthError, HomeConnectError
 from .events import HomeConnectStream
-from .http import hidden_id
+from .http import hidden_id, issue_id
 from .local import LocalControl
 from .store import local_store
 
@@ -298,8 +298,20 @@ async def _learn(api: HomeConnectApi, local: LocalControl) -> dict[str, str]:
     )
 
 
-# What a repair about one appliance local control could not learn is called.
-_UNREACHABLE = "local_unreachable_"
+# What a repair about one appliance local control could not learn is filed
+# under, with a digest of its id.
+_UNREACHABLE = "local_unreachable"
+
+
+@callback
+def _drop_old_names(hass: HomeAssistant, haid: str) -> None:
+    """Take away the repairs 0.1.34 and older filed under the appliance's id.
+
+    Those named the appliance in every diagnostics download, and the ones
+    filed since are named otherwise, so nothing would ever clear them.
+    """
+    for kind in (NEVER_ANSWERED, _UNREACHABLE):
+        ir.async_delete_issue(hass, DOMAIN, f"{kind}_{haid}")
 
 
 @callback
@@ -313,7 +325,8 @@ def _say_what_failed(
     are looked at, which leaves another account's repairs alone.
     """
     for haid, appliance in coordinator.data.items():
-        issue = f"{_UNREACHABLE}{haid}"
+        _drop_old_names(hass, haid)
+        issue = issue_id(_UNREACHABLE, haid)
         reason = failed.get(haid)
         if reason is None:
             ir.async_delete_issue(hass, DOMAIN, issue)
@@ -417,5 +430,6 @@ async def async_remove_entry(
     for device in devices:
         for kind, haid in device.identifiers:
             if kind == DOMAIN:
-                ir.async_delete_issue(hass, DOMAIN, f"{_UNREACHABLE}{haid}")
-                ir.async_delete_issue(hass, DOMAIN, NEVER_ANSWERED.format(haid))
+                _drop_old_names(hass, haid)
+                for repair in (NEVER_ANSWERED, _UNREACHABLE):
+                    ir.async_delete_issue(hass, DOMAIN, issue_id(repair, haid))
