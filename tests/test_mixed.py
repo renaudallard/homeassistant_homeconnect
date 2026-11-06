@@ -35,12 +35,15 @@ and only it says so.
 from __future__ import annotations
 
 import logging
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
+from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import issue_registry as ir
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
@@ -102,6 +105,15 @@ async def _set_up(
             "key": name,
             "data": {WASHER: known.as_stored()},
         }
+    with _standing_in():
+        await hass.config_entries.async_setup(made.entry_id)
+        await hass.async_block_till_done()
+    return made
+
+
+@contextmanager
+def _standing_in() -> Iterator[None]:
+    """The account answering for the washer alone, and links that stay quiet."""
     with (
         patch(
             "custom_components.homeconnect.api.HomeConnectAccount.keys",
@@ -116,9 +128,7 @@ async def _set_up(
         patch.object(local.LocalControl, "_make", lambda *_a: Quiet()),
         patch("custom_components.homeconnect.HomeConnectStream.start"),
     ):
-        await hass.config_entries.async_setup(made.entry_id)
-        await hass.async_block_till_done()
-    return made
+        yield
 
 
 @pytest.fixture
@@ -424,3 +434,58 @@ async def test_a_repair_filed_under_the_appliance_id_is_taken_away(
     issues = ir.async_get(hass)
     assert issues.async_get_issue(DOMAIN, f"never_answered_{OVEN}") is None
     assert issues.async_get_issue(DOMAIN, f"local_unreachable_{OVEN}") is None
+
+
+async def test_an_appliance_kept_on_the_cloud_is_reached_that_way(
+    hass: HomeAssistant, mixed: MockConfigEntry
+) -> None:
+    """One that is reachable and misbehaves there is the case: the washer has
+    a key and was found, and is sent through the cloud all the same."""
+    assert state_of(hass, "sensor.washer_transport") == "local"
+    made: list[str] = []
+
+    def making(_self: Any, haid: str, *_rest: Any) -> Quiet:
+        made.append(haid)
+        return Quiet()
+
+    with _standing_in(), patch.object(local.LocalControl, "_make", making):
+        flow = await hass.config_entries.options.async_init(mixed.entry_id)
+        assert flow["type"] is FlowResultType.FORM
+        schema = flow["data_schema"]
+        assert schema is not None
+        offered = schema.schema["on_the_cloud"].config["options"]
+        assert {one["label"] for one in offered} == {"Washer", "Oven"}
+        done = await hass.config_entries.options.async_configure(
+            flow["flow_id"], {"on_the_cloud": [WASHER]}
+        )
+        await hass.async_block_till_done()
+    assert done["type"] is FlowResultType.CREATE_ENTRY
+    assert mixed.state is ConfigEntryState.LOADED
+    assert state_of(hass, "sensor.washer_transport") == "cloud"
+    assert state_of(hass, "sensor.washer_operation_state") != "unavailable"
+    assert made == []
+
+    # Found on the network, it is not taken over either.
+    control = mixed.runtime_data.local
+    reloaded: list[str] = []
+    with (
+        patch.object(control._finder, "where", lambda _haid: SEEN),
+        patch.object(hass.config_entries, "async_schedule_reload", reloaded.append),
+    ):
+        control._look_again()
+        await hass.async_block_till_done()
+    assert reloaded == []
+    assert made == []
+
+
+async def test_only_mixed_has_appliances_to_keep_on_the_cloud(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    hass_storage: dict[str, Any],
+) -> None:
+    """Local never sends an appliance through the cloud, and the cloud has
+    nothing else to send it through."""
+    made = await _set_up(hass, aioclient_mock, hass_storage, LOCAL)
+    flow = await hass.config_entries.options.async_init(made.entry_id)
+    assert flow["type"] is FlowResultType.ABORT
+    assert flow["reason"] == "only_where_possible"

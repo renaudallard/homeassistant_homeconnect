@@ -47,6 +47,23 @@
       "reconfigure_successful": "Modifié. Les appareils sont désormais atteints de la nouvelle manière."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Appareils laissés sur le cloud",
+        "description": "Avec \"Directement vers les appareils si possible, par le cloud pour les autres\", un appareil qui a une clé et qui a été trouvé sur le réseau est atteint directement. Un appareil choisi ici passe par le cloud à la place, et les autres restent tels quels.",
+        "data": {
+          "on_the_cloud": "Par le cloud"
+        },
+        "data_description": {
+          "on_the_cloud": "Pour un appareil qui fonctionne mal quand il est atteint directement. L'intégration est rechargée à l'enregistrement."
+        }
+      }
+    },
+    "abort": {
+      "only_where_possible": "Seul \"Directement vers les appareils si possible, par le cloud pour les autres\" a un cloud sur lequel laisser un appareil. Reconfigurez d'abord l'entrée sur ce choix."
+    }
+  },
   "issues": {
     "never_answered": {
       "title": "{name} ne communique pas avec Home Connect",

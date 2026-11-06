@@ -47,6 +47,23 @@
       "reconfigure_successful": "Changed. The appliances are being reached the new way now."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Appliances kept on the cloud",
+        "description": "Set to \"Straight to the appliances where possible, the cloud for the rest\", an appliance with a key that has been found on the network is reached directly. One chosen here goes through the cloud instead, and the others stay as they are.",
+        "data": {
+          "on_the_cloud": "Through the cloud"
+        },
+        "data_description": {
+          "on_the_cloud": "For an appliance that misbehaves when reached directly. The integration is loaded again when this is saved."
+        }
+      }
+    },
+    "abort": {
+      "only_where_possible": "Only \"Straight to the appliances where possible, the cloud for the rest\" has a cloud to keep an appliance on. Reconfigure the entry to that first."
+    }
+  },
   "issues": {
     "never_answered": {
       "title": "{name} is not talking to Home Connect",

@@ -53,12 +53,17 @@ from urllib.parse import parse_qs, urlparse
 import voluptuous as vol
 from homeassistant.config_entries import (
     SOURCE_REAUTH,
+    ConfigEntry,
     ConfigFlow,
     ConfigFlowResult,
+    OptionsFlowWithReload,
 )
 from homeassistant.const import CONF_CODE
+from homeassistant.core import callback
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.selector import (
+    SelectOptionDict,
     SelectSelector,
     SelectSelectorConfig,
     SelectSelectorMode,
@@ -75,6 +80,7 @@ from .const import (
     CLOUD,
     CONF_ACCESS_TOKEN,
     CONF_EXPIRES_AT,
+    CONF_ON_THE_CLOUD,
     CONF_REFRESH_TOKEN,
     CONF_TRANSPORT,
     DOMAIN,
@@ -136,6 +142,11 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
         self._verifier = auth.verifier()
         self._state = secrets.token_urlsafe(16)
         self._transport = MIXED
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: ConfigEntry) -> HomeConnectOptionsFlow:
+        return HomeConnectOptionsFlow()
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -278,6 +289,60 @@ class HomeConnectConfigFlow(ConfigFlow, domain=DOMAIN):
             return self.async_update_reload_and_abort(entry, data=data)
         self._abort_if_unique_id_configured()
         return self.async_create_entry(title="Home Connect NG", data=data)
+
+
+class HomeConnectOptionsFlow(OptionsFlowWithReload):
+    """Which appliances mixed leaves on the cloud.
+
+    Mixed reaches directly every appliance it has a key for and has found on
+    the network, which is no help with one that is reachable and misbehaves
+    there. Naming it here sends it through the cloud while the others stay
+    local. Only mixed has a cloud to send it to, so the other two have
+    nothing to set.
+    """
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        entry = self.config_entry
+        if entry.data.get(CONF_TRANSPORT) != MIXED:
+            return self.async_abort(reason="only_where_possible")
+        if user_input is not None:
+            return self.async_create_entry(
+                data={CONF_ON_THE_CLOUD: list(user_input.get(CONF_ON_THE_CLOUD, []))}
+            )
+        # By what the device registry calls them, which is what the user
+        # sees everywhere else, renamed or not.
+        named = {
+            haid: device.name_by_user or device.name or haid
+            for device in dr.async_entries_for_config_entry(
+                dr.async_get(self.hass), entry.entry_id
+            )
+            for kind, haid in device.identifiers
+            if kind == DOMAIN
+        }
+        chosen = [
+            haid for haid in entry.options.get(CONF_ON_THE_CLOUD, []) if haid in named
+        ]
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(CONF_ON_THE_CLOUD, default=chosen): SelectSelector(
+                        SelectSelectorConfig(
+                            options=[
+                                SelectOptionDict(value=haid, label=name)
+                                for haid, name in sorted(
+                                    named.items(), key=lambda one: one[1]
+                                )
+                            ],
+                            multiple=True,
+                            mode=SelectSelectorMode.LIST,
+                        )
+                    )
+                }
+            ),
+        )
 
 
 def _describe(found: ZeroconfServiceInfo) -> str:

@@ -47,6 +47,23 @@
       "reconfigure_successful": "Cambiado. Ahora se llega a los aparatos de la nueva manera."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Aparatos que se quedan en la nube",
+        "description": "Con \"Directamente a los aparatos donde sea posible, a través de la nube para el resto\", un aparato con clave que se ha encontrado en la red se alcanza directamente. Uno elegido aquí pasa por la nube, y los demás se quedan como están.",
+        "data": {
+          "on_the_cloud": "A través de la nube"
+        },
+        "data_description": {
+          "on_the_cloud": "Para un aparato que no funciona bien cuando se alcanza directamente. La integración se vuelve a cargar al guardar."
+        }
+      }
+    },
+    "abort": {
+      "only_where_possible": "Solo \"Directamente a los aparatos donde sea posible, a través de la nube para el resto\" tiene una nube en la que dejar un aparato. Reconfigura primero la entrada a esa opción."
+    }
+  },
   "issues": {
     "never_answered": {
       "title": "{name} no se comunica con Home Connect",

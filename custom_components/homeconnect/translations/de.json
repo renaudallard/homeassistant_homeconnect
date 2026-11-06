@@ -47,6 +47,23 @@
       "reconfigure_successful": "Geändert. Die Geräte werden jetzt auf die neue Weise erreicht."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Geräte, die über die Cloud bleiben",
+        "description": "Mit \"Direkt zu den Geräten, wo möglich, sonst über die Cloud\" wird ein Gerät, für das es einen Schlüssel gibt und das im Netzwerk gefunden wurde, direkt erreicht. Ein hier gewähltes Gerät geht stattdessen über die Cloud, die anderen bleiben, wie sie sind.",
+        "data": {
+          "on_the_cloud": "Über die Cloud"
+        },
+        "data_description": {
+          "on_the_cloud": "Für ein Gerät, das sich bei direkter Verbindung nicht richtig verhält. Die Integration wird beim Speichern neu geladen."
+        }
+      }
+    },
+    "abort": {
+      "only_where_possible": "Nur \"Direkt zu den Geräten, wo möglich, sonst über die Cloud\" hat eine Cloud, über die ein Gerät laufen kann. Stelle den Eintrag zuerst darauf um."
+    }
+  },
   "issues": {
     "never_answered": {
       "title": "{name} spricht nicht mit Home Connect",

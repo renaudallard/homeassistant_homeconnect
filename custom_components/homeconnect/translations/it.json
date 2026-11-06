@@ -47,6 +47,23 @@
       "reconfigure_successful": "Modificato. Gli elettrodomestici vengono ora raggiunti nel nuovo modo."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Elettrodomestici lasciati sul cloud",
+        "description": "Con \"Direttamente agli elettrodomestici dove possibile, tramite il cloud per gli altri\", un elettrodomestico che ha una chiave ed è stato trovato sulla rete viene raggiunto direttamente. Uno scelto qui passa invece dal cloud, e gli altri restano come sono.",
+        "data": {
+          "on_the_cloud": "Tramite il cloud"
+        },
+        "data_description": {
+          "on_the_cloud": "Per un elettrodomestico che non funziona bene quando è raggiunto direttamente. L'integrazione viene ricaricata al salvataggio."
+        }
+      }
+    },
+    "abort": {
+      "only_where_possible": "Solo \"Direttamente agli elettrodomestici dove possibile, tramite il cloud per gli altri\" ha un cloud su cui lasciare un elettrodomestico. Riconfigura prima la voce su questa scelta."
+    }
+  },
   "issues": {
     "never_answered": {
       "title": "{name} non comunica con Home Connect",

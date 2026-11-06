@@ -481,6 +481,8 @@ class LocalControl:
         self._only: set[str] | None = None
         self._on_found: Callable[[str], None] | None = None
         self._announced: set[str] = set()
+        # Set to mixed, the ones kept on the cloud whether found or not.
+        self._kept_off: set[str] = set()
 
     async def load(self) -> None:
         """Read back what was learnt about these appliances last time."""
@@ -555,7 +557,9 @@ class LocalControl:
     def knows(self, haid: str) -> bool:
         return haid in self._known
 
-    def keep_to_the_placed(self, on_found: Callable[[str], None]) -> None:
+    def keep_to_the_placed(
+        self, on_found: Callable[[str], None], kept_off: set[str]
+    ) -> None:
         """Talk only to the appliances found on the network before.
 
         A learnt appliance that has never been found may not be reachable
@@ -563,11 +567,17 @@ class LocalControl:
         network altogether. The cloud reaches it meanwhile. When it does turn
         up, where it is gets written down and on_found is told, which is the
         entry's cue to set up again and take it over.
+
+        One kept off is left to the cloud whether it is found or not, and
+        turning up is nothing to set up again for.
         """
         self._only = {
-            haid for haid, known in self._known.items() if known.where is not None
+            haid
+            for haid, known in self._known.items()
+            if known.where is not None and haid not in kept_off
         }
         self._on_found = on_found
+        self._kept_off = kept_off
 
     def reaches(self, haid: str) -> bool:
         """Whether this appliance is the one talked to directly."""
@@ -611,6 +621,8 @@ class LocalControl:
         if self._spawn is None:
             return
         for haid, known in self._known.items():
+            if haid in self._kept_off:
+                continue
             # Where it is shouting from now, or where it was last heard
             # shouting from. An appliance shouts when it feels like it, so
             # waiting for one to shout again is waiting for nothing.

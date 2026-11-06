@@ -47,6 +47,23 @@
       "reconfigure_successful": "Gewijzigd. De apparaten worden nu op de nieuwe manier bereikt."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Apparaten die via de cloud blijven",
+        "description": "Met \"Rechtstreeks naar de apparaten waar het kan, via de cloud voor de rest\" wordt een apparaat met een sleutel dat op het netwerk is gevonden rechtstreeks bereikt. Een apparaat dat je hier kiest gaat in plaats daarvan via de cloud, en de andere blijven zoals ze zijn.",
+        "data": {
+          "on_the_cloud": "Via de cloud"
+        },
+        "data_description": {
+          "on_the_cloud": "Voor een apparaat dat zich misdraagt als het rechtstreeks wordt bereikt. De integratie wordt opnieuw geladen bij het opslaan."
+        }
+      }
+    },
+    "abort": {
+      "only_where_possible": "Alleen \"Rechtstreeks naar de apparaten waar het kan, via de cloud voor de rest\" heeft een cloud om een apparaat op te laten. Zet de vermelding daar eerst op."
+    }
+  },
   "issues": {
     "never_answered": {
       "title": "{name} praat niet met Home Connect",

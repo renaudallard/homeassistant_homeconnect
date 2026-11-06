@@ -387,6 +387,12 @@ answering: one reached directly that drops off the network stays unavailable
 rather than switching over. Mixed runs the cloud's event stream for the
 appliances on the cloud and ignores what it says about the others.
 
+An appliance that can be reached directly but misbehaves there can be kept on
+the cloud while the others stay local: the entry's **Configure** lists the
+account's appliances, and the ones ticked go through the cloud whether they
+are found on the network or not. Saving it loads the integration again. Only
+mixed has this, since local never sends an appliance through the cloud.
+
 Signing in is needed either way, and once either way. The account is the only
 place two things are kept, and neither is on the network: the key an appliance
 is reached with, and the appliance's own description of itself. Both are

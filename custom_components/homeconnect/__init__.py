@@ -58,6 +58,7 @@ from .capability import GATHERED, platform_for
 from .const import (
     CONF_ACCESS_TOKEN,
     CONF_EXPIRES_AT,
+    CONF_ON_THE_CLOUD,
     CONF_REFRESH_TOKEN,
     CONF_TRANSPORT,
     DOMAIN,
@@ -217,7 +218,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: HomeConnectConfigEntry) 
             # One turning up on the network is taken over by setting up
             # again, so nothing is ever fed by both ways at once.
             local.keep_to_the_placed(
-                lambda _haid: hass.config_entries.async_schedule_reload(entry.entry_id)
+                lambda _haid: hass.config_entries.async_schedule_reload(entry.entry_id),
+                set(entry.options.get(CONF_ON_THE_CLOUD, [])),
             )
         coordinator.local = local
 

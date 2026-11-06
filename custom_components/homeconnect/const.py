@@ -119,6 +119,10 @@ LOCAL = "local"
 # Straight to every appliance that can be reached that way, and through the
 # cloud for the rest.
 MIXED = "mixed"
+# The appliances mixed reaches through the cloud even where it could reach
+# them directly, by id. Kept in the entry's options rather than its data,
+# which the diagnostics print.
+CONF_ON_THE_CLOUD = "on_the_cloud"
 
 CONF_ACCESS_TOKEN = "access_token"
 CONF_REFRESH_TOKEN = "refresh_token"

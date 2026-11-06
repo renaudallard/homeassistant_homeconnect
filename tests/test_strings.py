@@ -43,6 +43,18 @@ def test_english_is_what_the_strings_say() -> None:
     assert ENGLISH == STRINGS
 
 
+def _flow(name: str) -> str:
+    """The source of one of the two flows, the entry's own or its options."""
+    flow = (COMPONENT / "config_flow.py").read_text()
+    start = flow.index(f"class {name}(")
+    end = flow.find("\nclass ", start + 1)
+    return flow[start:] if end < 0 else flow[start:end]
+
+
+CONFIG = _flow("HomeConnectConfigFlow")
+OPTIONS = _flow("HomeConnectOptionsFlow")
+
+
 def _steps() -> set[str]:
     return set(STRINGS["config"]["step"])
 
@@ -54,12 +66,13 @@ def test_every_step_the_flow_shows_has_text() -> None:
     are what the text is checked against rather than the places a step id
     happens to be written down.
     """
-    flow = (COMPONENT / "config_flow.py").read_text()
     # Neither of these is a step anybody is shown: one is how a discovery
     # arrives and the other only ever hands over to the menu below it.
     unshown = {"zeroconf", "reauth"}
-    methods = set(re.findall(r"async def async_step_([a-z_]+)\(", flow)) - unshown
+    methods = set(re.findall(r"async def async_step_([a-z_]+)\(", CONFIG)) - unshown
     assert methods == _steps()
+    shown = set(re.findall(r"async def async_step_([a-z_]+)\(", OPTIONS))
+    assert shown == set(STRINGS["options"]["step"])
 
 
 def test_every_error_the_flow_reports_has_text() -> None:
@@ -76,11 +89,11 @@ def test_every_reason_the_flow_gives_up_for_has_text() -> None:
     reconfigure has, and when the account signed in to is not the account the
     entry is for.
     """
-    flow = (COMPONENT / "config_flow.py").read_text()
-    given = set(re.findall(r'reason="([a-z_]+)"', flow))
+    given = set(re.findall(r'reason="([a-z_]+)"', CONFIG))
     given |= {"reauth_successful", "reconfigure_successful", "unique_id_mismatch"}
-    assert given <= set(STRINGS["config"]["abort"])
     assert given == set(STRINGS["config"]["abort"])
+    given = set(re.findall(r'reason="([a-z_]+)"', OPTIONS))
+    assert given == set(STRINGS["options"]["abort"])
 
 
 def _errors_raised() -> set[str]:
@@ -131,7 +144,8 @@ def test_every_error_raised_has_text_in_every_language() -> None:
 
 
 def test_every_form_field_is_named_and_explained() -> None:
-    for name, step in STRINGS["config"]["step"].items():
+    steps = [*STRINGS["config"]["step"].items(), *STRINGS["options"]["step"].items()]
+    for name, step in steps:
         for field in step.get("data", {}):
             assert step["data"][field], f"{name}.{field} has no name"
 
