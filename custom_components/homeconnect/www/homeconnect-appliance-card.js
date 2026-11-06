@@ -22,6 +22,9 @@ const SEGMENTS = 5;
 
 const OFF = new Set(["off", "inactive", "", undefined, null, "unavailable", "unknown"]);
 
+// What an entity's state is while it cannot be used at all.
+const UNAVAILABLE = "unavailable";
+
 // The programme select and the two programme buttons are named by the
 // integration, and Home Assistant translates those names and builds a new
 // entity's id from them: select.forno_programma in Italian. So they are found
@@ -379,9 +382,15 @@ class HomeConnectApplianceCard extends HTMLElement {
       num.textContent = left > 0 ? clock(left) : "—";
     }
 
+    // An option belongs to a programme and goes unavailable with it. Home
+    // Assistant drops a call to an unavailable entity, so its control is
+    // greyed out rather than left to do nothing when used.
     for (const id of found.switches) {
       const pill = root.querySelector(`[data-switch="${cssEscape(id)}"]`);
-      if (pill) pill.classList.toggle("on", this._value(id) === "on");
+      if (!pill) continue;
+      const value = this._value(id);
+      pill.disabled = value === undefined || value === UNAVAILABLE;
+      pill.classList.toggle("on", value === "on");
     }
     for (const id of found.selects)
       this._fill(root.querySelector(`[data-select="${cssEscape(id)}"]`), id);
@@ -389,15 +398,21 @@ class HomeConnectApplianceCard extends HTMLElement {
       const el = root.querySelector(`[data-number="${cssEscape(id)}"]`);
       const out = root.querySelector(`[data-out="${cssEscape(id)}"]`);
       const state = this._hass.states[id];
-      if (el && state) {
-        el.min = state.attributes.min ?? 0;
-        el.max = state.attributes.max ?? 100;
-        el.step = state.attributes.step ?? 1;
-        if (!el.matches(":focus")) el.value = state.state;
+      // A figure only when it is one: unavailable and unknown are words, and
+      // a slider handed a word sits at its middle as if that were the value.
+      const known = state !== undefined && state.state !== "" && !Number.isNaN(Number(state.state));
+      if (el) {
+        el.disabled = !state || state.state === UNAVAILABLE;
+        if (state) {
+          el.min = state.attributes.min ?? 0;
+          el.max = state.attributes.max ?? 100;
+          el.step = state.attributes.step ?? 1;
+        }
+        if (known && !el.matches(":focus")) el.value = state.state;
       }
-      if (out && state) {
-        const unit = state.attributes.unit_of_measurement || "";
-        out.textContent = `${state.state}${unit ? ` ${unit}` : ""}`;
+      if (out) {
+        const unit = known ? state.attributes.unit_of_measurement || "" : "";
+        out.textContent = known ? `${state.state}${unit ? ` ${unit}` : ""}` : "—";
       }
     }
 
@@ -410,7 +425,7 @@ class HomeConnectApplianceCard extends HTMLElement {
   _fill(el, id) {
     if (!el) return;
     const state = id && this._hass.states[id];
-    if (!state) {
+    if (!state || state.state === UNAVAILABLE) {
       el.disabled = true;
       return;
     }
@@ -511,6 +526,7 @@ const STYLE = `
     .go { background: var(--primary-color); color: var(--text-primary-color, #fff); }
     .stop { background: var(--secondary-background-color); color: var(--primary-text-color); }
     .actions button:disabled { opacity: .5; cursor: default; }
+    .pill:disabled, .picker:disabled, input[type=range]:disabled { opacity: .5; cursor: default; }
   </style>`;
 
 class HomeConnectApplianceCardEditor extends HTMLElement {

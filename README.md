@@ -314,7 +314,8 @@ wine cooler. It reads whatever the machine offers rather than a list held per
 model, and draws it the way the app does: the programme on its own card, the
 forecast on coloured bars, and the options each by what it is, a flag as a
 chip, a choice as a picker, a number as a slider, with the power, the child
-lock and a start and a stop. It is built the way the app builds these, from the
+lock and a start and a stop. An option the current programme doesn't take, or
+any option while no programme is set, is greyed out. It is built the way the app builds these, from the
 machine's own parts, so it fits one it has never seen. The hob and the
 dishwasher keep their own cards, drawn to their own shapes.
 
