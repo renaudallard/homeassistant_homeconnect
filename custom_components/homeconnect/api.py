@@ -482,14 +482,22 @@ class HomeConnectAccount:
         An account belongs to one region and the other will not have heard of
         it. Which is which is not something the account says in advance, so
         the one that answers is the answer, and it is remembered.
+
+        The other region turning the token down only says it has never heard
+        of the account. So a refusal is the account being refused only when
+        every host asked gave one; otherwise what the rest said is what this
+        raises, which leaves one appliance out rather than all of them.
         """
         hosts = [self._host] if self._host else _in_order(self._api.region)
-        last: Exception | None = None
+        refused: HomeConnectAuthError | None = None
+        last: HomeConnectError | None = None
         for host in hosts:
             try:
                 found = await self._api.fetch(f"{host}{path}", binary=binary)
-            except HomeConnectAuthError:
-                raise
+            except HomeConnectAuthError as err:
+                _LOGGER.debug("%s refused %s: %s", host, redact_url(path), err)
+                refused = err
+                continue
             except HomeConnectError as err:
                 _LOGGER.debug(
                     "%s did not answer for %s: %s", host, redact_url(path), err
@@ -498,8 +506,10 @@ class HomeConnectAccount:
                 continue
             self._host = host
             return found
-        raise last or HomeConnectConnectionError(
-            f"nothing answered for {redact_url(path)}"
+        raise (
+            last
+            or refused
+            or HomeConnectConnectionError(f"nothing answered for {redact_url(path)}")
         )
 
     async def keys(self, haids: list[str]) -> dict[str, dict[str, str]]:

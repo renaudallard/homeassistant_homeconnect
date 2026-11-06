@@ -395,6 +395,10 @@ what is paired with it, and it is asked for one appliance at a time. An
 appliance the account has no key for is left out and said so in the log; an
 account with no key for anything at all cannot be reached this way, and
 setting an entry to local says that plainly rather than failing obscurely.
+The account service exists once for Europe and once for North America, and
+the one the cloud says the account belongs to is asked first. The other
+region turning the token down only means it has never heard of the account,
+so that alone never stops the rest.
 
 The entities are the same either way, and so are their names and their unique
 ids, because both sides are turned into the same shapes before anything above

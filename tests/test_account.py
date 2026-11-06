@@ -130,6 +130,7 @@ async def test_being_refused_by_the_account_service_is_said_as_such(
     way a missing key is.
     """
     aioclient_mock.get(f"{EU}{key_of(HOB)}", status=403, json={})
+    aioclient_mock.get(f"{NA}{key_of(HOB)}", status=403, json={})
     aioclient_mock.get(f"{EU}{key_of(WASHER)}", json=SEALED)
     with pytest.raises(HomeConnectAuthError):
         await HomeConnectAccount(api_for(session)).keys([HOB, WASHER])
@@ -209,3 +210,35 @@ def test_describing_something_deep_or_wide_stops_rather_than_running_on() -> Non
     assert "..." in shape(deep)
     assert shape([]) == "[]"
     assert shape(None) == "null"
+
+
+async def test_the_other_region_refusing_does_not_stop_the_rest(
+    aioclient_mock: AiohttpClientMocker, session: aiohttp.ClientSession
+) -> None:
+    """The region an account does not belong to turns its token down. That
+    says nothing about the account, so an appliance the home region has no
+    key for is left out and the next one is still asked for (issue #1)."""
+    aioclient_mock.get(f"{EU}{key_of(HOB)}", status=404, json={})
+    aioclient_mock.get(f"{NA}{key_of(HOB)}", status=401, json={})
+    aioclient_mock.get(f"{EU}{key_of(WASHER)}", json=SEALED)
+    account = HomeConnectAccount(api_for(session))
+    assert await account.keys([HOB, WASHER]) == {
+        WASHER: {"key": "another-key", "iv": "a-vector"}
+    }
+
+
+async def test_the_region_that_answered_before_refusing_is_the_account_refused(
+    aioclient_mock: AiohttpClientMocker, session: aiohttp.ClientSession
+) -> None:
+    """Once a host has answered it is known to be the account's own, so its
+    refusal is not passed over by asking the other."""
+    aioclient_mock.get(f"{EU}{key_of(WASHER)}", json=SEALED)
+    aioclient_mock.get(f"{EU}{key_of(HOB)}", status=403, json={})
+    account = HomeConnectAccount(api_for(session))
+    assert await account.keys([WASHER]) == {
+        WASHER: {"key": "another-key", "iv": "a-vector"}
+    }
+    with pytest.raises(HomeConnectAuthError):
+        await account.keys([HOB])
+    asked = [str(url) for _, url, _, _ in aioclient_mock.mock_calls]
+    assert not any(one.startswith(NA) for one in asked)
