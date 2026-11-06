@@ -120,5 +120,19 @@
         "name": "Luce esterna"
       }
     }
+  },
+  "exceptions": {
+    "account_unreadable": {
+      "message": "Impossibile leggere l'account: {error}"
+    },
+    "local_unreadable": {
+      "message": "Impossibile leggere ciò che serve agli elettrodomestici per il controllo locale: {error}. Riconfigura questa voce per raggiungerli tramite il cloud."
+    },
+    "nothing_answered": {
+      "message": "Nessun elettrodomestico dell'account ha risposto"
+    },
+    "not_on_offer": {
+      "message": "{option} non è disponibile"
+    }
   }
 }

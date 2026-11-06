@@ -83,14 +83,48 @@ def test_every_reason_the_flow_gives_up_for_has_text() -> None:
     assert given == set(STRINGS["config"]["abort"])
 
 
+def _errors_raised() -> set[str]:
+    """The keys of the errors raised in the user's language.
+
+    An error names the domain its text is under right beside the key, which
+    a repair, given the domain on its own, does not.
+    """
+    raised: set[str] = set()
+    for module in COMPONENT.glob("*.py"):
+        raised |= set(
+            re.findall(
+                r'translation_domain=DOMAIN,\s*translation_key="([a-z_]+)"',
+                module.read_text(),
+            )
+        )
+    return raised
+
+
 def test_every_notice_the_integration_raises_has_text() -> None:
     """A repair with no text shows the bare translation key and helps nobody."""
     coordinator = (COMPONENT / "coordinator.py").read_text()
     raised = set(re.findall(r'translation_key="([a-z_]+)"', coordinator))
-    assert raised == set(STRINGS["issues"])
+    assert raised - _errors_raised() == set(STRINGS["issues"])
     for name, notice in STRINGS["issues"].items():
         assert notice["title"], name
         assert notice["description"], name
+
+
+def test_every_error_raised_has_text_in_every_language() -> None:
+    """An error with no text shows the bare key where the reason should be,
+    and one missing a placeholder in some language drops the detail there."""
+    assert _errors_raised() == set(STRINGS["exceptions"])
+    english = {
+        key: set(re.findall(r"\{([a-z_]+)\}", error["message"]))
+        for key, error in STRINGS["exceptions"].items()
+    }
+    for translation in (COMPONENT / "translations").glob("*.json"):
+        errors = json.loads(translation.read_text())["exceptions"]
+        assert set(errors) == set(english), translation.name
+        for key, error in errors.items():
+            assert error["message"], f"{translation.name} {key}"
+            named = set(re.findall(r"\{([a-z_]+)\}", error["message"]))
+            assert named == english[key], f"{translation.name} {key}"
 
 
 def test_every_form_field_is_named_and_explained() -> None:

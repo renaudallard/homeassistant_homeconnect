@@ -120,5 +120,19 @@
         "name": "Luz exterior"
       }
     }
+  },
+  "exceptions": {
+    "account_unreadable": {
+      "message": "No se pudo leer la cuenta: {error}"
+    },
+    "local_unreadable": {
+      "message": "No se pudo leer lo que los aparatos necesitan para el control local: {error}. Vuelve a configurar esta entrada para llegar a ellos a través de la nube."
+    },
+    "nothing_answered": {
+      "message": "Ningún aparato de la cuenta ha respondido"
+    },
+    "not_on_offer": {
+      "message": "{option} no está disponible"
+    }
   }
 }

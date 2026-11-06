@@ -120,5 +120,19 @@
         "name": "Exterior light"
       }
     }
+  },
+  "exceptions": {
+    "account_unreadable": {
+      "message": "Could not read the account: {error}"
+    },
+    "local_unreadable": {
+      "message": "Could not read what the appliances need for local control: {error}. Reconfigure this entry to reach them through the cloud instead."
+    },
+    "nothing_answered": {
+      "message": "No appliance on the account would answer"
+    },
+    "not_on_offer": {
+      "message": "{option} is not on offer"
+    }
   }
 }

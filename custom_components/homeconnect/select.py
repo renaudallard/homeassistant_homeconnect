@@ -47,6 +47,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import names
 from .capability import OPTION, SELECT, SETTING
+from .const import DOMAIN
 from .coordinator import HomeConnectCoordinator
 from .entity import HomeConnectEntity, SettableEntity, follow, options, settings
 from .errors import HomeConnectError
@@ -176,7 +177,11 @@ class ProgramSelect(HomeConnectEntity, SelectEntity):
     async def async_select_option(self, option: str) -> None:
         program = self._choices.get(option)
         if program is None:
-            raise HomeAssistantError(f"{option} is not on offer")
+            raise HomeAssistantError(
+                translation_domain=DOMAIN,
+                translation_key="not_on_offer",
+                translation_placeholders={"option": option},
+            )
         try:
             await self.coordinator.select_program(self._haid, program)
         except HomeConnectError as err:

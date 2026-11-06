@@ -398,7 +398,9 @@ setting an entry to local says that plainly rather than failing obscurely.
 The account service exists once for Europe and once for North America, and
 the one the cloud says the account belongs to is asked first. The other
 region turning the token down only means it has never heard of the account,
-so that alone never stops the rest.
+so that alone never stops the rest. Why setting up failed is shown in Home
+Assistant's own language, with the technical detail inside it left in
+English.
 
 The entities are the same either way, and so are their names and their unique
 ids, because both sides are turned into the same shapes before anything above

@@ -263,7 +263,11 @@ async def _learn(api: HomeConnectApi, local: LocalControl) -> None:
         # The appliance API turning the token down is the token being spent.
         raise ConfigEntryAuthFailed(str(err)) from err
     except HomeConnectError as err:
-        raise ConfigEntryNotReady(f"could not read the account: {err}") from err
+        raise ConfigEntryNotReady(
+            translation_domain=DOMAIN,
+            translation_key="account_unreadable",
+            translation_placeholders={"error": str(err)},
+        ) from err
 
     try:
         await local.learn(
@@ -274,8 +278,9 @@ async def _learn(api: HomeConnectApi, local: LocalControl) -> None:
         # the appliance API took the same one a moment ago. Asking the user
         # to sign in again would send them round a loop that cannot help.
         raise ConfigEntryNotReady(
-            f"could not read what the appliances need for local control: {err}. "
-            "Reconfigure this entry to reach them through the cloud instead."
+            translation_domain=DOMAIN,
+            translation_key="local_unreadable",
+            translation_placeholders={"error": str(err)},
         ) from err
 
 

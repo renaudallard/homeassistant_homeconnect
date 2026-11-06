@@ -120,5 +120,19 @@
         "name": "Buitenverlichting"
       }
     }
+  },
+  "exceptions": {
+    "account_unreadable": {
+      "message": "Het account kon niet worden gelezen: {error}"
+    },
+    "local_unreadable": {
+      "message": "Wat de apparaten nodig hebben voor lokale bediening kon niet worden gelezen: {error}. Configureer deze vermelding opnieuw om ze via de cloud te bereiken."
+    },
+    "nothing_answered": {
+      "message": "Geen enkel apparaat op het account antwoordde"
+    },
+    "not_on_offer": {
+      "message": "{option} wordt niet aangeboden"
+    }
   }
 }

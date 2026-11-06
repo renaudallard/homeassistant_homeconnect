@@ -120,5 +120,19 @@
         "name": "Éclairage extérieur"
       }
     }
+  },
+  "exceptions": {
+    "account_unreadable": {
+      "message": "Impossible de lire le compte : {error}"
+    },
+    "local_unreadable": {
+      "message": "Impossible de lire ce dont les appareils ont besoin pour le contrôle local : {error}. Reconfigurez cette entrée pour les joindre via le cloud."
+    },
+    "nothing_answered": {
+      "message": "Aucun appareil du compte n'a répondu"
+    },
+    "not_on_offer": {
+      "message": "{option} n'est pas proposé"
+    }
   }
 }

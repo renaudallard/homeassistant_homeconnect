@@ -120,5 +120,19 @@
         "name": "Außenbeleuchtung"
       }
     }
+  },
+  "exceptions": {
+    "account_unreadable": {
+      "message": "Das Konto konnte nicht gelesen werden: {error}"
+    },
+    "local_unreadable": {
+      "message": "Was die Geräte für die lokale Steuerung brauchen, konnte nicht gelesen werden: {error}. Konfiguriere diesen Eintrag neu, um sie über die Cloud zu erreichen."
+    },
+    "nothing_answered": {
+      "message": "Kein Gerät des Kontos hat geantwortet"
+    },
+    "not_on_offer": {
+      "message": "{option} wird nicht angeboten"
+    }
   }
 }

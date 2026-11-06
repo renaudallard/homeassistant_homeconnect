@@ -634,3 +634,9 @@ async def test_an_account_that_publishes_no_key_says_why(
     assert made.state is ConfigEntryState.SETUP_RETRY
     assert "no key" in str(made.reason)
     assert "cloud" in str(made.reason)
+    # Handed over by key as well, so the frontend says it in the user's
+    # own language with what went wrong set inside it.
+    assert made.error_reason_translation_domain == "homeconnect"
+    assert made.error_reason_translation_key == "local_unreadable"
+    placeholders = made.error_reason_translation_placeholders or {}
+    assert "no key" in placeholders["error"]

@@ -402,7 +402,9 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
                 if held is not None:
                     appliances[haid] = held
         if not appliances and listed:
-            raise UpdateFailed("no appliance on the account would answer")
+            raise UpdateFailed(
+                translation_domain=DOMAIN, translation_key="nothing_answered"
+            )
         self._report(appliances)
         await self._save_models()
         return appliances
