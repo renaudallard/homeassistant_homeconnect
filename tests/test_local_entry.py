@@ -48,6 +48,7 @@ from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClien
 
 from custom_components.homeconnect import iddf, local
 from custom_components.homeconnect.const import CONF_TRANSPORT, DOMAIN, LOCAL
+from custom_components.homeconnect.coordinator import STORE_VERSION
 from custom_components.homeconnect.errors import HomeConnectAuthError, HomeConnectError
 from custom_components.homeconnect.iddf import uids_by_key
 
@@ -121,7 +122,7 @@ async def talking(
     with (
         patch(
             "custom_components.homeconnect.api.HomeConnectAccount.keys",
-            AsyncMock(return_value={HAID: {"key": "a-key"}}),
+            AsyncMock(return_value={HAID: {"key": "AAAA"}}),
         ),
         patch(
             "custom_components.homeconnect.api.HomeConnectAccount.description",
@@ -250,7 +251,7 @@ async def test_an_appliance_that_is_not_shouting_is_still_reached(
     with (
         patch(
             "custom_components.homeconnect.api.HomeConnectAccount.keys",
-            AsyncMock(return_value={HAID: {"key": "a-key"}}),
+            AsyncMock(return_value={HAID: {"key": "AAAA"}}),
         ),
         patch(
             "custom_components.homeconnect.api.HomeConnectAccount.description",
@@ -307,7 +308,7 @@ async def test_an_appliance_that_moves_is_followed(
     with (
         patch(
             "custom_components.homeconnect.api.HomeConnectAccount.keys",
-            AsyncMock(return_value={HAID: {"key": "a-key"}}),
+            AsyncMock(return_value={HAID: {"key": "AAAA"}}),
         ),
         patch(
             "custom_components.homeconnect.api.HomeConnectAccount.description",
@@ -560,7 +561,7 @@ async def test_a_description_from_an_older_parser_is_thrown_away(
         for uid, one in full.items()
         if one.kind not in ("activeProgram", "selectedProgram")
     }
-    stale = local.Known(key="a-key", iv=None, entries=without_slots)
+    stale = local.Known(key="AAAA", iv=None, entries=without_slots)
     key = f"{DOMAIN}.{made.entry_id}.local"
     hass_storage[key] = {
         "version": 1,
@@ -571,7 +572,7 @@ async def test_a_description_from_an_older_parser_is_thrown_away(
     with (
         patch(
             "custom_components.homeconnect.api.HomeConnectAccount.keys",
-            AsyncMock(return_value={HAID: {"key": "a-key"}}),
+            AsyncMock(return_value={HAID: {"key": "AAAA"}}),
         ),
         patch(
             "custom_components.homeconnect.api.HomeConnectAccount.description",
@@ -607,7 +608,7 @@ async def test_one_unreadable_description_does_not_stop_the_rest(
     with (
         patch(
             "custom_components.homeconnect.api.HomeConnectAccount.keys",
-            AsyncMock(return_value={HAID: {"key": "a-key"}}),
+            AsyncMock(return_value={HAID: {"key": "AAAA"}}),
         ),
         patch(
             "custom_components.homeconnect.api.HomeConnectAccount.description",
@@ -660,7 +661,7 @@ async def test_an_account_that_publishes_no_key_says_why(
     with (
         patch(
             "custom_components.homeconnect.api.HomeConnectAccount.keys",
-            AsyncMock(return_value={HAID: {"key": "a-key"}}),
+            AsyncMock(return_value={HAID: {"key": "AAAA"}}),
         ),
         patch(
             "custom_components.homeconnect.api.HomeConnectAccount.description",
@@ -676,3 +677,83 @@ async def test_an_account_that_publishes_no_key_says_why(
     assert (
         ir.async_get(hass).async_get_issue(DOMAIN, f"local_unreachable_{HAID}") is None
     )
+
+
+async def test_a_key_that_does_not_read_is_that_appliance_alone(
+    hass: HomeAssistant, aioclient_mock: AiohttpClientMocker
+) -> None:
+    """Opening a link with it would fail the whole setup, so it is refused
+    when it is learnt and said against the appliance, like a missing one."""
+    serve(aioclient_mock, [fixture("washer")])
+    made = entry(hass)
+    hass.config_entries.async_update_entry(
+        made, data={**made.data, CONF_TRANSPORT: LOCAL}
+    )
+    described = AsyncMock(return_value=described_as(HAID))
+    with (
+        patch(
+            "custom_components.homeconnect.api.HomeConnectAccount.keys",
+            AsyncMock(return_value={HAID: {"key": "a-key"}}),
+        ),
+        patch(
+            "custom_components.homeconnect.api.HomeConnectAccount.description",
+            described,
+        ),
+        patch.object(local.Finder, "start", AsyncMock()),
+        patch.object(local.Finder, "stop", AsyncMock()),
+        patch.object(
+            local.Finder, "where", lambda _self, _haid: local.Where("host", 80)
+        ),
+    ):
+        await hass.config_entries.async_setup(made.entry_id)
+        await hass.async_block_till_done()
+
+    assert made.state is ConfigEntryState.LOADED
+    control = made.runtime_data.local
+    assert control is not None
+    assert not control.knows(HAID)
+    described.assert_not_awaited()
+    issue = ir.async_get(hass).async_get_issue(DOMAIN, f"local_unreachable_{HAID}")
+    assert issue is not None
+    assert "does not read" in (issue.translation_placeholders or {})["reason"]
+
+
+async def test_a_kept_key_that_does_not_read_is_asked_for_again(
+    hass: HomeAssistant,
+    aioclient_mock: AiohttpClientMocker,
+    hass_storage: dict[str, Any],
+) -> None:
+    serve(aioclient_mock, [fixture("washer")])
+    made = entry(hass)
+    hass.config_entries.async_update_entry(
+        made, data={**made.data, CONF_TRANSPORT: LOCAL}
+    )
+    kept = local.Known(key="a-key", iv=None, entries=iddf.parse(MAPPING, DESCRIPTION))
+    key = f"{DOMAIN}.{made.entry_id}.local"
+    hass_storage[key] = {
+        "version": STORE_VERSION,
+        "minor_version": 1,
+        "key": key,
+        "data": {HAID: replace(kept, where=local.Where("host", 80)).as_stored()},
+    }
+    link = Stub()
+    with (
+        patch(
+            "custom_components.homeconnect.api.HomeConnectAccount.keys",
+            AsyncMock(return_value={HAID: {"key": "AAAA"}}),
+        ),
+        patch(
+            "custom_components.homeconnect.api.HomeConnectAccount.description",
+            AsyncMock(return_value=described_as(HAID)),
+        ),
+        patch.object(local.Finder, "start", AsyncMock()),
+        patch.object(local.Finder, "stop", AsyncMock()),
+        patch.object(local.LocalControl, "_make", _standing_in(link)),
+    ):
+        await hass.config_entries.async_setup(made.entry_id)
+        await hass.async_block_till_done()
+
+    assert made.state is ConfigEntryState.LOADED
+    control = made.runtime_data.local
+    assert control is not None
+    assert control._known[HAID].key == "AAAA"

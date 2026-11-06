@@ -51,6 +51,7 @@ from zeroconf.asyncio import AsyncServiceBrowser, AsyncServiceInfo
 from .capability import OPTION, SETTING, STATUS, Feature, Reading
 from .content import content
 from .errors import HomeConnectError
+from .hcp import readable
 from .http import hidden_id
 from .iddf import Entry, named_value, uids_by_key, unpack
 from .measures import unit_of
@@ -403,6 +404,9 @@ class Known:
             return None
         try:
             host = stored.get("host")
+            # Kept by a release that did not look at it first, and asked
+            # for again rather than failing every time a link is opened.
+            readable(str(stored["key"]), stored["iv"])
             return cls(
                 key=str(stored["key"]),
                 iv=stored["iv"],
@@ -433,7 +437,7 @@ class Known:
                     for uid, one in stored["entries"].items()
                 },
             )
-        except (AttributeError, KeyError, TypeError, ValueError):
+        except (AttributeError, KeyError, TypeError, ValueError, HomeConnectError):
             _LOGGER.debug("a stored appliance description no longer reads")
             return None
 
@@ -518,6 +522,7 @@ class LocalControl:
                 failed[haid] = "the account holds no key for it"
                 continue
             try:
+                readable(secured["key"], secured.get("iv"))
                 archive = await self._account.description(haid)
                 # Unzipping and parsing is a few tens of milliseconds of
                 # work on a small machine, too long to hold the loop for.

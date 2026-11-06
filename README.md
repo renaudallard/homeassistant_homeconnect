@@ -410,9 +410,9 @@ its lease changes, is followed there.
 It also needs the account to publish a key for that appliance. Each key
 stands under the appliance it belongs to rather than in the account's list of
 what is paired with it, and it is asked for one appliance at a time. An
-appliance whose key or description can't be had is the only one affected: it
-stays unavailable, with a repair under Settings saying which one and why, and
-every other appliance is reached as usual. Reloading the integration tries
+appliance whose key or description can't be had, or whose key doesn't read,
+is the only one affected: it stays unavailable, with a repair under Settings
+saying which one and why, and every other appliance is reached as usual. Reloading the integration tries
 again, and the repair goes once it works. The account service exists once for
 Europe and once for North America, and the one the cloud says the account
 belongs to is asked first. The other region turning the token down only means

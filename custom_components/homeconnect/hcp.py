@@ -130,6 +130,17 @@ def _key(written: str) -> bytes:
         raise HomeConnectError(f"the appliance key does not read: {err}") from err
 
 
+def readable(key: str, iv: str | None) -> None:
+    """Refuse a key, or a starting vector, that no link could be opened with.
+
+    Asked before the key is kept, so an appliance with one that does not read
+    is one appliance that cannot be reached rather than a setup that fails.
+    """
+    _key(key)
+    if iv:
+        _key(iv)
+
+
 class Sealed:
     """Messages for an appliance that encrypts them itself.
 

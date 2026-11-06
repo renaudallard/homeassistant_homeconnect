@@ -89,7 +89,7 @@ async def _set_up(
     if placed:
         # Learnt on an earlier start, and found on the network then.
         known = local.Known(
-            key="a-key",
+            key="AAAA",
             iv=None,
             entries=iddf.unpack(described_as(WASHER)),
             where=SEEN,
@@ -104,7 +104,7 @@ async def _set_up(
     with (
         patch(
             "custom_components.homeconnect.api.HomeConnectAccount.keys",
-            AsyncMock(return_value={WASHER: {"key": "a-key"}}),
+            AsyncMock(return_value={WASHER: {"key": "AAAA"}}),
         ),
         patch(
             "custom_components.homeconnect.api.HomeConnectAccount.description",

@@ -296,10 +296,10 @@ def test_a_value_goes_back_as_the_number_it_goes_by() -> None:
 
 
 def test_what_is_needed_to_talk_to_one_survives_being_written_down() -> None:
-    known = local.Known(key="a-key", iv=None, entries=ENTRIES)
+    known = local.Known(key="AAAA", iv=None, entries=ENTRIES)
     read = local.Known.from_stored(known.as_stored())
     assert read is not None
-    assert read.key == "a-key"
+    assert read.key == "AAAA"
     assert read.entries[0x0100].key == ENTRIES[0x0100].key
     assert read.entries[0x0100].values == ENTRIES[0x0100].values
     assert local.describe(read.entries).settings.keys() == DESCRIBED.settings.keys()
@@ -341,7 +341,7 @@ def test_what_a_thing_is_survives_being_written_down() -> None:
     """The number saying what each thing is has to be kept with the rest of
     the description. Read back without it, an alarm clock goes back to being
     35940 of nothing and a name goes back to being a slider."""
-    known = local.Known(key="k", iv=None, entries=ENTRIES)
+    known = local.Known(key="AAAA", iv=None, entries=ENTRIES)
     back = local.Known.from_stored(known.as_stored())
     assert back is not None
     assert {uid: one.content for uid, one in back.entries.items()} == {
@@ -365,7 +365,7 @@ def test_a_programmes_own_limits_survive_being_written_down() -> None:
         under=0x0401,
     )
     back = local.Known.from_stored(
-        local.Known(key="k", iv=None, entries=entries).as_stored()
+        local.Known(key="AAAA", iv=None, entries=entries).as_stored()
     )
     assert back is not None
     assert back.entries[made].under == 0x0401
@@ -374,7 +374,7 @@ def test_a_programmes_own_limits_survive_being_written_down() -> None:
 
 def test_a_description_stored_before_this_still_reads() -> None:
     """One written down by an older release has no such number in it."""
-    known = local.Known(key="k", iv=None, entries=ENTRIES)
+    known = local.Known(key="AAAA", iv=None, entries=ENTRIES)
     stored = known.as_stored()
     for one in stored["entries"].values():
         del one["content"]
@@ -394,7 +394,7 @@ def test_a_fixed_value_survives_being_written_down() -> None:
             static='{"x":147,"y":194,"angleX":0}',
         )
     }
-    known = local.Known(key="k", iv=None, entries=entries)
+    known = local.Known(key="AAAA", iv=None, entries=entries)
     back = local.Known.from_stored(known.as_stored())
     assert back is not None
     assert back.entries[1].static == '{"x":147,"y":194,"angleX":0}'
@@ -403,7 +403,7 @@ def test_a_fixed_value_survives_being_written_down() -> None:
 def test_a_description_with_no_fixed_values_still_reads() -> None:
     """One written down before geometry was kept has no such field, and reads
     as an appliance that gave none."""
-    known = local.Known(key="k", iv=None, entries=ENTRIES)
+    known = local.Known(key="AAAA", iv=None, entries=ENTRIES)
     stored = known.as_stored()
     for one in stored["entries"].values():
         one.pop("static", None)
@@ -417,14 +417,14 @@ def test_where_an_appliance_was_last_found_is_written_down() -> None:
     asked, so one that is quiet when Home Assistant starts would never be
     reached, however reachable it is."""
     known = local.Known(
-        key="k", iv=None, entries=ENTRIES, where=local.Where("172.20.0.209", 443)
+        key="AAAA", iv=None, entries=ENTRIES, where=local.Where("172.20.0.209", 443)
     )
     back = local.Known.from_stored(known.as_stored())
     assert back is not None
     assert back.where == local.Where("172.20.0.209", 443)
     # One never yet heard from has nowhere written down, and still reads.
     quiet = local.Known.from_stored(
-        local.Known(key="k", iv=None, entries=ENTRIES).as_stored()
+        local.Known(key="AAAA", iv=None, entries=ENTRIES).as_stored()
     )
     assert quiet is not None
     assert quiet.where is None

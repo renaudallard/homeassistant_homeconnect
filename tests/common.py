@@ -189,7 +189,7 @@ def reached_locally(haid: str) -> Iterator[None]:
     with (
         patch(
             "custom_components.homeconnect.api.HomeConnectAccount.keys",
-            AsyncMock(return_value={haid: {"key": "a-key"}}),
+            AsyncMock(return_value={haid: {"key": "AAAA"}}),
         ),
         patch(
             "custom_components.homeconnect.api.HomeConnectAccount.description",
