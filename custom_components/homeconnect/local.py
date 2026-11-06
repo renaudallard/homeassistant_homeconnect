@@ -482,31 +482,34 @@ class LocalControl:
                 self._known[haid] = known
         _LOGGER.debug("read back what is needed for %d appliances", len(self._known))
 
-    async def learn(self, haids: list[str]) -> None:
-        """Ask the account for whatever is not known yet.
+    async def learn(self, haids: list[str]) -> dict[str, str]:
+        """Ask the account for whatever is not known yet, and say what failed.
 
         The key and the description both come one appliance at a time, so an
         account of six appliances costs twelve calls once and none thereafter.
+
+        Nothing here stops the rest. An appliance that cannot be learnt is one
+        appliance: it is handed back with the reason, and every other one,
+        learnt now or before, is reached as usual.
         """
         wanted = [haid for haid in haids if haid not in self._known]
         if not wanted:
-            return
-        keys = await self._account.keys(wanted)
+            return {}
+        failed: dict[str, str] = {}
+        try:
+            keys = await self._account.keys(wanted)
+        except HomeConnectError as err:
+            # The account service turning the token down is every appliance
+            # still to learn, but not the ones already learnt, whose keys are
+            # kept here and need nothing more from it.
+            _LOGGER.warning("could not ask the account for keys: %s", err)
+            return dict.fromkeys(wanted, str(err))
         _LOGGER.debug("the account named %d appliances with a key", len(keys))
-        # Only an account with a key for nothing at all is refused. One that
-        # already reaches an appliance this way and has gained one the cloud
-        # holds no key for has one appliance to leave out, which the warning
-        # below says, and not none to reach.
-        if not keys and not self._known:
-            raise HomeConnectError(
-                "the account publishes no key for any appliance on it, so "
-                "there is no way to reach one directly. Reach these "
-                "appliances through the cloud instead"
-            )
         for haid in wanted:
             secured = keys.get(haid)
             if secured is None:
                 _LOGGER.warning("the account holds no key for %s", hidden_id(haid))
+                failed[haid] = "the account holds no key for it"
                 continue
             try:
                 archive = await self._account.description(haid)
@@ -514,20 +517,17 @@ class LocalControl:
                 # work on a small machine, too long to hold the loop for.
                 entries = await self._hass.async_add_executor_job(unpack, archive)
             except HomeConnectError as err:
-                # One appliance whose description will not read is one
-                # appliance. Letting it stop here would take local control of
-                # every other machine on the account down with it, the same
-                # way one that answers nothing over the cloud does not stop
-                # the rest being read.
                 _LOGGER.warning(
                     "could not learn %s for local control: %s", hidden_id(haid), err
                 )
+                failed[haid] = str(err)
                 continue
             self._known[haid] = Known(
                 key=secured["key"], iv=secured.get("iv"), entries=entries
             )
             _LOGGER.debug("learnt %d things about %s", len(entries), hidden_id(haid))
         await self._store.async_save(self._stored())
+        return failed
 
     def _stored(self) -> dict[str, Any]:
         return {haid: known.as_stored() for haid, known in self._known.items()}

@@ -47,7 +47,7 @@ from custom_components.homeconnect.capability import (
     SWITCH,
     platform_for,
 )
-from custom_components.homeconnect.errors import HomeConnectError
+from custom_components.homeconnect.errors import HomeConnectAuthError, HomeConnectError
 
 from .common import described_as, noting_the_loop
 
@@ -464,11 +464,37 @@ async def test_a_new_appliance_without_a_key_does_not_stop_the_known_ones() -> N
     )
     control._known["BOSCH-HOB-1"] = local.Known(key="AAAA", iv=None, entries={})
 
-    await control.learn(["BOSCH-HOB-1", "BOSCH-FRIDGE-2"])
+    failed = await control.learn(["BOSCH-HOB-1", "BOSCH-FRIDGE-2"])
 
     account.keys.assert_awaited_once_with(["BOSCH-FRIDGE-2"])
     assert control.knows("BOSCH-HOB-1")
     assert not control.knows("BOSCH-FRIDGE-2")
+    assert list(failed) == ["BOSCH-FRIDGE-2"]
+    assert "no key" in failed["BOSCH-FRIDGE-2"]
+
+
+async def test_the_account_refusing_keys_leaves_the_known_ones_reached() -> None:
+    """Every appliance still to learn has failed, and is said to have. The
+    ones learnt before need nothing from the account and stay as they were."""
+    account = MagicMock()
+    account.keys = AsyncMock(side_effect=HomeConnectAuthError("refused (401)"))
+    store = MagicMock()
+    store.async_save = AsyncMock()
+    control = local.LocalControl(
+        cast(HomeAssistant, None),
+        object(),
+        account,
+        store,
+        lambda *_a: None,
+        lambda *_a: None,
+    )
+    control._known["BOSCH-HOB-1"] = local.Known(key="AAAA", iv=None, entries={})
+
+    failed = await control.learn(["BOSCH-HOB-1", "BOSCH-FRIDGE-2", "BOSCH-OVEN-3"])
+
+    assert control.knows("BOSCH-HOB-1")
+    assert set(failed) == {"BOSCH-FRIDGE-2", "BOSCH-OVEN-3"}
+    assert all("401" in reason for reason in failed.values())
 
 
 async def test_a_description_is_read_off_the_event_loop(hass: HomeAssistant) -> None:

@@ -51,6 +51,10 @@
     "never_answered": {
       "title": "{name} spricht nicht mit Home Connect",
       "description": "Die Home-Connect-Cloud führt dieses {type} in deinem Konto, sagt aber, dass es sich nie verbunden hat, sodass es nichts davon zu lesen und nichts daran einzustellen gibt. Home Assistant kann von hier aus nichts dagegen tun: Das Gerät ist es, das die Cloud erreichen muss.\n\nDrei Dinge sind am Gerät zu prüfen, in dieser Reihenfolge.\n\nOb es eingeschaltet ist. Einige Arten, vor allem Kochfelder, halten eine Verbindung zur Cloud nur, während sie in Gebrauch sind. Ein ausgeschaltetes Gerät hält gerade genug seines Netzwerkmoduls wach, um der App im lokalen Netzwerk zu antworten, sodass es dort kerngesund wirkt, während die Cloud nie etwas von ihm gehört hat.\n\nOb es nach außen darf. Die Home-Connect-App nennt diese Berechtigung „Verbindung zum Server“, und sie entscheidet, ob das Gerät überhaupt mit den Home-Connect-Servern sprechen darf.\n\nWas seine Netzwerkeinstellungen sagen. Die erweiterten Netzwerkeinstellungen der App zeigen die Adresse, das Gateway und den DNS-Server, die das Gerät verwendet. Ein Gerät ohne Gateway oder ohne DNS-Server hat nirgendwohin, etwas zu senden.\n\nHier ist nichts zu tun. Dieser Hinweis verschwindet von selbst, sobald das Gerät antwortet."
+    },
+    "local_unreachable": {
+      "title": "{name} ist nicht direkt erreichbar",
+      "description": "Home Assistant konnte von deinem Home-Connect-Konto nicht bekommen, was es braucht, um mit diesem Gerät in deinem Netzwerk zu sprechen: {reason}.\n\nDeine anderen Geräte sind davon nicht betroffen. Ein Neuladen der Integration versucht es erneut."
     }
   },
   "selector": {
@@ -124,9 +128,6 @@
   "exceptions": {
     "account_unreadable": {
       "message": "Das Konto konnte nicht gelesen werden: {error}"
-    },
-    "local_unreadable": {
-      "message": "Was die Geräte für die lokale Steuerung brauchen, konnte nicht gelesen werden: {error}. Konfiguriere diesen Eintrag neu, um sie über die Cloud zu erreichen."
     },
     "nothing_answered": {
       "message": "Kein Gerät des Kontos hat geantwortet"

@@ -393,15 +393,15 @@ its lease changes, is followed there.
 It also needs the account to publish a key for that appliance. Each key
 stands under the appliance it belongs to rather than in the account's list of
 what is paired with it, and it is asked for one appliance at a time. An
-appliance the account has no key for is left out and said so in the log; an
-account with no key for anything at all cannot be reached this way, and
-setting an entry to local says that plainly rather than failing obscurely.
-The account service exists once for Europe and once for North America, and
-the one the cloud says the account belongs to is asked first. The other
-region turning the token down only means it has never heard of the account,
-so that alone never stops the rest. Why setting up failed is shown in Home
-Assistant's own language, with the technical detail inside it left in
-English.
+appliance whose key or description can't be had is the only one affected: it
+stays unavailable, with a repair under Settings saying which one and why, and
+every other appliance is reached as usual. Reloading the integration tries
+again, and the repair goes once it works. The account service exists once for
+Europe and once for North America, and the one the cloud says the account
+belongs to is asked first. The other region turning the token down only means
+it has never heard of the account, so that alone never stops the rest. Why
+setting up failed is shown in Home Assistant's own language, with the
+technical detail inside it left in English.
 
 The entities are the same either way, and so are their names and their unique
 ids, because both sides are turned into the same shapes before anything above

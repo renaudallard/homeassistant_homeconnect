@@ -51,6 +51,10 @@
     "never_answered": {
       "title": "{name} no se comunica con Home Connect",
       "description": "La nube de Home Connect incluye este {type} en tu cuenta pero dice que nunca se ha conectado, así que no hay nada que leer de él ni nada que ajustar en él. Home Assistant no puede hacer nada al respecto desde aquí: es el aparato el que tiene que llegar a la nube.\n\nTres cosas que comprobar en el aparato, en este orden.\n\nSi está encendido. Varios tipos, sobre todo las placas de cocción, solo mantienen una conexión con la nube mientras están en uso. Uno apagado mantiene despierta la parte justa de su módulo de red para responder a la aplicación en la red local, así que allí parece perfectamente sano mientras la nube nunca ha sabido de él.\n\nSi tiene permiso para salir. La aplicación de Home Connect llama a ese permiso «Conexión al servidor», y decide si el aparato puede comunicarse con los servidores de Home Connect.\n\nQué dicen sus ajustes de red. Los ajustes de red avanzados de la aplicación muestran la dirección, la puerta de enlace y el servidor DNS que usa el aparato. Uno sin puerta de enlace o sin servidor DNS no tiene a dónde enviar nada.\n\nAquí no hay que hacer nada. Este aviso desaparece por sí solo en cuanto el aparato responde."
+    },
+    "local_unreachable": {
+      "title": "{name} no es accesible directamente",
+      "description": "Home Assistant no pudo obtener de tu cuenta de Home Connect lo que necesita para hablar con este aparato en tu red: {reason}.\n\nTus otros aparatos no se ven afectados. Recargar la integración lo vuelve a intentar."
     }
   },
   "selector": {
@@ -124,9 +128,6 @@
   "exceptions": {
     "account_unreadable": {
       "message": "No se pudo leer la cuenta: {error}"
-    },
-    "local_unreadable": {
-      "message": "No se pudo leer lo que los aparatos necesitan para el control local: {error}. Vuelve a configurar esta entrada para llegar a ellos a través de la nube."
     },
     "nothing_answered": {
       "message": "Ningún aparato de la cuenta ha respondido"

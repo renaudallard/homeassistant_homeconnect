@@ -51,6 +51,10 @@
     "never_answered": {
       "title": "{name} praat niet met Home Connect",
       "description": "De Home Connect-cloud vermeldt deze {type} op je account maar zegt dat hij nog nooit verbinding heeft gemaakt, dus er valt niets van af te lezen en niets op in te stellen. Home Assistant kan daar van hieruit niets aan doen: het apparaat is degene die de cloud moet bereiken.\n\nDrie dingen om op het apparaat te controleren, in deze volgorde.\n\nOf het aan staat. Sommige soorten, kookplaten vooral, houden alleen verbinding met de cloud terwijl ze in gebruik zijn. Een uitgeschakeld apparaat houdt net genoeg van zijn netwerkmodule wakker om de app op het lokale netwerk te antwoorden, dus daar lijkt het kerngezond terwijl de cloud er nooit iets van heeft gehoord.\n\nOf het naar buiten mag. De Home Connect-app noemt die toestemming „Verbinding met server”, en die bepaalt of het apparaat überhaupt met de Home Connect-servers mag praten.\n\nWat de netwerkinstellingen zeggen. De uitgebreide netwerkinstellingen van de app tonen het adres, de gateway en de DNS-server die het apparaat gebruikt. Een apparaat zonder gateway of zonder DNS-server heeft nergens om iets naartoe te sturen.\n\nHier hoeft niets te gebeuren. Deze melding verdwijnt vanzelf zodra het apparaat antwoordt."
+    },
+    "local_unreachable": {
+      "title": "{name} is niet rechtstreeks bereikbaar",
+      "description": "Home Assistant kon van je Home Connect-account niet krijgen wat nodig is om met dit apparaat op je netwerk te praten: {reason}.\n\nJe andere apparaten hebben er geen last van. De integratie herladen probeert het opnieuw."
     }
   },
   "selector": {
@@ -124,9 +128,6 @@
   "exceptions": {
     "account_unreadable": {
       "message": "Het account kon niet worden gelezen: {error}"
-    },
-    "local_unreadable": {
-      "message": "Wat de apparaten nodig hebben voor lokale bediening kon niet worden gelezen: {error}. Configureer deze vermelding opnieuw om ze via de cloud te bereiken."
     },
     "nothing_answered": {
       "message": "Geen enkel apparaat op het account antwoordde"

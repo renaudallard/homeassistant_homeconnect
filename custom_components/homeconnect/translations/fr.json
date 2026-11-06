@@ -51,6 +51,10 @@
     "never_answered": {
       "title": "{name} ne communique pas avec Home Connect",
       "description": "Le cloud Home Connect répertorie ce {type} sur votre compte mais indique qu'il ne s'est jamais connecté ; il n'y a donc rien à en lire et rien à y régler. Home Assistant ne peut rien y faire d'ici : c'est à l'appareil de joindre le cloud.\n\nTrois choses à vérifier sur l'appareil, dans cet ordre.\n\nS'il est allumé. Plusieurs types, les tables de cuisson surtout, ne maintiennent une connexion au cloud que lorsqu'ils sont utilisés. Un appareil éteint garde juste assez de son module réseau éveillé pour répondre à l'application sur le réseau local ; il y paraît donc parfaitement sain alors que le cloud n'a jamais eu de ses nouvelles.\n\nS'il est autorisé à sortir. L'application Home Connect appelle cette permission « Connexion au serveur », et elle détermine si l'appareil peut communiquer avec les serveurs Home Connect.\n\nCe que disent ses paramètres réseau. Les paramètres réseau étendus de l'application indiquent l'adresse, la passerelle et le serveur DNS utilisés par l'appareil. Un appareil sans passerelle ni serveur DNS n'a nulle part où envoyer quoi que ce soit.\n\nRien à faire ici. Cet avis disparaîtra de lui-même dès que l'appareil répondra."
+    },
+    "local_unreachable": {
+      "title": "{name} n'est pas joignable directement",
+      "description": "Home Assistant n'a pas pu obtenir de votre compte Home Connect ce qu'il faut pour parler à cet appareil sur votre réseau : {reason}.\n\nVos autres appareils ne sont pas concernés. Recharger l'intégration réessaie."
     }
   },
   "selector": {
@@ -124,9 +128,6 @@
   "exceptions": {
     "account_unreadable": {
       "message": "Impossible de lire le compte : {error}"
-    },
-    "local_unreadable": {
-      "message": "Impossible de lire ce dont les appareils ont besoin pour le contrôle local : {error}. Reconfigurez cette entrée pour les joindre via le cloud."
     },
     "nothing_answered": {
       "message": "Aucun appareil du compte n'a répondu"

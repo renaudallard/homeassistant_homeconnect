@@ -51,6 +51,10 @@
     "never_answered": {
       "title": "{name} non comunica con Home Connect",
       "description": "Il cloud Home Connect elenca questo {type} sul tuo account ma dice che non si è mai connesso, quindi non c'è nulla da leggere da esso e nulla da impostare su di esso. Home Assistant non può farci nulla da qui: è l'elettrodomestico a dover raggiungere il cloud.\n\nTre cose da controllare sull'elettrodomestico, in quest'ordine.\n\nSe è acceso. Diversi tipi, i piani cottura soprattutto, mantengono una connessione al cloud solo mentre sono in uso. Uno spento tiene sveglio quel tanto del suo modulo di rete che basta per rispondere all'app sulla rete locale, quindi lì sembra perfettamente sano mentre il cloud non ha mai avuto sue notizie.\n\nSe è autorizzato a uscire. L'app Home Connect chiama questo permesso «Connessione al server», e decide se l'elettrodomestico possa comunicare con i server Home Connect.\n\nCosa dicono le sue impostazioni di rete. Le impostazioni di rete avanzate dell'app mostrano l'indirizzo, il gateway e il server DNS che l'elettrodomestico sta usando. Uno senza gateway o senza server DNS non ha da nessuna parte dove inviare qualcosa.\n\nQui non c'è nulla da fare. Questo avviso scompare da solo non appena l'elettrodomestico risponde."
+    },
+    "local_unreachable": {
+      "title": "{name} non è raggiungibile direttamente",
+      "description": "Home Assistant non è riuscito a ottenere dal tuo account Home Connect ciò che serve per comunicare con questo elettrodomestico sulla tua rete: {reason}.\n\nGli altri elettrodomestici non ne risentono. Ricaricare l'integrazione riprova."
     }
   },
   "selector": {
@@ -124,9 +128,6 @@
   "exceptions": {
     "account_unreadable": {
       "message": "Impossibile leggere l'account: {error}"
-    },
-    "local_unreadable": {
-      "message": "Impossibile leggere ciò che serve agli elettrodomestici per il controllo locale: {error}. Riconfigura questa voce per raggiungerli tramite il cloud."
     },
     "nothing_answered": {
       "message": "Nessun elettrodomestico dell'account ha risposto"

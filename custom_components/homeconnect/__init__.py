@@ -47,6 +47,7 @@ from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import instance_id
+from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.loader import async_get_integration
 
@@ -178,6 +179,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: HomeConnectConfigEntry) 
     await coordinator.async_load_models()
 
     local: LocalControl | None = None
+    # The appliances local control could not learn, with why.
+    failed: dict[str, str] = {}
     if entry.data.get(CONF_TRANSPORT) == LOCAL:
         # An appliance allows one direct connection per identity, so this
         # install says who it is: the name every Home Connect client uses,
@@ -196,12 +199,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: HomeConnectConfigEntry) 
             identity,
         )
         await local.load()
-        await _learn(api, local)
+        failed = await _learn(api, local)
         coordinator.local = local
 
     # The first refresh reads what every appliance is and what it is doing,
     # and proves the stored tokens still work while it is at it.
     await coordinator.async_config_entry_first_refresh()
+    _say_what_failed(hass, coordinator, failed)
 
     stream: HomeConnectStream | None = None
     if local is None:
@@ -249,13 +253,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: HomeConnectConfigEntry) 
     return True
 
 
-async def _learn(api: HomeConnectApi, local: LocalControl) -> None:
+async def _learn(api: HomeConnectApi, local: LocalControl) -> dict[str, str]:
     """Ask the account for whatever local control still needs.
 
     The account is the only place an appliance's key and its own description
     of itself are kept, and both are wanted before anything can be read from
     the appliance directly. Neither changes, so this asks once and the answer
-    survives restarts.
+    survives restarts. What could not be learnt is handed back by appliance.
     """
     try:
         listed = await api.appliances()
@@ -268,20 +272,40 @@ async def _learn(api: HomeConnectApi, local: LocalControl) -> None:
             translation_key="account_unreadable",
             translation_placeholders={"error": str(err)},
         ) from err
+    return await local.learn(
+        [str(one["haId"]) for one in listed if isinstance(one.get("haId"), str)]
+    )
 
-    try:
-        await local.learn(
-            [str(one["haId"]) for one in listed if isinstance(one.get("haId"), str)]
+
+# What a repair about one appliance local control could not learn is called.
+_UNREACHABLE = "local_unreachable_"
+
+
+@callback
+def _say_what_failed(
+    hass: HomeAssistant, coordinator: HomeConnectCoordinator, failed: dict[str, str]
+) -> None:
+    """A repair for each appliance that could not be learnt, and only those.
+
+    Worked out again at every setup, so an appliance learnt since, or an entry
+    moved to the cloud, takes its repair away. Only this account's appliances
+    are looked at, which leaves another account's repairs alone.
+    """
+    for haid, appliance in coordinator.data.items():
+        issue = f"{_UNREACHABLE}{haid}"
+        reason = failed.get(haid)
+        if reason is None:
+            ir.async_delete_issue(hass, DOMAIN, issue)
+            continue
+        ir.async_create_issue(
+            hass,
+            DOMAIN,
+            issue,
+            is_fixable=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key="local_unreachable",
+            translation_placeholders={"name": appliance.name, "reason": reason},
         )
-    except HomeConnectError as err:
-        # The account's own service refusing is not the token being spent:
-        # the appliance API took the same one a moment ago. Asking the user
-        # to sign in again would send them round a loop that cannot help.
-        raise ConfigEntryNotReady(
-            translation_domain=DOMAIN,
-            translation_key="local_unreadable",
-            translation_placeholders={"error": str(err)},
-        ) from err
 
 
 @callback

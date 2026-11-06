@@ -102,8 +102,11 @@ def _errors_raised() -> set[str]:
 
 def test_every_notice_the_integration_raises_has_text() -> None:
     """A repair with no text shows the bare translation key and helps nobody."""
-    coordinator = (COMPONENT / "coordinator.py").read_text()
-    raised = set(re.findall(r'translation_key="([a-z_]+)"', coordinator))
+    raised: set[str] = set()
+    for module in COMPONENT.glob("*.py"):
+        text = module.read_text()
+        if "async_create_issue(" in text:
+            raised |= set(re.findall(r'translation_key="([a-z_]+)"', text))
     assert raised - _errors_raised() == set(STRINGS["issues"])
     for name, notice in STRINGS["issues"].items():
         assert notice["title"], name

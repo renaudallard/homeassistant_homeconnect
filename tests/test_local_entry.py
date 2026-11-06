@@ -42,6 +42,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import issue_registry as ir
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytest_homeassistant_custom_component.test_util.aiohttp import AiohttpClientMocker
 
@@ -50,7 +51,7 @@ from custom_components.homeconnect.const import CONF_TRANSPORT, DOMAIN, LOCAL
 from custom_components.homeconnect.errors import HomeConnectAuthError, HomeConnectError
 from custom_components.homeconnect.iddf import uids_by_key
 
-from .common import entry, fixture, serve, state_of
+from .common import described_as, entry, fixture, serve, state_of
 
 HAID = "BOSCH-WAV28MH0GB-1234567890AB"
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -511,19 +512,30 @@ async def test_the_account_service_refusing_is_not_a_reason_to_sign_in_again(
     hass.config_entries.async_update_entry(
         made, data={**made.data, CONF_TRANSPORT: LOCAL}
     )
-    with patch(
-        "custom_components.homeconnect.api.HomeConnectAccount.keys",
-        AsyncMock(side_effect=HomeConnectAuthError("rejected the access token (403)")),
+    with (
+        patch(
+            "custom_components.homeconnect.api.HomeConnectAccount.keys",
+            AsyncMock(
+                side_effect=HomeConnectAuthError("rejected the access token (403)")
+            ),
+        ),
+        patch.object(local.Finder, "start", AsyncMock()),
+        patch.object(local.Finder, "stop", AsyncMock()),
     ):
         await hass.config_entries.async_setup(made.entry_id)
         await hass.async_block_till_done()
 
-    assert made.state is ConfigEntryState.SETUP_RETRY
     assert not [
         flow
         for flow in hass.config_entries.flow.async_progress()
         if flow["context"].get("source") == "reauth"
     ]
+    # Nor does it stop the entry: what could not be learnt is said against
+    # the appliance it was about.
+    assert made.state is ConfigEntryState.LOADED
+    issue = ir.async_get(hass).async_get_issue(DOMAIN, f"local_unreachable_{HAID}")
+    assert issue is not None
+    assert "403" in (issue.translation_placeholders or {})["reason"]
 
 
 async def test_a_description_from_an_older_parser_is_thrown_away(
@@ -624,19 +636,43 @@ async def test_an_account_that_publishes_no_key_says_why(
     hass.config_entries.async_update_entry(
         made, data={**made.data, CONF_TRANSPORT: LOCAL}
     )
-    with patch(
-        "custom_components.homeconnect.api.HomeConnectAccount.keys",
-        AsyncMock(return_value={}),
+    with (
+        patch(
+            "custom_components.homeconnect.api.HomeConnectAccount.keys",
+            AsyncMock(return_value={}),
+        ),
+        patch.object(local.Finder, "start", AsyncMock()),
+        patch.object(local.Finder, "stop", AsyncMock()),
     ):
         await hass.config_entries.async_setup(made.entry_id)
         await hass.async_block_till_done()
 
-    assert made.state is ConfigEntryState.SETUP_RETRY
-    assert "no key" in str(made.reason)
-    assert "cloud" in str(made.reason)
-    # Handed over by key as well, so the frontend says it in the user's
-    # own language with what went wrong set inside it.
-    assert made.error_reason_translation_domain == "homeconnect"
-    assert made.error_reason_translation_key == "local_unreadable"
-    placeholders = made.error_reason_translation_placeholders or {}
-    assert "no key" in placeholders["error"]
+    assert made.state is ConfigEntryState.LOADED
+    issue = ir.async_get(hass).async_get_issue(DOMAIN, f"local_unreachable_{HAID}")
+    assert issue is not None
+    assert issue.translation_key == "local_unreachable"
+    placeholders = issue.translation_placeholders or {}
+    assert placeholders["name"] == "Washer"
+    assert "no key" in placeholders["reason"]
+
+    # Learnt on a later start, the appliance takes its repair away with it.
+    await hass.config_entries.async_unload(made.entry_id)
+    with (
+        patch(
+            "custom_components.homeconnect.api.HomeConnectAccount.keys",
+            AsyncMock(return_value={HAID: {"key": "a-key"}}),
+        ),
+        patch(
+            "custom_components.homeconnect.api.HomeConnectAccount.description",
+            AsyncMock(return_value=described_as(HAID)),
+        ),
+        patch.object(local.Finder, "start", AsyncMock()),
+        patch.object(local.Finder, "stop", AsyncMock()),
+    ):
+        await hass.config_entries.async_setup(made.entry_id)
+        await hass.async_block_till_done()
+    assert made.runtime_data.local is not None
+    assert made.runtime_data.local.knows(HAID)
+    assert (
+        ir.async_get(hass).async_get_issue(DOMAIN, f"local_unreachable_{HAID}") is None
+    )

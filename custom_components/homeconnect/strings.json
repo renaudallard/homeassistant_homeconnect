@@ -51,6 +51,10 @@
     "never_answered": {
       "title": "{name} is not talking to Home Connect",
       "description": "The Home Connect cloud lists this {type} on your account but says it has never connected, so there is nothing to read from it and nothing to set on it. Home Assistant cannot do anything about that from here: the appliance is the thing that has to reach the cloud.\n\nThree things to check on the appliance, in this order.\n\nWhether it is switched on. Several kinds, hobs above all, only hold a connection to the cloud while they are in use. One sitting switched off keeps just enough of its network module awake to answer the app over the local network, so it looks perfectly healthy there while the cloud has never heard from it.\n\nWhether it is allowed out. The Home Connect app calls that permission \"Connection to server\", and it decides whether the appliance may talk to the Home Connect servers at all.\n\nWhat its network settings say. The app's extended network settings show the address, gateway and DNS server the appliance is using. One with no gateway or no DNS server has nowhere to send anything.\n\nNothing needs doing here. This notice goes away by itself once the appliance answers."
+    },
+    "local_unreachable": {
+      "title": "{name} can't be reached directly",
+      "description": "Home Assistant could not get what it needs from your Home Connect account to talk to this appliance on your network: {reason}.\n\nYour other appliances are not affected. Reloading the integration tries again."
     }
   },
   "selector": {
@@ -124,9 +128,6 @@
   "exceptions": {
     "account_unreadable": {
       "message": "Could not read the account: {error}"
-    },
-    "local_unreadable": {
-      "message": "Could not read what the appliances need for local control: {error}. Reconfigure this entry to reach them through the cloud instead."
     },
     "nothing_answered": {
       "message": "No appliance on the account would answer"
