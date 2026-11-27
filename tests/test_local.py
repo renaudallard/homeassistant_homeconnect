@@ -784,3 +784,98 @@ async def test_an_appliance_shouting_its_id_without_the_index_is_still_found(
     finder._found[local._plainly("Oven SIEMENS-HR578G5S6-1234567890AB.local.")] = where
     assert finder.where("SIEMENS-HR578G5S6-1234567890AB-001") == where
     assert finder.where("SIEMENS-OTHER-1122334455-001") is None
+
+
+async def test_what_the_programme_runs_with_goes_along_if_known() -> None:
+    link = Recording()
+    await _reaching(link).program(
+        HAID,
+        "LaundryCare.Washer.Program.Wool",
+        {},
+        start=True,
+        extra={"BSH.Common.Option.Duration": 1800, "Never.Heard.Of": 1},
+    )
+    # the one it numbers goes, the other is left out rather than refused
+    assert link.programmed == [(0x0301, [{"uid": 0x0303, "value": 1800}], True)]
+
+
+async def test_an_option_given_on_its_own_is_not_sent_twice() -> None:
+    link = Recording()
+    await _reaching(link).program(
+        HAID,
+        "LaundryCare.Washer.Program.Wool",
+        {"BSH.Common.Option.Duration": 900},
+        start=True,
+        extra={"BSH.Common.Option.Duration": 1800},
+    )
+    assert link.programmed == [(0x0301, [{"uid": 0x0303, "value": 900}], True)]
+
+
+OVEN_PROGRAMME = "Cooking.Oven.Program.HeatingMode.HotAir"
+
+
+def _oven_with(
+    options: dict[str, Any], held: dict[str, Any], program: str = OVEN_PROGRAMME
+) -> Any:
+    from custom_components.homeconnect.capability import OPTION, Reading, feature
+    from custom_components.homeconnect.coordinator import Appliance, Model
+
+    described = {}
+    for key, access in options.items():
+        found = feature({"key": key, "constraints": {"access": access}}, OPTION)
+        assert found is not None
+        described[key] = found
+    return Appliance(
+        id="SIEMENS-OVEN-1",
+        name="Oven",
+        brand="Siemens",
+        vib="HR578G5S6",
+        enumber="HR578G5S6/74",
+        type="Oven",
+        serial="1",
+        connected=True,
+        model=Model(options={program: described}),
+        options={key: Reading(value=value) for key, value in held.items()},
+    )
+
+
+def test_an_oven_says_the_options_again_when_it_starts() -> None:
+    from custom_components.homeconnect.coordinator import carried_options
+
+    oven = _oven_with(
+        {
+            "Cooking.Oven.Option.SetpointTemperature": "readWrite",
+            "BSH.Common.Option.Duration": "readWrite",
+            "BSH.Common.Option.RemainingProgramTime": "read",
+            "Cooking.Oven.Option.FastPreHeat": "readWrite",
+        },
+        {
+            "Cooking.Oven.Option.SetpointTemperature": 100,
+            "BSH.Common.Option.Duration": 300,
+            "BSH.Common.Option.RemainingProgramTime": 250,
+        },
+    )
+    assert carried_options(oven, "Cooking.Oven.Program.HeatingMode.HotAir") == {
+        "Cooking.Oven.Option.SetpointTemperature": 100,
+        "BSH.Common.Option.Duration": 300,
+    }
+    assert carried_options(oven, "Cooking.Oven.Program.HeatingMode.Other") == {}
+
+
+def test_programmes_of_other_families_start_as_they_always_did() -> None:
+    from custom_components.homeconnect.coordinator import carried_options
+
+    washer = "LaundryCare.Washer.Program.Cotton"
+    machine = _oven_with(
+        {"BSH.Common.Option.Duration": "readWrite"},
+        {"BSH.Common.Option.Duration": 300},
+        program=washer,
+    )
+    assert carried_options(machine, washer) == {}
+    hob = "Cooking.Hob.Program.PowerLevel"
+    cooker = _oven_with(
+        {"BSH.Common.Option.Duration": "readWrite"},
+        {"BSH.Common.Option.Duration": 300},
+        program=hob,
+    )
+    assert carried_options(cooker, hob) == {}

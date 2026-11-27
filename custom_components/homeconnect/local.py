@@ -764,7 +764,12 @@ class LocalControl:
         await link.write(uid, _as_sent(entries[uid], value))
 
     async def program(
-        self, haid: str, key: str, options: dict[str, Any], start: bool
+        self,
+        haid: str,
+        key: str,
+        options: dict[str, Any],
+        start: bool,
+        extra: dict[str, Any] | None = None,
     ) -> None:
         """Put a programme in one of an appliance's two slots, with its options.
 
@@ -787,6 +792,12 @@ class LocalControl:
             if uid is None:
                 raise HomeConnectError(f"this appliance has never heard of {name}")
             sent.append({"uid": uid, "value": _as_sent(entries[uid], value)})
+        # What the programme is already set to run with, sent along as well, but
+        # only the options this appliance numbers: leaving one out is not an error.
+        for name, value in (extra or {}).items():
+            uid = numbers.get(name)
+            if uid is not None and name not in options:
+                sent.append({"uid": uid, "value": _as_sent(entries[uid], value)})
         _LOGGER.debug(
             "%s %s (%#06x) with %d options on %s",
             "starting" if start else "selecting",

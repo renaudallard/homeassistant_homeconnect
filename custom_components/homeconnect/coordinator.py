@@ -156,6 +156,28 @@ class Model:
             return None
 
 
+# Programmes that only start when the message that starts them names the
+# options they are to run with (the setpoint and the duration of an oven),
+# however those were set before. Tried on a Siemens oven, which acknowledged
+# a start with no options and stayed ready, and started at once when the same
+# options went along. Ovens, steam ovens and microwaves share this family.
+START_WITH_OPTIONS = ("Cooking.Oven.",)
+
+
+def carried_options(appliance: Appliance, program: str) -> dict[str, Any]:
+    """What the programme is set to run with, for those that want it on start."""
+    if not program.startswith(START_WITH_OPTIONS):
+        return {}
+    described = appliance.model.options.get(program, {})
+    return {
+        key: appliance.options[key].value
+        for key, feature in described.items()
+        if feature.writable
+        and key in appliance.options
+        and appliance.options[key].value is not None
+    }
+
+
 @dataclass
 class Appliance:
     """One appliance, what it can do and what it is doing."""
@@ -864,7 +886,13 @@ class HomeConnectCoordinator(DataUpdateCoordinator[dict[str, Appliance]]):
             # the slot takes: the programme and the set of options it is to run
             # with, in one message. A copy is taken so an option arriving
             # mid-write does not change what is being sent.
-            await local.program(haid, program, dict(appliance.pending), start=True)
+            await local.program(
+                haid,
+                program,
+                dict(appliance.pending),
+                start=True,
+                extra=carried_options(appliance, program),
+            )
             appliance.pending.clear()
             return
         options = [
