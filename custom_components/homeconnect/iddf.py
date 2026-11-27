@@ -116,6 +116,10 @@ class Entry:
     kind: str
     key: str
     access: str = "read"
+    # What the appliance has since said of writing it, for a setting. It is
+    # kept apart from access, which is the file's and decides what entity
+    # the setting becomes.
+    live: str | None = None
     available: bool = True
     # The members of its enumeration, by the number each is sent as.
     values: dict[int, str] = field(default_factory=dict)

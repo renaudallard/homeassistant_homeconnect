@@ -57,6 +57,7 @@ from .capability import (
     DELAYED,
     GATHERED,
     OPTION,
+    POWER_STATE,
     SENSOR,
     SETTING,
     Feature,
@@ -90,11 +91,6 @@ DIAGNOSTIC = frozenset(
 # mean. The door is a door rather than a word, and one reading is worth one
 # entity, so it is not also made into a plain one here.
 SPOKEN_FOR = frozenset({"BSH.Common.Status.DoorState"})
-
-# The one setting that is never configuration. Switching an appliance on is
-# the first thing anyone wants of it, and burying it under Configuration with
-# the language and the date format helps nobody.
-POWER_STATE = "BSH.Common.Setting.PowerState"
 
 # What the serial number is written into. An appliance id is the brand, the
 # model and the serial run together, and the last of the three is the only
@@ -286,7 +282,7 @@ class SettableEntity(KeyEntity):
         if self._kind == OPTION and not appliance.remote_control:
             return False
         described = self.described
-        return described is not None and described.writable
+        return described is not None and described.writable_now
 
     async def apply(self, value: Any) -> None:
         """Send a value back to the appliance.
@@ -358,6 +354,9 @@ def _category(
     """
     if key in DIAGNOSTIC:
         return EntityCategory.DIAGNOSTIC
+    # The power state is never configuration. Switching an appliance on is
+    # the first thing anyone wants of it, and burying it under Configuration
+    # with the language and the date format helps nobody.
     if kind != SETTING or key == POWER_STATE:
         return None
     described = coordinator.data[haid].model.settings.get(key)

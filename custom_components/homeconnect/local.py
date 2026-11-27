@@ -96,6 +96,7 @@ def _feature(entry: Entry, kind: str) -> Feature:
         or ("Boolean" if not entry.values and entry.minimum is None else ""),
         unit=unit_of(named),
         access=entry.access,
+        live=entry.live or entry.access,
         values=tuple(entry.values.values()),
         minimum=entry.minimum,
         maximum=entry.maximum,
@@ -190,7 +191,8 @@ def describe(entries: dict[int, Entry]) -> Described:
 
 # What a change is taken for. A setting or an option keeps what the file says:
 # whether it can be written decides which entity it is, and a hob locks two of
-# its settings once connected, which would make a second entity of each.
+# its settings once connected, which would make a second entity of each. What
+# a setting is said to take now is kept beside it instead, for availability.
 CHANGEABLE = frozenset({"program", "command"})
 
 
@@ -201,16 +203,20 @@ def changed(
 
     Only whether a programme or a command is on offer moves, and only when
     the change reads as what the description file would have written there.
-    A number the file never described has nothing to change and is passed
-    over.
+    A setting keeps its access and is told whether it can be written now. A
+    number the file never described has nothing to change and is passed over.
     """
     moved = dict(entries)
     for uid, said in changes.items():
         entry = moved.get(uid)
-        if entry is None or entry.kind not in CHANGEABLE:
+        if entry is None:
+            continue
+        access = said.get("access")
+        if entry.kind == "setting" and isinstance(access, str):
+            moved[uid] = replace(entry, live=access)
+        if entry.kind not in CHANGEABLE:
             continue
         available = said.get("available")
-        access = said.get("access")
         moved[uid] = replace(
             entry,
             available=available if isinstance(available, bool) else entry.available,

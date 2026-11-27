@@ -454,6 +454,51 @@ async def test_stopping_is_offered_only_while_the_appliance_takes_abort(
     assert state_of(hass, "button.washer_stop_programme") == "unavailable"
 
 
+async def test_a_setting_locked_as_it_goes_is_unavailable_and_stays_put(
+    hass: HomeAssistant, talking: tuple[MockConfigEntry, Stub]
+) -> None:
+    """A hob locks settings once connected. The switch stays a switch and is
+    unavailable while locked, rather than offered and then refused."""
+    made, _ = talking
+    control = made.runtime_data.coordinator.local
+    assert control is not None
+    assert state_of(hass, "switch.washer_child_lock") != "unavailable"
+    # 0x0102 is the child lock.
+    control.described_changes(HAID, {0x0102: {"access": "NONE"}}, whole=True)
+    await hass.async_block_till_done()
+    assert state_of(hass, "switch.washer_child_lock") == "unavailable"
+    assert hass.states.get("binary_sensor.washer_child_lock") is None
+
+    control.described_changes(HAID, {0x0102: {"access": "READWRITE"}}, whole=False)
+    await hass.async_block_till_done()
+    assert state_of(hass, "switch.washer_child_lock") != "unavailable"
+
+
+async def test_a_power_state_written_read_only_follows_what_it_takes_now(
+    hass: HomeAssistant, talking: tuple[MockConfigEntry, Stub]
+) -> None:
+    """A washer that writes its power state read-only and then takes standby
+    while on keeps a select, available only while it says it will take it."""
+    made, _ = talking
+    control = made.runtime_data.coordinator.local
+    assert control is not None
+    entries = control._known[HAID].entries
+    # 0x0100 is the power state.
+    entries[0x0100] = replace(entries[0x0100], access="read")
+    control.described_changes(HAID, {}, whole=True)
+    await hass.async_block_till_done()
+    assert state_of(hass, "select.washer_power_state") == "unavailable"
+    assert hass.states.get("sensor.washer_power_state") is None
+
+    control.described_changes(HAID, {0x0100: {"access": "READWRITE"}}, whole=False)
+    await hass.async_block_till_done()
+    assert state_of(hass, "select.washer_power_state") != "unavailable"
+
+    control.described_changes(HAID, {0x0100: {"access": "READ"}}, whole=False)
+    await hass.async_block_till_done()
+    assert state_of(hass, "select.washer_power_state") == "unavailable"
+
+
 async def test_two_of_one_model_reached_directly_are_described_apart(
     hass: HomeAssistant, talking: tuple[MockConfigEntry, Stub]
 ) -> None:

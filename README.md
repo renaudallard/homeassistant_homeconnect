@@ -458,7 +458,13 @@ button, since stopping is the stop command: the hob tried here (EX651HEC1E)
 keeps it locked even while it is running, so there the programme is stopped
 at the hob itself. Settings and
 options keep what the file says, since whether one can be written decides
-which entity it is.
+which entity it is. A setting the appliance locks for the moment, as the hob
+does with two of its own once connected, stays the same entity and is
+unavailable until it is unlocked. The power state is the one setting offered
+to set even where the file writes it read-only, as some washers and ovens do
+while taking standby all the same: it is available while the appliance says
+it will take it. Over the cloud a power state described that way stays a
+reading.
 
 A programme is not a value. An appliance keeps one programme it is running
 and one it is set to run, and reports which by number along with everything

@@ -147,6 +147,11 @@ class Feature:
     unit: str | None = None
     type: str = ""
     access: str = "read"
+    # What it says of writing it right now, for an appliance that says so as
+    # it goes. Only one reached directly does; the cloud describes a setting
+    # once. Access stays what decides the entity, so that one does not move
+    # from platform to platform as the appliance locks and unlocks it.
+    live: str | None = None
     # The values it will take, and what the cloud calls each of them. The
     # cloud translates those names and this does not, so they are worth
     # keeping even though a name can be worked out from the key.
@@ -161,6 +166,11 @@ class Feature:
     @property
     def writable(self) -> bool:
         return "write" in self.access.lower()
+
+    @property
+    def writable_now(self) -> bool:
+        """Whether it can be written at the moment, where that is known."""
+        return "write" in (self.live or self.access).lower()
 
     @property
     def boolean(self) -> bool:
@@ -277,6 +287,10 @@ def feature(node: Mapping[str, Any], kind: str) -> Feature | None:
     )
 
 
+# The one setting offered to set whatever its description says about writing.
+POWER_STATE = "BSH.Common.Setting.PowerState"
+
+
 def platform_for(found: Feature) -> str | None:
     """What kind of entity a feature becomes, or nothing if it becomes none.
 
@@ -286,8 +300,18 @@ def platform_for(found: Feature) -> str | None:
     be written and then describes nothing at all is left as a reading, since
     an entity that cannot know what it would be allowed to send is an entity
     that only ever earns a refusal.
+
+    The power state is the exception. A washing machine and an oven describe
+    theirs as read-only, and then take a change to standby while they are on,
+    which is what the appliance's own app and the local protocol do. Offering
+    it as a reading only would leave no way to put them to sleep, so one with
+    values to choose from is offered as something to set where the appliance
+    says as it goes whether it will take it. The cloud describes it once, so
+    there it stays a reading rather than a control that is never available.
     """
-    if found.writable:
+    if found.writable or (
+        found.key == POWER_STATE and found.live is not None and len(found.values) >= 2
+    ):
         if found.boolean or found.switchable:
             return SWITCH
         if found.values:

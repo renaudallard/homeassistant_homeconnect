@@ -54,7 +54,15 @@ from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import ACTIVE, SELECTED, HomeConnectApi
-from .capability import OPTION, SETTING, Feature, Reading, feature, reading
+from .capability import (
+    OPTION,
+    POWER_STATE,
+    SETTING,
+    Feature,
+    Reading,
+    feature,
+    reading,
+)
 from .const import CONF_TRANSPORT, DOMAIN, LOCAL, MIXED
 from .errors import (
     HomeConnectAuthError,
@@ -72,7 +80,6 @@ _LOGGER = logging.getLogger(__name__)
 # either moves what it will accept, which is not something the stream
 # describes, so it is worth another look when one of them moves.
 OPERATION_STATE = "BSH.Common.Status.OperationState"
-POWER_STATE = "BSH.Common.Setting.PowerState"
 DOOR_STATE = "BSH.Common.Status.DoorState"
 REMOTE_CONTROL = "BSH.Common.Status.RemoteControlActive"
 REMOTE_START = "BSH.Common.Status.RemoteControlStartAllowed"

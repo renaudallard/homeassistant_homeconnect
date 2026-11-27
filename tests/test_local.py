@@ -181,17 +181,32 @@ def test_a_setting_or_option_keeps_what_the_file_says() -> None:
     """Whether one can be written decides which entity it is. A hob locks two
     of its settings once connected, which read over the file would have made
     a sensor of a select and a binary sensor of a switch, each beside the
-    entity it had."""
+    entity it had. The setting is still told it is locked, for availability."""
     entries = _like_a_washer()
     changes = {
         0x0102: {"parentUID": 259, "available": False, "access": "NONE"},
         FINISH_IN: {"access": "READWRITE", "max": 43200},
     }
     changed = local.changed(entries, changes)
-    assert changed[0x0102] == entries[0x0102]
+    assert changed[0x0102].access == entries[0x0102].access
+    assert changed[0x0102].available == entries[0x0102].available
     assert changed[FINISH_IN] == entries[FINISH_IN]
     child_lock = local.describe(changed).settings["BSH.Common.Setting.ChildLock"]
     assert platform_for(child_lock) is SWITCH
+    assert child_lock.writable
+    assert not child_lock.writable_now
+
+
+def test_a_setting_unlocked_as_it_goes_is_writable_now() -> None:
+    entries = dict(ENTRIES)
+    entries[0x0102] = replace(entries[0x0102], access="read")
+    child_lock = local.describe(entries).settings["BSH.Common.Setting.ChildLock"]
+    assert not child_lock.writable_now
+
+    changed = local.changed(entries, {0x0102: {"access": "READWRITE"}})
+    child_lock = local.describe(changed).settings["BSH.Common.Setting.ChildLock"]
+    assert not child_lock.writable
+    assert child_lock.writable_now
 
 
 def _told_into(told: list[str]) -> local.LocalControl:
