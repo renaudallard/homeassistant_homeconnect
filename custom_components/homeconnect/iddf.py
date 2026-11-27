@@ -134,6 +134,9 @@ class Entry:
     # kept as it was written. It is where a hob's zone geometry sits, the
     # position, size and shape the live stream never sends.
     static: str | None = None
+    # Written on a programme slot: whether the message that fills it is to
+    # name every option the programme runs with, not only those changed.
+    full_option_set: bool = False
 
     @property
     def readable(self) -> bool:
@@ -207,6 +210,7 @@ def _entry(
         step=_figure(element.get("stepSize")),
         execution=element.get("execution"),
         static=element.get("initValue"),
+        full_option_set=str(element.get("fullOptionSet")).lower() == "true",
     )
 
 

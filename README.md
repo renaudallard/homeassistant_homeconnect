@@ -468,7 +468,10 @@ number the other way, as though the slot were one more thing to set, is
 acknowledged and then quietly ignored: the appliance carries on with the
 programme it already had while everything here shows the one that was asked
 for. So a programme goes on its slot, and what was held back for the start
-goes with it in the same breath rather than one option at a time. The Wi-Fi signal strength reading is
+goes with it in the same breath rather than one option at a time. Where the
+description marks a slot `fullOptionSet`, as an oven does, every option the
+programme is set to run with goes along too: such an oven acknowledges a start
+without them and stays ready. The Wi-Fi signal strength reading is
 left switched off this way too: reached directly an appliance reports only
 zero for it rather than a real figure, so switch it on from the appliance's
 page if its own reading is wanted.

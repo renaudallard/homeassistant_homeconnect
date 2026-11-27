@@ -50,8 +50,9 @@ from .const import DOMAIN
 # for again rather than used half-read. 2: the two programme slots (0.0.18)
 # and what each thing is (0.0.19), neither of which an older store holds.
 # 4: each programme's own limits on its options, which an older store read
-# past and so kept only the widest.
-STORE_VERSION = 4
+# past and so kept only the widest. 5: whether a programme slot wants every
+# option named, without which an oven acknowledges a start and stays ready.
+STORE_VERSION = 5
 
 
 class ModelStore(Store[dict[str, Any]]):

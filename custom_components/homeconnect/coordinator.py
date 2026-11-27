@@ -156,18 +156,10 @@ class Model:
             return None
 
 
-# Programmes that only start when the message that starts them names the
-# options they are to run with (the setpoint and the duration of an oven),
-# however those were set before. Tried on a Siemens oven, which acknowledged
-# a start with no options and stayed ready, and started at once when the same
-# options went along. Ovens, steam ovens and microwaves share this family.
-START_WITH_OPTIONS = ("Cooking.Oven.",)
-
-
 def carried_options(appliance: Appliance, program: str) -> dict[str, Any]:
-    """What the programme is set to run with, for those that want it on start."""
-    if not program.startswith(START_WITH_OPTIONS):
-        return {}
+    """What the programme is set to run with, for an appliance that wants
+    every option named on start. Whether it does is the description's to say,
+    so local control decides whether these go."""
     described = appliance.model.options.get(program, {})
     return {
         key: appliance.options[key].value

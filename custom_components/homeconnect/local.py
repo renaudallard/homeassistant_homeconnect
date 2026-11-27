@@ -427,6 +427,7 @@ class Known:
                     "content": entry.content,
                     "static": entry.static,
                     "under": entry.under,
+                    "full_option_set": entry.full_option_set,
                 }
                 for uid, entry in self.entries.items()
             },
@@ -468,6 +469,7 @@ class Known:
                         # Absent on anything stored before this and on every
                         # root thing, both of which read as under no programme.
                         under=one.get("under"),
+                        full_option_set=bool(one.get("full_option_set")),
                     )
                     for uid, one in stored["entries"].items()
                 },
@@ -792,8 +794,17 @@ class LocalControl:
             if uid is None:
                 raise HomeConnectError(f"this appliance has never heard of {name}")
             sent.append({"uid": uid, "value": _as_sent(entries[uid], value)})
-        # What the programme is already set to run with, sent along as well, but
-        # only the options this appliance numbers: leaving one out is not an error.
+        # What the programme is already set to run with, sent along as well
+        # where a slot's description asks for every option to be named, but
+        # only the options this appliance numbers: leaving one out is not an
+        # error. An oven saying so acknowledges a start without them and
+        # stays ready.
+        if not any(
+            entry.full_option_set
+            for entry in entries.values()
+            if entry.key in PROGRAM_SLOTS
+        ):
+            extra = None
         for name, value in (extra or {}).items():
             uid = numbers.get(name)
             if uid is not None and name not in options:

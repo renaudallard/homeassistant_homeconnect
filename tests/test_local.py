@@ -33,6 +33,7 @@ half produces for the same appliance, key for key and value for value.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, cast
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -786,6 +787,42 @@ async def test_an_appliance_shouting_its_id_without_the_index_is_still_found(
     assert finder.where("SIEMENS-OTHER-1122334455-001") is None
 
 
+def test_a_slot_asking_for_every_option_says_so() -> None:
+    """The fixture's selected slot is written fullOptionSet="true", its
+    active one has no such attribute."""
+    assert ENTRIES[0x0108].full_option_set
+    assert not ENTRIES[0x0107].full_option_set
+    back = local.Known.from_stored(
+        local.Known(key="AAAA", iv=None, entries=ENTRIES).as_stored()
+    )
+    assert back is not None
+    assert back.entries[0x0108].full_option_set
+    assert not back.entries[0x0107].full_option_set
+
+
+async def test_what_the_programme_runs_with_stays_behind_unless_asked() -> None:
+    """A washer or a dishwasher writes fullOptionSet="false" and starts with
+    only what was held back, as it always has."""
+    link = Recording()
+    control = _reaching(link)
+    control._known[HAID] = local.Known(
+        key="AAAA",
+        iv=None,
+        entries={
+            uid: replace(entry, full_option_set=False)
+            for uid, entry in _with_programmes().items()
+        },
+    )
+    await control.program(
+        HAID,
+        "LaundryCare.Washer.Program.Wool",
+        {},
+        start=True,
+        extra={"BSH.Common.Option.Duration": 1800},
+    )
+    assert link.programmed == [(0x0301, [], True)]
+
+
 async def test_what_the_programme_runs_with_goes_along_if_known() -> None:
     link = Recording()
     await _reaching(link).program(
@@ -860,22 +897,3 @@ def test_an_oven_says_the_options_again_when_it_starts() -> None:
         "BSH.Common.Option.Duration": 300,
     }
     assert carried_options(oven, "Cooking.Oven.Program.HeatingMode.Other") == {}
-
-
-def test_programmes_of_other_families_start_as_they_always_did() -> None:
-    from custom_components.homeconnect.coordinator import carried_options
-
-    washer = "LaundryCare.Washer.Program.Cotton"
-    machine = _oven_with(
-        {"BSH.Common.Option.Duration": "readWrite"},
-        {"BSH.Common.Option.Duration": 300},
-        program=washer,
-    )
-    assert carried_options(machine, washer) == {}
-    hob = "Cooking.Hob.Program.PowerLevel"
-    cooker = _oven_with(
-        {"BSH.Common.Option.Duration": "readWrite"},
-        {"BSH.Common.Option.Duration": 300},
-        program=hob,
-    )
-    assert carried_options(cooker, hob) == {}
